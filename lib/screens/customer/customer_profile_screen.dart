@@ -4,16 +4,20 @@ import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../../theme/customer_home_theme.dart';
 import '../auth/logout_button.dart';
+import 'edit_profile_screen.dart';
+import 'widgets/customer_home_widgets.dart';
 
 class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({
     super.key,
     required this.uid,
     required this.authService,
+    this.onUserUpdated,
   });
 
   final String uid;
   final AuthService authService;
+  final ValueChanged<AppUser>? onUserUpdated;
 
   @override
   State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
@@ -49,16 +53,39 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       return _ProfileContent(
         user: snapshot.data!,
         authService: widget.authService,
+        onEdit: () => _openEditProfile(snapshot.data!),
       );
     },
   );
+
+  Future<void> _openEditProfile(AppUser user) async {
+    final updated = await Navigator.of(context).push<AppUser>(
+      MaterialPageRoute(
+        builder: (context) => EditProfileScreen(
+          user: user,
+          authService: widget.authService,
+          onUserUpdated: widget.onUserUpdated,
+        ),
+      ),
+    );
+    if (!mounted || updated == null) return;
+    setState(_loadProfile);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
+  }
 }
 
 class _ProfileContent extends StatelessWidget {
-  const _ProfileContent({required this.user, required this.authService});
+  const _ProfileContent({
+    required this.user,
+    required this.authService,
+    required this.onEdit,
+  });
 
   final AppUser user;
   final AuthService authService;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) => CustomScrollView(
@@ -100,15 +127,7 @@ class _ProfileContent extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 34,
-                    backgroundColor: CustomerHomeTheme.mint,
-                    child: Icon(
-                      Icons.person,
-                      color: CustomerHomeTheme.primary,
-                      size: 36,
-                    ),
-                  ),
+                  CustomerAvatar(photoUrl: user.photoUrl, radius: 34),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
@@ -141,6 +160,20 @@ class _ProfileContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Edit Profile'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: CustomerHomeTheme.primary,
+                side: const BorderSide(color: CustomerHomeTheme.primary),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               decoration: BoxDecoration(

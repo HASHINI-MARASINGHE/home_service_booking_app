@@ -3,6 +3,45 @@ import 'package:flutter/material.dart';
 import '../../../data/customer_home_data.dart';
 import '../../../theme/customer_home_theme.dart';
 
+class CustomerAvatar extends StatelessWidget {
+  const CustomerAvatar({
+    super.key,
+    required this.photoUrl,
+    this.radius = 28,
+  });
+
+  final String? photoUrl;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = photoUrl?.trim() ?? '';
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: CustomerHomeTheme.mint,
+      child: url.isEmpty
+          ? Icon(
+              Icons.person,
+              color: CustomerHomeTheme.primary,
+              size: radius * 1.05,
+            )
+          : ClipOval(
+              child: Image.network(
+                url,
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  Icons.person,
+                  color: CustomerHomeTheme.primary,
+                  size: radius * 1.05,
+                ),
+              ),
+            ),
+    );
+  }
+}
+
 class CustomerSearchBar extends StatelessWidget {
   const CustomerSearchBar({super.key});
 

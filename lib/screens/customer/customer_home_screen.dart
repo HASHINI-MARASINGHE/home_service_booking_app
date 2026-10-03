@@ -24,6 +24,7 @@ class CustomerHomeScreen extends StatefulWidget {
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   int _selectedIndex = 0;
+  late AppUser _currentUser = widget.user;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -31,12 +32,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     body: IndexedStack(
       index: _selectedIndex,
       children: [
-        _CustomerHomeContent(user: widget.user),
+        _CustomerHomeContent(user: _currentUser),
         const _PlaceholderTab(title: 'Services'),
         const _PlaceholderTab(title: 'Saved'),
         CustomerProfileScreen(
-          uid: widget.user.uid,
+          uid: _currentUser.uid,
           authService: widget.authService,
+          onUserUpdated: (user) => setState(() => _currentUser = user),
         ),
       ],
     ),
@@ -103,6 +105,8 @@ class _CustomerHomeContent extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  CustomerAvatar(photoUrl: user.photoUrl, radius: 18),
                 ],
               ),
             ),
