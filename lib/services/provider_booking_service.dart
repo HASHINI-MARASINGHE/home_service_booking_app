@@ -1,0 +1,86 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../models/booking.dart';
+
+class ProviderBookingService {
+  ProviderBookingService({FirebaseAuth? auth, FirebaseFirestore? firestore})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _db = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _db;
+
+  String get _uid {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('Please log in again.');
+    return user.uid;
+  }
+
+  Stream<List<Booking>> watchBookings() {
+    final uid = _uid;
+    // A single equality query avoids composite indexes. Partition and sort
+    // the provider's own records locally for this foundation.
+    return _db
+        .collection('bookings')
+        .where('providerId', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) {
+          if (_auth.currentUser?.uid != uid) return <Booking>[];
+          final bookings = snapshot.docs
+              .map((doc) => Booking.fromMap(doc.id, doc.data()))
+              .toList();
+          bookings.sort(
+            (a, b) => (b.createdAt ?? DateTime(1970)).compareTo(
+              a.createdAt ?? DateTime(1970),
+            ),
+          );
+          return bookings;
+        });
+  }
+
+  Stream<List<Booking>> watchRequests() => watchBookings().map(
+    (items) => items.where((b) => b.status == BookingStatus.pending).toList(),
+  );
+  Stream<List<Booking>> watchConfirmed() => watchBookings().map(
+    (items) => items.where((b) => b.status == BookingStatus.confirmed).toList(),
+  );
+  Stream<List<Booking>> watchHistory() => watchBookings().map(
+    (items) => items.where((b) => b.status.isHistory).toList(),
+  );
+  Stream<ProviderEarnings> watchEarnings() =>
+      watchBookings().map((items) => ProviderEarnings(items, DateTime.now()));
+
+  Future<void> accept(String id) =>
+      _transition(id, BookingStatus.confirmed, 'acceptedAt');
+  Future<void> decline(String id) =>
+      _transition(id, BookingStatus.declined, 'declinedAt');
+  Future<void> complete(String id) =>
+      _transition(id, BookingStatus.completed, 'completedAt');
+
+  Future<void> _transition(
+    String id,
+    BookingStatus target,
+    String timestamp,
+  ) async {
+    final uid = _uid;
+    final ref = _db.collection('bookings').doc(id);
+    await _db.runTransaction((transaction) async {
+      if (_auth.currentUser?.uid != uid) {
+        throw StateError('Please log in again.');
+      }
+      final snapshot = await transaction.get(ref);
+      final data = snapshot.data();
+      if (data == null) throw StateError('This booking no longer exists.');
+      final booking = Booking.fromMap(snapshot.id, data);
+      if (booking.providerId != uid) {
+        throw StateError('This job is not assigned to you.');
+      }
+      booking.validateTransition(target, DateTime.now());
+      transaction.update(ref, {
+        'status': target.name,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+    });
+  }
+}
