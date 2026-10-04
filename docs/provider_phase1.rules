@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ADD these helpers and matches alongside your EXISTING users rules.
+    // This file deliberately does not replace or define deployed users rules.
+    function providerSignedIn() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'provider';
+    }
+
+    function editableProviderFields() {
+      return ['providerId', 'phone', 'profession', 'experience', 'about',
+        'services', 'pricing', 'availability', 'updatedAt'];
+    }
+
+    function validServiceAt(services, index) {
+      return services.size() <= index ||
+        (services[index] is string && services[index].size() > 0 && services[index].size() <= 100);
+    }
+
+    function validProviderProfile(data, uid) {
+      return data.keys().hasAll(editableProviderFields()) &&
+        data.providerId == uid &&
+        data.phone is string && data.phone.size() <= 40 &&
+        data.profession is string && data.profession.size() > 0 && data.profession.size() <= 100 &&
+        data.experience is int && data.experience >= 0 && data.experience <= 80 &&
+        data.about is string && data.about.size() <= 2000 &&
+        data.services is list && data.services.size() <= 20 &&
+        validServiceAt(data.services, 0) &&
+        validServiceAt(data.services, 1) &&
+        validServiceAt(data.services, 2) &&
+        validServiceAt(data.services, 3) &&
+        validServiceAt(data.services, 4) &&
+        validServiceAt(data.services, 5) &&
+        validServiceAt(data.services, 6) &&
+        validServiceAt(data.services, 7) &&
+        validServiceAt(data.services, 8) &&
+        validServiceAt(data.services, 9) &&
+        validServiceAt(data.services, 10) &&
+        validServiceAt(data.services, 11) &&
+        validServiceAt(data.services, 12) &&
+        validServiceAt(data.services, 13) &&
+        validServiceAt(data.services, 14) &&
+        validServiceAt(data.services, 15) &&
+        validServiceAt(data.services, 16) &&
+        validServiceAt(data.services, 17) &&
+        validServiceAt(data.services, 18) &&
+        validServiceAt(data.services, 19) &&
+        (data.pricing == null || (data.pricing is number && data.pricing >= 0 && data.pricing <= 10000000)) &&
+        data.availability is bool && data.updatedAt == request.time;
+    }
+
+    match /providerProfiles/{uid} {
+      allow read: if providerSignedIn() && request.auth.uid == uid;
+      allow create: if providerSignedIn() && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(editableProviderFields()) &&
+        validProviderProfile(request.resource.data, uid);
+      allow update: if providerSignedIn() && request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(editableProviderFields()) &&
+        validProviderProfile(request.resource.data, uid);
+      allow delete: if false;
+    }
+
+    match /bookings/{bookingId} {
+      // Customers may read their own existing bookings; no customer writes
+      // are introduced until the customer booking contract is implemented.
+      allow read: if request.auth != null &&
+        ((resource.data.providerId == request.auth.uid && providerSignedIn()) ||
+         resource.data.customerId == request.auth.uid);
+
+      allow update: if providerSignedIn() &&
+        resource.data.providerId == request.auth.uid &&
+        (
+          (resource.data.status == 'pending' &&
+           request.resource.data.status == 'confirmed' &&
+           (resource.data.get('expiresAt', null) == null ||
+             (resource.data.expiresAt is timestamp && resource.data.expiresAt > request.time)) &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt']) &&
+           request.resource.data.acceptedAt == request.time)
+          ||
+          (resource.data.status == 'pending' &&
+           request.resource.data.status == 'declined' &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'declinedAt']) &&
+           request.resource.data.declinedAt == request.time)
+          ||
+          (resource.data.status == 'confirmed' &&
+           request.resource.data.status == 'completed' &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt']) &&
+           request.resource.data.completedAt == request.time)
+        );
+      allow create, delete: if false;
+    }
+  }
+}
