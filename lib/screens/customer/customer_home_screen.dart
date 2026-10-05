@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../data/customer_home_data.dart';
 import '../../models/app_user.dart';
+import '../../services/address_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/customer_booking_service.dart';
+import '../../services/location_service.dart';
+import '../../services/receipt_pdf_service.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/customer_home_theme.dart';
-import '../auth/logout_button.dart';
+import 'addresses/my_addresses_screen.dart';
+import 'bookings/booking_history_screen.dart';
 import 'customer_profile_screen.dart';
+import 'customer_scope.dart';
 import 'widgets/customer_home_widgets.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -13,38 +21,131 @@ class CustomerHomeScreen extends StatefulWidget {
     super.key,
     required this.user,
     required this.authService,
+    this.addressService,
+    this.bookingService,
+    this.locationService,
+    this.receiptPdfService,
+    this.initialTab = CustomerTab.home,
   });
 
   final AppUser user;
   final AuthService authService;
+  final AddressService? addressService;
+  final CustomerBookingService? bookingService;
+  final LocationService? locationService;
+  final ReceiptPdfService? receiptPdfService;
+  final int initialTab;
 
   @override
   State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex = widget.initialTab;
   late AppUser _currentUser = widget.user;
+  late final _addresses = widget.addressService ?? AddressService();
+  late final _bookings = widget.bookingService ?? CustomerBookingService();
+  late final _location = widget.locationService ?? LocationService();
+  late final _receipts = widget.receiptPdfService ?? ReceiptPdfService();
+
+  // Each tab keeps its own navigation stack so detail screens stay inside
+  // the shell (with the bottom navigation) and survive tab switches.
+  final _navigators = List.generate(4, (_) => GlobalKey<NavigatorState>());
+
+  // Tabs are built on first visit so unopened tabs don't start Firestore
+  // listeners; once built they stay alive in the IndexedStack.
+  late final _visited = {widget.initialTab};
+
+  void _selectTab(int tab, {bool reset = false}) {
+    if (reset || tab == _selectedIndex) {
+      _navigators[tab].currentState?.popUntil((route) => route.isFirst);
+    }
+    if (tab != _selectedIndex) {
+      setState(() {
+        _selectedIndex = tab;
+        _visited.add(tab);
+      });
+    }
+  }
+
+  Widget _tab(int index, Widget root) => _visited.contains(index)
+      ? _TabNavigator(navigatorKey: _navigators[index], root: root)
+      : const SizedBox.shrink();
+
+  void _handleBack() {
+    final navigator = _navigators[_selectedIndex].currentState;
+    if (navigator != null && navigator.canPop()) {
+      navigator.maybePop();
+    } else if (_selectedIndex != CustomerTab.home) {
+      _selectTab(CustomerTab.home);
+    } else {
+      SystemNavigator.pop();
+    }
+  }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: CustomerHomeTheme.background,
-    body: IndexedStack(
-      index: _selectedIndex,
-      children: [
-        _CustomerHomeContent(user: _currentUser),
-        const _PlaceholderTab(title: 'Services'),
-        const _PlaceholderTab(title: 'Saved'),
-        CustomerProfileScreen(
-          uid: _currentUser.uid,
-          authService: widget.authService,
-          onUserUpdated: (user) => setState(() => _currentUser = user),
+  Widget build(BuildContext context) => CustomerScope(
+    user: _currentUser,
+    addresses: _addresses,
+    bookings: _bookings,
+    location: _location,
+    receipts: _receipts,
+    selectTab: _selectTab,
+    child: Theme(
+      data: AppTheme.light,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _handleBack();
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: IndexedStack(
+            index: _selectedIndex,
+            children: [
+              _tab(
+                CustomerTab.home,
+                ColoredBox(
+                  color: CustomerHomeTheme.background,
+                  child: _CustomerHomeContent(user: _currentUser),
+                ),
+              ),
+              _tab(CustomerTab.bookings, const BookingHistoryScreen()),
+              _tab(CustomerTab.saved, const MyAddressesScreen()),
+              _tab(
+                CustomerTab.profile,
+                CustomerProfileScreen(
+                  uid: _currentUser.uid,
+                  authService: widget.authService,
+                  onUserUpdated: (user) => setState(() => _currentUser = user),
+                ),
+              ),
+            ],
+          ),
+          bottomNavigationBar: CustomerBottomNavigation(
+            selectedIndex: _selectedIndex,
+            onSelected: _selectTab,
+          ),
         ),
-      ],
+      ),
     ),
-    bottomNavigationBar: CustomerBottomNavigation(
-      selectedIndex: _selectedIndex,
-      onSelected: (index) => setState(() => _selectedIndex = index),
+  );
+}
+
+class _TabNavigator extends StatelessWidget {
+  const _TabNavigator({required this.navigatorKey, required this.root});
+
+  final GlobalKey<NavigatorState> navigatorKey;
+  final Widget root;
+
+  @override
+  Widget build(BuildContext context) => Navigator(
+    key: navigatorKey,
+    onGenerateRoute: (settings) => MaterialPageRoute(
+      settings: settings,
+      // Home/Profile were written as Scaffold bodies; give them a Material
+      // ancestor for text styles and ink now that they live in a route.
+      builder: (_) => Material(color: AppColors.background, child: root),
     ),
   );
 }
@@ -96,13 +197,18 @@ class _CustomerHomeContent extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    'Hi, ${user.name.split(' ').first}',
-                    style: const TextStyle(
-                      color: CustomerHomeTheme.mutedText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Hi, ${user.name.split(' ').first}',
+                      textAlign: TextAlign.end,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: CustomerHomeTheme.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -176,22 +282,3 @@ class _SectionHeading extends StatelessWidget {
     ),
   );
 }
-
-class _PlaceholderTab extends StatelessWidget {
-  const _PlaceholderTab({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Text(
-      title,
-      style: const TextStyle(
-        color: CustomerHomeTheme.primaryDark,
-        fontSize: 24,
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-  );
-}
-
