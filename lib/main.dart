@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'screens/onboarding/onboarding_gate.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,9 +17,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Home Services',
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-    ),
+    theme: AppTheme.light,
     home: const OnboardingGate(),
   );
 }
