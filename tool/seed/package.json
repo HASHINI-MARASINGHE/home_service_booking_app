@@ -1,0 +1,14 @@
+{
+  "name": "homecare-seed",
+  "private": true,
+  "type": "module",
+  "description": "Development seed data and mock payment/receipt backend for the HomeCare Firebase project.",
+  "scripts": {
+    "seed:emulator": "node seed.mjs --emulator",
+    "worker:emulator": "node backend_worker.mjs --emulator --watch",
+    "rules-test": "node ../customer_rules_test.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.5.0"
+  }
+}

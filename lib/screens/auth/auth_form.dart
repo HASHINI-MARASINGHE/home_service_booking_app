@@ -36,6 +36,30 @@ class _AuthFormState extends State<AuthForm> {
     super.dispose();
   }
 
+  Future<void> _resetPassword() async {
+    final email = _email.text.trim();
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      setState(() => _error = 'Enter your email above, then tap Forgot password.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.authService.sendPasswordReset(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Password reset link sent to $email.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = AuthService.errorMessage(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _submit() async {
     if (_busy || !_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
@@ -160,6 +184,14 @@ class _AuthFormState extends State<AuthForm> {
                               : (value) => setState(() => _role = value!),
                         ),
                       ],
+                      if (!widget.register)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _busy ? null : _resetPassword,
+                            child: const Text('Forgot password?'),
+                          ),
+                        ),
                       if (_error != null) ...[
                         const SizedBox(height: 16),
                         Text(

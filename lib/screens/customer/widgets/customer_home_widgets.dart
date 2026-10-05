@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../data/customer_home_data.dart';
+import '../../../theme/app_theme.dart';
 import '../../../theme/customer_home_theme.dart';
 
 class CustomerAvatar extends StatelessWidget {
@@ -217,20 +219,20 @@ class CustomerBottomNavigation extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   @override
-  Widget build(BuildContext context) => NavigationBar(
-    selectedIndex: selectedIndex,
-    onDestinationSelected: onSelected,
-    backgroundColor: Colors.white,
-    surfaceTintColor: Colors.white,
-    indicatorColor: CustomerHomeTheme.mint,
-    labelTextStyle: const WidgetStatePropertyAll(
-      TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(boxShadow: AppShadows.card),
+    child: NavigationBar(
+      selectedIndex: selectedIndex,
+      onDestinationSelected: onSelected,
+      destinations: const [
+        NavigationDestination(icon: Icon(LucideIcons.home), label: 'Home'),
+        NavigationDestination(
+          icon: Icon(LucideIcons.calendarDays),
+          label: 'Bookings',
+        ),
+        NavigationDestination(icon: Icon(LucideIcons.bookmark), label: 'Saved'),
+        NavigationDestination(icon: Icon(LucideIcons.user), label: 'Profile'),
+      ],
     ),
-    destinations: const [
-      NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-      NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view), label: 'Services'),
-      NavigationDestination(icon: Icon(Icons.bookmark_border), selectedIcon: Icon(Icons.bookmark), label: 'Saved'),
-      NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
-    ],
   );
 }
