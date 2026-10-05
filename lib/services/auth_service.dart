@@ -19,11 +19,13 @@ class AuthService {
   })
     : _auth = auth ?? FirebaseAuth.instance,
       _firestore = firestore ?? FirebaseFirestore.instance,
-      _storage = storage ?? FirebaseStorage.instance;
+      _storageOverride = storage;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
+  // Resolved on first use so auth-only callers (and tests) need no Storage.
+  final FirebaseStorage? _storageOverride;
+  FirebaseStorage get _storage => _storageOverride ?? FirebaseStorage.instance;
   Completer<void>? _registration;
 
   // Account creation signs in immediately. Delay that event until the profile
@@ -92,6 +94,9 @@ class AuthService {
   }
 
   Future<void> logout() => _auth.signOut();
+
+  Future<void> sendPasswordReset(String email) =>
+      _auth.sendPasswordResetEmail(email: email.trim());
 
   Future<AppUser?> getUserProfile(String uid) async {
     final snapshot = await _firestore.collection('users').doc(uid).get();
