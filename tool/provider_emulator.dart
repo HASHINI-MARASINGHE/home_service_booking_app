@@ -1,5 +1,6 @@
 // Optional local-testing entry point. Production main.dart is unchanged.
 // flutter run -t tool/provider_emulator.dart --dart-define=FIREBASE_EMULATOR_HOST=10.0.2.2
+// Works for customer accounts too (seed with tool/seed/seed.mjs).
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -20,7 +21,13 @@ Future<void> main() async {
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: false,
   );
-  FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+  // Override when 8080 is taken (e.g. by Tomcat):
+  // --dart-define=FIRESTORE_EMULATOR_PORT=8085
+  const firestorePort = int.fromEnvironment(
+    'FIRESTORE_EMULATOR_PORT',
+    defaultValue: 8080,
+  );
+  FirebaseFirestore.instance.useFirestoreEmulator(host, firestorePort);
   await FirebaseAuth.instance.useAuthEmulator(host, 9099);
   runApp(const MyApp());
 }
