@@ -55,109 +55,93 @@ class _CustomerHomeContent extends StatelessWidget {
   final AppUser user;
 
   @override
-  Widget build(BuildContext context) => CustomScrollView(
-    slivers: [
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        sliver: SliverList(
-          delegate: SliverChildListDelegate([
-            SafeArea(
-              bottom: false,
-              child: Row(
+  Widget build(BuildContext context) => SafeArea(
+    bottom: false,
+    child: CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 104),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              Row(
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: CustomerHomeTheme.mint,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.verified_outlined,
-                            color: CustomerHomeTheme.primary,
-                            size: 15,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Welcome back',
+                          style: TextStyle(
+                            color: CustomerHomeTheme.mutedText,
+                            fontSize: 12,
                           ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Trusted pros',
-                            style: TextStyle(
-                              color: CustomerHomeTheme.primaryDark,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Hi, ${user.name.split(' ').first}',
+                          style: const TextStyle(
+                            color: CustomerHomeTheme.text,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    'Hi, ${user.name.split(' ').first}',
-                    style: const TextStyle(
-                      color: CustomerHomeTheme.mutedText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  CustomerAvatar(photoUrl: user.photoUrl, radius: 18),
+                  CustomerAvatar(photoUrl: user.photoUrl, radius: 21),
                 ],
               ),
-            ),
-            const SizedBox(height: 28),
-            const Text(
-              'Your Home,\nOur Care',
-              style: TextStyle(
-                color: CustomerHomeTheme.primaryDark,
-                fontSize: 36,
-                height: 1.08,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Book trusted professionals for every home need, all in one place.',
-              style: TextStyle(
-                color: CustomerHomeTheme.mutedText,
-                fontSize: 15,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 22),
-            const CustomerSearchBar(),
-            const SizedBox(height: 30),
-            const _SectionHeading(title: 'Provider Profiles'),
-            const SizedBox(height: 14),
-            SizedBox(
-              height: 92,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: customerProviders.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 14),
-                itemBuilder: (context, index) => ProviderAvatar(
-                  provider: customerProviders[index],
+              const SizedBox(height: 24),
+              const _TrustedProsBadge(),
+              const SizedBox(height: 14),
+              const Text(
+                'Your Home, Our Care',
+                style: TextStyle(
+                  color: CustomerHomeTheme.primaryDark,
+                  fontSize: 30,
+                  height: 1.12,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
-            const SizedBox(height: 30),
-            const _SectionHeading(title: 'Services for your home'),
-            const SizedBox(height: 14),
-            ...customerServices.map(
-              (service) => Padding(
-                padding: const EdgeInsets.only(bottom: 18),
-                child: ServiceCard(service: service),
+              const SizedBox(height: 8),
+              const Text(
+                'Book trusted professionals for every home need.',
+                style: TextStyle(
+                  color: CustomerHomeTheme.mutedText,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
               ),
-            ),
-          ]),
+              const SizedBox(height: 20),
+              const CustomerSearchBar(),
+              const SizedBox(height: 28),
+              const _SectionHeading(title: 'Provider Profiles'),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 104,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: customerProviders.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 16),
+                  itemBuilder: (context, index) => ProviderAvatar(
+                    provider: customerProviders[index],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const _SectionHeading(title: 'Services for your home'),
+              const SizedBox(height: 14),
+              ...customerServices.map(
+                (service) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ServiceCard(service: service),
+                ),
+              ),
+            ]),
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
 
@@ -167,12 +151,67 @@ class _SectionHeading extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) => Text(
-    title,
-    style: const TextStyle(
-      color: CustomerHomeTheme.text,
-      fontSize: 20,
-      fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: CustomerHomeTheme.text,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      TextButton(
+        onPressed: () {
+          // TODO: Open the full list for this section.
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: CustomerHomeTheme.primary,
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: const Text(
+          'See all',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ),
+    ],
+  );
+}
+
+class _TrustedProsBadge extends StatelessWidget {
+  const _TrustedProsBadge();
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: CustomerHomeTheme.mint,
+      borderRadius: BorderRadius.circular(24),
+    ),
+    child: const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.verified_outlined,
+            color: CustomerHomeTheme.primary,
+            size: 15,
+          ),
+          SizedBox(width: 6),
+          Text(
+            'Trusted pros',
+            style: TextStyle(
+              color: CustomerHomeTheme.primaryDark,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

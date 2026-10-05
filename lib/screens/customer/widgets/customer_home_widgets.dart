@@ -46,24 +46,52 @@ class CustomerSearchBar extends StatelessWidget {
   const CustomerSearchBar({super.key});
 
   @override
-  Widget build(BuildContext context) => TextField(
-    decoration: InputDecoration(
-      hintText: 'Search services, providers...',
-      hintStyle: const TextStyle(
-        color: CustomerHomeTheme.mutedText,
-        fontSize: 14,
-      ),
-      prefixIcon: const Icon(Icons.search, color: CustomerHomeTheme.primary),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(vertical: 16),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: CustomerHomeTheme.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: CustomerHomeTheme.primary),
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      boxShadow: const [
+        BoxShadow(
+          color: CustomerHomeTheme.shadow,
+          blurRadius: 16,
+          offset: Offset(0, 6),
+        ),
+      ],
+    ),
+    child: TextField(
+      decoration: InputDecoration(
+        hintText: 'Search services, providers...',
+        hintStyle: const TextStyle(
+          color: CustomerHomeTheme.mutedText,
+          fontSize: 14,
+        ),
+        prefixIcon: const Icon(Icons.search, color: CustomerHomeTheme.primary),
+        suffixIcon: IconButton(
+          tooltip: 'Filter services',
+          onPressed: () {
+            // TODO: Add service filters.
+          },
+          icon: const Icon(
+            Icons.tune_rounded,
+            color: CustomerHomeTheme.primary,
+            size: 20,
+          ),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(22),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(22),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(22),
+          borderSide: const BorderSide(color: CustomerHomeTheme.primary),
+        ),
       ),
     ),
   );
@@ -76,23 +104,44 @@ class ProviderAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 74,
+    width: 78,
     child: Column(
       children: [
-        SizedBox(
-          width: 60,
-          height: 60,
-          child: ClipOval(
-            child: Image.network(
-              provider.imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: CustomerHomeTheme.mint,
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.person,
-                  color: CustomerHomeTheme.primary,
-                  size: 28,
+        Container(
+          padding: const EdgeInsets.all(2),
+          decoration: const BoxDecoration(
+            color: CustomerHomeTheme.primary,
+            shape: BoxShape.circle,
+          ),
+          child: SizedBox(
+            width: 64,
+            height: 64,
+            child: ClipOval(
+              child: Image.network(
+                provider.imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : Container(
+                        color: CustomerHomeTheme.mint,
+                        alignment: Alignment.center,
+                        child: const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: CustomerHomeTheme.primary,
+                          ),
+                        ),
+                      ),
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: CustomerHomeTheme.mint,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.person,
+                    color: CustomerHomeTheme.primary,
+                    size: 28,
+                  ),
                 ),
               ),
             ),
@@ -134,67 +183,112 @@ class ServiceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-            child: SizedBox(
-              height: 148,
-              width: double.infinity,
-              child: Image.network(
-                service.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: CustomerHomeTheme.mint,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    service.icon == 'carpentry'
-                        ? Icons.handyman_outlined
-                        : Icons.cleaning_services_outlined,
-                    color: CustomerHomeTheme.primary,
-                    size: 44,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            borderRadius: const BorderRadius.all(Radius.circular(22)),
+            child: Stack(
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: CustomerHomeTheme.mint,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    child: Text(
-                      service.category,
-                      style: const TextStyle(
-                        color: CustomerHomeTheme.primaryDark,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                SizedBox(
+                  height: 152,
+                  width: double.infinity,
+                  child: Image.network(
+                    service.imageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) => progress == null
+                        ? child
+                        : Container(
+                            color: CustomerHomeTheme.mint,
+                            alignment: Alignment.center,
+                            child: const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: CustomerHomeTheme.primary,
+                              ),
+                            ),
+                          ),
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: CustomerHomeTheme.mint,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        service.icon == 'carpentry'
+                            ? Icons.handyman_outlined
+                            : Icons.cleaning_services_outlined,
+                        color: CustomerHomeTheme.primary,
+                        size: 44,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  service.title,
-                  style: const TextStyle(
-                    color: CustomerHomeTheme.text,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                Positioned(
+                  left: 12,
+                  bottom: 12,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: CustomerHomeTheme.mint,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      child: Text(
+                        service.category,
+                        style: const TextStyle(
+                          color: CustomerHomeTheme.primaryDark,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  service.description,
-                  style: const TextStyle(
-                    color: CustomerHomeTheme.mutedText,
-                    fontSize: 13,
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        service.title,
+                        style: const TextStyle(
+                          color: CustomerHomeTheme.text,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        service.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: CustomerHomeTheme.mutedText,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: CustomerHomeTheme.mint,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: CustomerHomeTheme.primary,
+                      size: 18,
+                    ),
                   ),
                 ),
               ],
@@ -222,7 +316,11 @@ class CustomerBottomNavigation extends StatelessWidget {
     onDestinationSelected: onSelected,
     backgroundColor: Colors.white,
     surfaceTintColor: Colors.white,
+    height: 72,
     indicatorColor: CustomerHomeTheme.mint,
+    indicatorShape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    ),
     labelTextStyle: const WidgetStatePropertyAll(
       TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
     ),
