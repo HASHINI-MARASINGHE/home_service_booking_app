@@ -34,6 +34,19 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
+  firebase_storage: ^13.0.0
+  image_picker: ^1.2.1
+  shared_preferences: ^2.5.5
+  geolocator: ^14.1.1
+  geocoding: ^5.0.0
+  url_launcher: ^6.3.3
+  pdf: ^3.13.1
+  printing: ^5.15.1
+  qr_flutter: ^4.1.0
+  lucide_icons_flutter: ^3.1.21
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +58,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -56,6 +71,12 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/images/onboarding_home.jpg
+    - assets/images/onboarding_connection.jpg
+    - assets/images/onboarding_customer.jpg
+    - assets/images/onboarding_provider.jpg
 
   # To add assets to your application, add an assets section, like this:
   # assets:
