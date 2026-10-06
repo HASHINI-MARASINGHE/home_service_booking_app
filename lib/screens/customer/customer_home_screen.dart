@@ -16,6 +16,7 @@ import 'bookings/booking_history_screen.dart';
 import 'customer_profile_screen.dart';
 import 'customer_scope.dart';
 import 'widgets/customer_home_widgets.dart';
+import 'providers/all_providers_screen.dart';
 import 'widgets/provider_directory_widgets.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -298,6 +299,16 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                         const Expanded(
                           child: _SectionHeading(title: 'Verified providers'),
                         ),
+                        TextButton(
+                          key: const ValueKey('see-all-providers'),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const Material(child: AllProvidersScreen()),
+                            ),
+                          ),
+                          child: const Text('See all'),
+                        ),
                         if (snapshot.hasData)
                           Text(
                             '${shown.length} ${shown.length == 1 ? 'provider' : 'providers'}',
@@ -340,7 +351,7 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                       for (final provider in shown)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: ProviderListCard(provider: provider),
+                          child: DirectoryProviderCard(provider: provider),
                         ),
                   ],
                 );

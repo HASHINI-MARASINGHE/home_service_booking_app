@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:home_service_bookin_app/models/professional.dart';
 import 'package:home_service_bookin_app/models/service_category.dart';
 import 'package:home_service_bookin_app/screens/customer/customer_home_screen.dart';
+import 'package:home_service_bookin_app/screens/customer/providers/all_providers_screen.dart';
 import 'package:home_service_bookin_app/services/auth_service.dart';
 import 'package:home_service_bookin_app/theme/app_theme.dart';
 
@@ -33,7 +34,7 @@ Professional pro(
   reviewCount: reviews,
   about: about,
   phone: phone,
-  experienceYears: 6,
+  experience: 6,
   verified: true,
 );
 
@@ -54,7 +55,12 @@ final acPro = pro(
   rating: 4.9,
   reviews: 12,
 );
-final cleaner = pro('p3', 'Ishara Perera', 'Deep House Cleaner', code: 'HCP-1004');
+final cleaner = pro(
+  'p3',
+  'Ishara Perera',
+  'Deep House Cleaner',
+  code: 'HCP-1004',
+);
 
 Future<FakeBookingService> openHome(
   WidgetTester tester,
@@ -63,8 +69,10 @@ Future<FakeBookingService> openHome(
   tester.view.physicalSize = const Size(390, 2600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final service = FakeBookingService(bookings: [booking()])
-    ..directory = providers;
+  final service = FakeBookingService(
+    bookings: [booking()],
+    professionals: providers,
+  );
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light,
@@ -168,16 +176,21 @@ void main() {
       expect(find.textContaining('No verified providers yet'), findsOneWidget);
     });
 
-    testWidgets('tapping a provider opens their profile', (tester) async {
+    testWidgets('tapping a provider opens their Provider Profile page', (
+      tester,
+    ) async {
       await openHome(tester, [plumber, acPro]);
       await tester.tap(find.byKey(const ValueKey('provider-card-p1')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('provider-sheet')), findsOneWidget);
-      expect(find.text('Verified Pro'), findsOneWidget);
-      expect(find.text('HCP-1002'), findsOneWidget);
-      expect(find.text('4.7'), findsWidgets);
-      expect(find.text('Leak repairs and bathroom plumbing.'), findsOneWidget);
-      expect(find.text('Call Kasun'), findsOneWidget);
+      expect(find.text('Provider Profile'), findsOneWidget);
+      expect(find.text('Kasun Wijesinghe'), findsWidgets);
+    });
+
+    testWidgets('"See all" opens the full list of providers', (tester) async {
+      await openHome(tester, [plumber, acPro]);
+      await tester.tap(find.byKey(const ValueKey('see-all-providers')));
+      await tester.pumpAndSettle();
+      expect(find.byType(AllProvidersScreen), findsOneWidget);
     });
   });
 }

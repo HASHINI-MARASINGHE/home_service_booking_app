@@ -43,9 +43,28 @@ class ProviderProfileService {
       throw StateError('You can only edit your own profile.');
     }
     profile.validate();
-    await _db.collection('providerProfiles').doc(uid).set({
-      ...profile.editableFields(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    final batch = _db.batch()
+      ..set(_db.collection('providerProfiles').doc(uid), {
+        ...profile.editableFields(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    // Also publish the public listing customers see (name, trade, about,
+    // experience, services, starting price). Verification, Provider ID and
+    // rating stay with the admin; the rules forbid a provider setting them.
+    if (user != null) {
+      batch.set(_db.collection('professionals').doc(uid), {
+        'name': user.name,
+        // Omitted when unset so an existing photo is kept.
+        if (user.photoUrl != null) 'photoUrl': user.photoUrl,
+        'specialty': profile.profession.trim(),
+        'phone': profile.phone,
+        'about': profile.about,
+        'experience': profile.experience,
+        'services': profile.services,
+        'pricing': profile.pricing,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+    await batch.commit();
   }
 }

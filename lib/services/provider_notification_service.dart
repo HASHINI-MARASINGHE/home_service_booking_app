@@ -6,9 +6,11 @@ import '../models/app_notification.dart';
 /// The signed-in provider's own notifications. Every query is scoped to the
 /// current uid and security rules only ever serve a user their own documents.
 class ProviderNotificationService {
-  ProviderNotificationService({FirebaseAuth? auth, FirebaseFirestore? firestore})
-    : _auth = auth ?? FirebaseAuth.instance,
-      _db = firestore ?? FirebaseFirestore.instance;
+  ProviderNotificationService({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+       _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _db;

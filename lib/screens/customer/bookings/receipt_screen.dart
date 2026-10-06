@@ -615,9 +615,8 @@ class _ReceiptBody extends StatelessWidget {
           child: Column(
             children: [
               StreamBuilder<Review?>(
-                stream: CustomerScope.of(context).bookings.watchReview(
-                  booking.id,
-                ),
+                stream: CustomerScope.of(context).bookings
+                    .watchReview(booking.id),
                 builder: (context, snapshot) {
                   final review = snapshot.data;
                   final who = firstName.isEmpty ? 'your pro' : firstName;

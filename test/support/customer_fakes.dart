@@ -200,7 +200,9 @@ class FakeBookingService extends CustomerBookingService {
 
   @override
   Stream<List<Professional>> watchProfessionals({int? limit}) =>
-      Stream.value(professionals);
+      Stream.value(
+        limit == null ? professionals : professionals.take(limit).toList(),
+      );
 
   @override
   Stream<Professional?> watchProfessional(String id) =>
@@ -293,7 +295,6 @@ class FakeBookingService extends CustomerBookingService {
     reviews.remove(booking.id);
     _reviewChanges.add(booking.id);
   }
-
 
 
   @override

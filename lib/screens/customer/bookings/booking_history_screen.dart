@@ -182,9 +182,8 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                       footer: booking.status == BookingStatus.completed
                           ? ReviewRatingLine(
                               prefix: 'Your rating',
-                              stream: CustomerScope.of(
-                                context,
-                              ).bookings.watchReview(booking.id),
+                              stream: CustomerScope.of(context).bookings
+                                  .watchReview(booking.id),
                             )
                           : null,
                     ),

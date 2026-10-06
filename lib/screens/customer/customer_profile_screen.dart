@@ -69,9 +69,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
     if (!mounted || updated == null) return;
     setState(_loadProfile);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Profile updated.')));
   }
 }
 
@@ -412,9 +411,7 @@ class _ProfileLogoutButtonState extends State<_ProfileLogoutButton> {
         foregroundColor: Theme.of(context).colorScheme.error,
         side: BorderSide(color: Theme.of(context).colorScheme.error),
         padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
   );
