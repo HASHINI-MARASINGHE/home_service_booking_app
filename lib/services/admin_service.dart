@@ -60,9 +60,8 @@ class AdminService {
       if (current.data()?['status'] != VerificationStatus.pending.name) {
         throw StateError('This provider has already been reviewed.');
       }
-      final last = ((await tx.get(counterRef)).data()?['last'] as num?)
-              ?.toInt() ??
-          0;
+      final last =
+          ((await tx.get(counterRef)).data()?['last'] as num?)?.toInt() ?? 0;
       final next = last + 1;
       final code = 'HCP-${providerCodeBase + next}';
       tx.set(counterRef, {'last': next});
@@ -80,7 +79,7 @@ class AdminService {
             : submission.profession,
         'phone': submission.phone,
         'about': submission.about,
-        'experienceYears': submission.experienceYears,
+        'experience': submission.experienceYears,
         'services': [
           submission.profession.isEmpty
               ? 'Service provider'
@@ -90,13 +89,16 @@ class AdminService {
         'providerCode': code,
         'completedJobs': 0,
         'area': '',
-      });
-      tx.set(noteRef, _note(
-        adminId: adminId,
-        recipientId: submission.uid,
-        title: 'You are verified!',
-        body: 'Your Provider ID is $code. You can now accept jobs.',
-      ));
+      }, SetOptions(merge: true));
+      tx.set(
+        noteRef,
+        _note(
+          adminId: adminId,
+          recipientId: submission.uid,
+          title: 'You are verified!',
+          body: 'Your Provider ID is $code. You can now accept jobs.',
+        ),
+      );
       return code;
     });
   }
@@ -123,12 +125,15 @@ class AdminService {
         'reviewedAt': FieldValue.serverTimestamp(),
         'reviewedBy': adminId,
       });
-      tx.set(noteRef, _note(
-        adminId: adminId,
-        recipientId: submission.uid,
-        title: 'Verification needs changes',
-        body: text,
-      ));
+      tx.set(
+        noteRef,
+        _note(
+          adminId: adminId,
+          recipientId: submission.uid,
+          title: 'Verification needs changes',
+          body: text,
+        ),
+      );
     });
   }
 

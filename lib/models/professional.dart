@@ -11,9 +11,6 @@ class Professional {
     this.rating,
     this.reviewCount = 0,
     this.providerCode,
-    this.about = '',
-    this.experienceYears,
-    this.services = const [],
     this.completedJobs = 0,
     this.verified = false,
     this.phone = '',
@@ -36,11 +33,6 @@ class Professional {
 
   /// Public Provider ID (e.g. HCP-1001), given when an admin verifies them.
   final String? providerCode;
-  final String about;
-  final int? experienceYears;
-
-  /// What they offer (e.g. their profession), used for the categories.
-  final List<String> services;
   final int completedJobs;
   final bool verified;
 
@@ -50,7 +42,8 @@ class Professional {
   /// ISO weekdays the professional works (Monday = 1).
   final List<int> workingDays;
 
-  /// Mirrored from the provider's own profile when they save it.
+  /// About, years of experience and what they offer (e.g. their profession;
+  /// the categories on the home screen are matched against it).
   final String about;
   final int experience;
   final List<String> services;
@@ -76,9 +69,6 @@ class Professional {
     rating: stats.average,
     reviewCount: stats.count,
     providerCode: providerCode,
-    about: about,
-    experienceYears: experienceYears,
-    services: services,
     completedJobs: completedJobs,
     verified: verified,
     phone: phone,
@@ -86,6 +76,10 @@ class Professional {
     area: area,
     workingSlots: workingSlots,
     workingDays: workingDays,
+    about: about,
+    experience: experience,
+    services: services,
+    pricing: pricing,
   );
 
   String get firstName => name.trim().split(RegExp(r'\s+')).first;
@@ -127,11 +121,6 @@ class Professional {
               (data['providerCode'] as String).isNotEmpty
           ? data['providerCode'] as String
           : null,
-      about: text('about'),
-      experienceYears: (data['experienceYears'] as num?)?.toInt(),
-      services: data['services'] is List
-          ? (data['services'] as List).whereType<String>().toList()
-          : const [],
       completedJobs: (data['completedJobs'] as num?)?.toInt() ?? 0,
       verified: data['verified'] == true,
       phone: text('phone'),

@@ -198,8 +198,10 @@ class FakeBookingService extends CustomerBookingService {
       Stream.value(bookings.where((b) => b.id == id).firstOrNull);
 
   @override
-  Stream<List<Professional>> watchProfessionals({int limit = 50}) =>
-      Stream.value(professionals);
+  Stream<List<Professional>> watchProfessionals({int? limit}) =>
+      Stream.value(
+        limit == null ? professionals : professionals.take(limit).toList(),
+      );
 
   @override
   Stream<Professional?> watchProfessional(String id) =>
@@ -292,12 +294,6 @@ class FakeBookingService extends CustomerBookingService {
     reviews.remove(booking.id);
     _reviewChanges.add(booking.id);
   }
-
-  /// Verified providers shown on the customer home screen.
-  List<Professional> directory = [professional];
-
-  @override
-  Stream<List<Professional>> watchProfessionals() => Stream.value(directory);
 
   @override
   Stream<Refund?> watchRefund(String bookingId) => Stream.value(refund);

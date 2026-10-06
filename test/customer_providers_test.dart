@@ -11,6 +11,7 @@ import 'package:home_service_bookin_app/screens/customer/providers/book_service_
 import 'package:home_service_bookin_app/screens/customer/providers/provider_details_screen.dart';
 import 'package:home_service_bookin_app/services/auth_service.dart';
 import 'package:home_service_bookin_app/theme/app_theme.dart';
+import 'package:home_service_bookin_app/widgets/common/app_bottom_nav.dart';
 
 import 'support/customer_fakes.dart';
 
@@ -207,17 +208,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Nuwan'));
+    // The home screen lists the verified providers as cards.
+    await tester.tap(find.text('Nuwan Fernando'));
     await tester.pumpAndSettle();
     expect(find.byType(ProviderDetailsScreen), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(AppBottomNav), findsOneWidget);
 
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('See all').first);
+    await tester.tap(find.byKey(const ValueKey('see-all-providers')));
     await tester.pumpAndSettle();
     expect(find.byType(AllProvidersScreen), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(AppBottomNav), findsOneWidget);
 
     await tester.tap(find.text('Nuwan Fernando'));
     await tester.pumpAndSettle();
