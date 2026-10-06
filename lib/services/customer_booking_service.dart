@@ -1,10 +1,11 @@
+import 'dart:convert';
 import 'dart:async';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/app_notification.dart';
 import '../models/address.dart';
@@ -76,15 +77,28 @@ class CustomerBookingService {
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
+    http.Client? httpClient,
     DateTime Function()? clock,
   }) : _authOverride = auth,
        _dbOverride = firestore,
        _storageOverride = storage,
+       _httpOverride = httpClient,
        _clock = clock ?? DateTime.now;
+
+  // Issue photos go to Cloudinary through an unsigned upload preset. These
+  // are public identifiers, not credentials; never add an API key/secret.
+  static const cloudinaryCloudName = 'dclo5pyll';
+  static const cloudinaryUploadPreset = 'homecare_unsigned';
+  static const cloudinaryFolder = 'bookings';
+  static final cloudinaryUploadUri = Uri.parse(
+    'https://api.cloudinary.com/v1_1/$cloudinaryCloudName/image/upload',
+  );
 
   final FirebaseAuth? _authOverride;
   final FirebaseFirestore? _dbOverride;
+  // Only used to delete legacy photos uploaded before the Cloudinary switch.
   final FirebaseStorage? _storageOverride;
+  final http.Client? _httpOverride;
   final DateTime Function() _clock;
   final _professionals = <String, Professional>{};
 
@@ -409,63 +423,82 @@ class CustomerBookingService {
     if (booking.customerId != uid) {
       throw StateError('You can only change your own bookings.');
     }
-    final uploaded = <Reference>[];
-    try {
-      for (final (index, bytes) in edit.newPhotos.indexed) {
-        final ref = _storage.ref(
-          'bookings/${booking.id}/photos/'
-          '${now().millisecondsSinceEpoch}_$index.jpg',
+    // Unsigned Cloudinary uploads can't be deleted from the client, so a
+    // failed save may leave unreferenced images in the Cloudinary folder.
+    final photoUrls = [
+      ...edit.keptPhotoUrls,
+      for (final (index, bytes) in edit.newPhotos.indexed)
+        await _uploadToCloudinary(
+          bytes,
+          '${booking.id}_${now().millisecondsSinceEpoch}_$index',
+        ),
+    ];
+    await _db.runTransaction((tx) async {
+      final snapshot = await tx.get(_booking(booking.id));
+      final data = snapshot.data();
+      if (data == null) throw StateError('This booking no longer exists.');
+      final current = Booking.fromMap(snapshot.id, data);
+      if (current.customerId != uid) {
+        throw StateError('You can only change your own bookings.');
+      }
+      if (!BookingPolicy.canEdit(current)) {
+        throw const BookingChangedException(
+          'Your professional is already on the job, so details are locked.',
         );
-        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-        uploaded.add(ref);
       }
-      final photoUrls = [
-        ...edit.keptPhotoUrls,
-        for (final ref in uploaded) await ref.getDownloadURL(),
-      ];
-      await _db.runTransaction((tx) async {
-        final snapshot = await tx.get(_booking(booking.id));
-        final data = snapshot.data();
-        if (data == null) throw StateError('This booking no longer exists.');
-        final current = Booking.fromMap(snapshot.id, data);
-        if (current.customerId != uid) {
-          throw StateError('You can only change your own bookings.');
-        }
-        if (!BookingPolicy.canEdit(current)) {
-          throw const BookingChangedException(
-            'Your professional is already on the job, so details are locked.',
-          );
-        }
-        tx.update(snapshot.reference, {
-          'addressId': edit.addressId,
-          'address': edit.address.trim(),
-          'addressLabel': edit.addressLabel,
-          'addressArea': edit.addressArea,
-          'addressNeedsUpdate':
-              edit.addressId == null && current.addressNeedsUpdate,
-          'accessNotes': edit.accessNotes.trim(),
-          'contactPhone': edit.contactPhone.trim(),
-          'jobNotes': edit.jobNotes.trim(),
-          'photoUrls': photoUrls,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+      tx.update(snapshot.reference, {
+        'addressId': edit.addressId,
+        'address': edit.address.trim(),
+        'addressLabel': edit.addressLabel,
+        'addressArea': edit.addressArea,
+        'addressNeedsUpdate':
+            edit.addressId == null && current.addressNeedsUpdate,
+        'accessNotes': edit.accessNotes.trim(),
+        'contactPhone': edit.contactPhone.trim(),
+        'jobNotes': edit.jobNotes.trim(),
+        'photoUrls': photoUrls,
+        'updatedAt': FieldValue.serverTimestamp(),
       });
-    } catch (_) {
-      // Don't leave orphaned uploads behind when the save fails.
-      for (final ref in uploaded) {
-        try {
-          await ref.delete();
-        } catch (_) {}
-      }
-      rethrow;
-    }
-    // Best-effort cleanup of photos the customer removed.
+    });
+    // Best-effort cleanup of removed photos. Only legacy Firebase Storage
+    // photos can be deleted from the app; Cloudinary URLs are skipped.
     for (final url in booking.photoUrls) {
       if (edit.keptPhotoUrls.contains(url)) continue;
+      if (!url.contains('firebasestorage')) continue;
       try {
         await _storage.refFromURL(url).delete();
       } catch (_) {}
     }
+  }
+
+  /// Uploads one issue photo with the unsigned preset and returns its
+  /// `https://res.cloudinary.com/...` URL.
+  Future<String> _uploadToCloudinary(Uint8List bytes, String name) async {
+    const failure = BookingChangedException(
+      'Photo upload failed. Check your connection and try again.',
+    );
+    final request = http.MultipartRequest('POST', cloudinaryUploadUri)
+      ..fields['upload_preset'] = cloudinaryUploadPreset
+      ..fields['folder'] = cloudinaryFolder
+      ..files.add(
+        http.MultipartFile.fromBytes('file', bytes, filename: '$name.jpg'),
+      );
+    final http.Response response;
+    try {
+      final client = _httpOverride ?? http.Client();
+      try {
+        response = await http.Response.fromStream(await client.send(request));
+      } finally {
+        if (_httpOverride == null) client.close();
+      }
+    } catch (_) {
+      throw failure;
+    }
+    if (response.statusCode != 200) throw failure;
+    final url =
+        (jsonDecode(response.body) as Map<String, dynamic>)['secure_url'];
+    if (url is! String || url.isEmpty) throw failure;
+    return url;
   }
 
   // ---------------------------------------------------------------------
