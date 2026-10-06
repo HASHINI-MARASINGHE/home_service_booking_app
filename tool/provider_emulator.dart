@@ -4,7 +4,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -30,7 +29,6 @@ Future<void> main() async {
   );
   FirebaseFirestore.instance.useFirestoreEmulator(host, firestorePort);
   await FirebaseAuth.instance.useAuthEmulator(host, 9099);
-  // Provider verification documents upload here (start the storage emulator).
-  await FirebaseStorage.instance.useStorageEmulator(host, 9199);
+  // Images always upload to Cloudinary (there is no Storage emulator).
   runApp(const MyApp());
 }

@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/provider_verification.dart';
 import '../models/verification_draft.dart';
 import 'document_picker.dart';
+import 'image_upload_service.dart';
 
 /// A provider's own verification: watching its status and submitting the
 /// details and documents an admin reviews.
@@ -12,15 +12,14 @@ class ProviderVerificationService {
   ProviderVerificationService({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
+    ImageUploadService? imageUploads,
   }) : _auth = auth ?? FirebaseAuth.instance,
        _db = firestore ?? FirebaseFirestore.instance,
-       _storageOverride = storage;
+       _uploads = imageUploads ?? ImageUploadService();
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _db;
-  final FirebaseStorage? _storageOverride;
-  FirebaseStorage get _storage => _storageOverride ?? FirebaseStorage.instance;
+  final ImageUploadService _uploads;
 
   String get _uid {
     final user = _auth.currentUser;
@@ -48,12 +47,7 @@ class ProviderVerificationService {
   Future<void> submitFor(String uid, VerificationDraft draft) async {
     final problem = draft.firstProblem;
     if (problem != null) throw ArgumentError(problem);
-    // Storage retries a failing upload for ten minutes by default, which looks
-    // like an endless spinner (e.g. when Storage is not set up). Fail clearly.
-    // Storage is only touched when a document was actually chosen.
-    if (draft.hasDocuments) {
-      _storage.setMaxUploadRetryTime(const Duration(seconds: 20));
-    }
+    // Each upload already times out after 30 s; this caps the whole submit.
     return _submit(uid, draft).timeout(
       const Duration(minutes: 3),
       onTimeout: () => throw StateError(_stuckMessage),
@@ -61,8 +55,7 @@ class ProviderVerificationService {
   }
 
   static const _stuckMessage =
-      'Uploading is taking too long. Check your connection, and that Firebase '
-      'Storage is set up and its rules are deployed for this project.';
+      'Uploading is taking too long. Check your connection and try again.';
 
   Future<void> _submit(String uid, VerificationDraft draft) async {
     final years = int.tryParse(draft.experienceYears.trim()) ?? 0;
@@ -74,23 +67,13 @@ class ProviderVerificationService {
       if (doc.size > DocumentPicker.maxBytes) {
         throw ArgumentError('${doc.name} is larger than 10 MB.');
       }
-      final safe = doc.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
       final stamp = DateTime.now().millisecondsSinceEpoch;
-      final ref = _storage.ref('providerDocs/$uid/${slot}_${stamp}_$safe');
-      try {
-        await ref.putData(
-          doc.bytes,
-          SettableMetadata(contentType: doc.contentType),
-        );
-      } on FirebaseException catch (error) {
-        if (error.code == 'retry-limit-exceeded' ||
-            error.code == 'bucket-not-found' ||
-            error.code == 'project-not-found') {
-          throw StateError(_stuckMessage);
-        }
-        rethrow;
-      }
-      return VerificationFile(name: doc.name, url: await ref.getDownloadURL());
+      final url = await _uploads.uploadImage(
+        doc.bytes,
+        folder: UploadFolders.providerDocs(uid),
+        fileName: '${slot}_$stamp',
+      );
+      return VerificationFile(name: doc.name, url: url);
     }
 
     Future<VerificationFile?> maybe(String slot, PickedDocument? doc) async =>

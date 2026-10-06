@@ -43,7 +43,7 @@ class PickedDocument {
 abstract class DocumentPicker {
   static DocumentPicker instance = SystemDocumentPicker();
 
-  /// Largest file accepted (also enforced by Storage security rules).
+  /// Largest file accepted (same limit as ImageUploadService).
   static const maxBytes = 10 * 1024 * 1024;
 
   /// A photo of an ID document (image files only).
@@ -52,7 +52,8 @@ abstract class DocumentPicker {
   /// A live selfie from the front camera (a photo picker where there is none).
   Future<PickedDocument?> takeSelfie();
 
-  /// A CV or certificate: PDF, Word document or photo.
+  /// A CV or certificate as a photo or scan. Uploads go to Cloudinary's
+  /// image endpoint, so PDF and Word files are not accepted.
   Future<PickedDocument?> pickDocument();
 }
 
@@ -75,7 +76,7 @@ class SystemDocumentPicker implements DocumentPicker {
 
   @override
   Future<PickedDocument?> pickDocument() =>
-      _pick(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']);
+      _pick(['jpg', 'jpeg', 'png', 'webp']);
 
   @override
   Future<PickedDocument?> takeSelfie() async {

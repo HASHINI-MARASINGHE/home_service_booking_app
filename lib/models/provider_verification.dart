@@ -14,7 +14,7 @@ enum VerificationStatus {
       );
 }
 
-/// An uploaded document: a display name and its Storage download URL.
+/// An uploaded document: a display name and its Cloudinary image URL.
 class VerificationFile {
   const VerificationFile({required this.name, required this.url});
   final String name, url;
