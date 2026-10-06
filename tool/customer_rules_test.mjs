@@ -508,16 +508,6 @@ await expectAllowed(
   commit(A, [review('done'), stats('done', 8, 2), reviewNote('done')]),
   'customer can review the job again after deleting; it counts once (3 -> 8 over 2)',
 );
-await expectAllowed(
-  commit(A, [set('disputes/d1', {bookingId: 'done', customerId: A, providerId: P,
-    category: 'Work quality', description: 'Unit still rattles after repair.', status: 'open'}, ['createdAt'])]),
-  'report a problem on own booking',
-);
-await expectDenied(
-  commit(B, [set('disputes/d2', {bookingId: 'done', customerId: B, providerId: P,
-    category: 'Work quality', description: 'Not my booking at all here.', status: 'open'}, ['createdAt'])]),
-  "dispute on another customer's booking",
-);
 
 // ---------------------------------------------- provider flow (regression)
 await expectDenied(
@@ -537,6 +527,86 @@ const NP2 = 'provider-new-2';
 const NP3 = 'provider-unverified';
 const NP4 = 'provider-minimal';
 await seed(`users/${ADM}`, {uid: ADM, name: 'Admin', email: 'admin@admin.homecare.app', role: 'admin'});
+
+// ------------------------------------------- disputes (3-day warranty claims)
+// Fresh job (completed a day ago), stale job (completed four days ago).
+const DAY = 86400000;
+await seed('bookings/fresh', {...base, status: 'completed', paymentStatus: 'paid', completedAt: new Date(Date.now() - DAY)});
+await seed('bookings/stale', {...base, status: 'completed', paymentStatus: 'paid', completedAt: new Date(Date.now() - 4 * DAY)});
+await seed('bookings/fresh2', {...base, customerId: B, customerName: 'B', status: 'completed', paymentStatus: 'paid', completedAt: new Date(Date.now() - DAY)});
+const dispute = (id, who, extra = {}) =>
+  set(`disputes/${id}`, {bookingId: id, customerId: who, providerId: P,
+    reason: 'Poor work quality', tag: 'Defective repair', description: 'Breaker keeps tripping after the repair.',
+    status: 'pending', photoCount: 2, respondDeadline: new Date(Date.now() + 24 * 3600000),
+    adminNote: null, decision: null, refundAmount: null, providerResponse: null, ...extra}, ['createdAt']);
+const disputePhoto = (id, slot, extra = {}) =>
+  set(`disputes/${id}/photos/${slot}`, {base64: 'aGVsbG8=', mimeType: 'image/jpeg', sizeBytes: 5, ...extra}, ['createdAt']);
+const disputeNote = (id, extra = {}) =>
+  set(`notifications/dispute_${id}`, {recipientId: P, senderId: A, type: 'dispute', bookingId: id,
+    title: 'Problem reported on AC Deep Clean', body: 'A reported a problem. Please respond within 24 hours.',
+    read: false, ...extra}, ['createdAt']);
+await expectAllowed(
+  commit(A, [dispute('fresh', A), disputePhoto('fresh', 'p0'), disputePhoto('fresh', 'p1'), disputeNote('fresh')]),
+  'customer files a dispute with 2 photos and notifies the provider (inside the 3-day warranty)',
+);
+await expectDenied(commit(A, [dispute('fresh', A)]), 'second dispute for the same booking');
+await expectDenied(commit(A, [dispute('stale', A)]), 'dispute after the 3-day warranty ended');
+await expectDenied(commit(A, [dispute('req', A)]), 'dispute on a job that is not completed');
+await expectDenied(commit(A, [dispute('done2', A)]), "dispute on another customer's booking");
+await expectDenied(commit(B, [dispute('fresh2', B, {reason: 'Because I said so'})]), 'dispute with a made-up reason');
+await expectDenied(commit(B, [dispute('fresh2', B, {description: 'short'})]), 'dispute with a too-short description');
+await expectDenied(commit(B, [dispute('fresh2', B, {status: 'resolved'})]), 'dispute created already resolved');
+await expectDenied(commit(B, [dispute('fresh2', B, {decision: 'refund', refundAmount: 5000})]), 'dispute created with its own refund decision');
+await expectDenied(commit(B, [dispute('fresh2', B, {respondDeadline: new Date(Date.now() + 10 * DAY)})]), 'dispute with a far-off respond deadline');
+await expectDenied(commit(B, [dispute('fresh2', B, {photoCount: 6})]), 'dispute claiming six photos');
+await expectDenied(commit(B, [dispute('fresh2', B), disputePhoto('fresh2', 'p5')]), 'sixth photo slot');
+await expectDenied(commit(B, [dispute('fresh2', B), disputePhoto('fresh2', 'p0', {base64: 'A'.repeat(960000)})]), 'photo bigger than a document can hold');
+await expectDenied(commit(B, [dispute('fresh2', B), disputePhoto('fresh2', 'p0', {mimeType: 'application/pdf'})]), 'photo that is not an image');
+await expectDenied(commit(B, [dispute('fresh2', B), disputeNote('fresh2', {senderId: B, recipientId: B})]), 'dispute notice sent to the wrong person');
+await expectDenied(commit(B, [disputeNote('fresh2', {senderId: B})]), 'dispute notice without a dispute');
+await expectAllowed(get(A, 'disputes/fresh'), 'customer reads own dispute');
+await expectDenied(get(B, 'disputes/fresh'), "customer reads another's dispute");
+await expectDenied(get(A, 'disputes'), 'customer lists all disputes');
+await expectAllowed(get(A, 'disputes/fresh/photos/p0'), 'customer reads own dispute photo');
+await expectDenied(get(B, 'disputes/fresh/photos/p0'), "customer reads another's dispute photo");
+await expectAllowed(
+  commit(A, [patch('disputes/fresh', {description: 'Breaker still trips. Need an urgent inspection.', photoCount: 1}, ['updatedAt']), disputePhoto('fresh', 'p0'), del('disputes/fresh/photos/p1')]),
+  'customer edits a pending dispute (text and photos)',
+);
+await expectDenied(commit(A, [patch('disputes/fresh', {status: 'resolved'}, ['updatedAt'])]), 'customer resolves own dispute');
+await expectDenied(commit(A, [patch('disputes/fresh', {refundAmount: 5500}, ['updatedAt'])]), 'customer sets own refund amount');
+await expectDenied(commit(B, [patch('disputes/fresh', {description: 'Not my dispute but editing it.'}, ['updatedAt'])]), "customer edits another's dispute");
+await expectAllowed(
+  commit(ADM, [patch('disputes/fresh', {status: 'under_review'}, ['updatedAt'])]),
+  'safety desk moves the dispute to under review',
+);
+await expectDenied(
+  commit(A, [patch('disputes/fresh', {description: 'Changing it after review began.'}, ['updatedAt'])]),
+  'customer edits a dispute that is under review',
+);
+await expectDenied(commit(A, [disputePhoto('fresh', 'p2')]), 'customer adds a photo after review began');
+await expectDenied(
+  commit(A, [del('disputes/fresh/photos/p0'), del('notifications/dispute_fresh'), del('disputes/fresh')]),
+  'customer withdraws a dispute that is under review',
+);
+await expectAllowed(
+  commit(ADM, [patch('disputes/fresh', {status: 'resolved', decision: 'Refund approved', refundAmount: 2500, adminNote: 'Part refund.'}, ['updatedAt'])]),
+  'safety desk resolves the dispute with a refund decision',
+);
+// Withdrawing: B files, then withdraws while it is still pending.
+await expectAllowed(
+  commit(B, [dispute('fresh2', B, {photoCount: 1}), disputePhoto('fresh2', 'p0'), disputeNote('fresh2', {senderId: B})]),
+  'second customer files a dispute',
+);
+await expectDenied(commit(A, [del('disputes/fresh2')]), "customer withdraws another's dispute");
+await expectAllowed(
+  commit(B, [del('disputes/fresh2/photos/p0'), del('notifications/dispute_fresh2'), del('disputes/fresh2')]),
+  'customer withdraws a pending dispute (photos and provider notice removed)',
+);
+await expectAllowed(
+  commit(B, [dispute('fresh2', B, {photoCount: 0}), disputeNote('fresh2', {senderId: B})]),
+  'customer can file again after withdrawing (warranty still open)',
+);
 for (const [uid, name] of [[NP, 'New Pro'], [NP2, 'New Pro Two'], [NP3, 'Unverified Pro'], [NP4, 'Name Only']]) {
   await seed(`users/${uid}`, {uid, name, email: `${uid}@x.test`, role: 'provider'});
 }

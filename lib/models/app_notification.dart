@@ -21,6 +21,7 @@ class AppNotification {
   final DateTime? createdAt;
 
   static const reviewType = 'review';
+  static const disputeType = 'dispute';
 
   static AppNotification? fromMap(String id, Map<String, dynamic> data) {
     final recipientId = data['recipientId'];

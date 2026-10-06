@@ -584,6 +584,24 @@ service cloud.firestore {
         request.resource.data.body.size() <= 200 &&
         request.resource.data.read == false &&
         request.resource.data.createdAt == request.time;
+      // A customer tells the provider about a dispute they filed.
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'read', 'createdAt']) &&
+        request.resource.data.type == 'dispute' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.bookingId is string &&
+        notificationId == 'dispute_' + request.resource.data.bookingId &&
+        existsAfter(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)) &&
+        getAfter(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.customerId == request.auth.uid &&
+        request.resource.data.recipientId ==
+          getAfter(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.providerId &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 300 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
       // An admin tells a provider the outcome of their verification.
       allow create: if isAdmin() &&
         request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
@@ -616,6 +634,11 @@ service cloud.firestore {
          request.resource.data.read == false &&
          request.resource.data.createdAt == request.time)
       );
+      // A dispute notice goes away when the dispute is withdrawn.
+      allow delete: if signedIn() &&
+        resource.data.type == 'dispute' &&
+        resource.data.senderId == request.auth.uid &&
+        !existsAfter(/databases/$(database)/documents/disputes/$(resource.data.bookingId));
       // Removed together with the review it announced.
       allow delete: if signedIn() &&
         resource.data.senderId == request.auth.uid &&
@@ -715,28 +738,103 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Warranty claims. One per booking (the document ID is the booking ID),
+    // filed within 3 days of the job being completed. The customer can edit
+    // or withdraw it only while it is pending; the safety desk (admin) moves
+    // it on and records the decision. Photos live in a subcollection as
+    // Base64 text, one document each (a document is limited to 1 MB).
     match /disputes/{disputeId} {
       function disputedBooking() {
         return get(bookingPath(request.resource.data.bookingId)).data;
       }
 
-      allow get: if signedIn() && resource.data.customerId == request.auth.uid;
-      allow list: if false;
+      function validDisputeContent(data) {
+        return data.reason in ['Service not completed / Damage claim',
+            'Poor work quality', 'Overcharged / Billing issue',
+            'Professional conduct', 'Other'] &&
+          (data.get('tag', null) == null ||
+           data.tag in ['Defective repair', 'Billing issue', 'Property damage']) &&
+          data.description is string &&
+          data.description.size() >= 10 &&
+          data.description.size() <= 1000 &&
+          data.photoCount is int &&
+          data.photoCount >= 0 &&
+          data.photoCount <= 5;
+      }
+
+      allow get: if signedIn() &&
+        (resource.data.customerId == request.auth.uid || isAdmin());
+      allow list: if isAdmin();
+
       allow create: if signedIn() &&
         request.resource.data.keys().hasOnly(['bookingId', 'customerId',
-          'providerId', 'category', 'description', 'status', 'createdAt']) &&
-        request.resource.data.customerId == request.auth.uid &&
+          'providerId', 'reason', 'tag', 'description', 'status',
+          'photoCount', 'createdAt', 'respondDeadline', 'adminNote',
+          'decision', 'refundAmount', 'providerResponse']) &&
         request.resource.data.bookingId is string &&
+        disputeId == request.resource.data.bookingId &&
+        request.resource.data.customerId == request.auth.uid &&
         disputedBooking().customerId == request.auth.uid &&
         request.resource.data.providerId == disputedBooking().providerId &&
-        request.resource.data.category in ['Work quality', 'Overcharged',
-          'Damage to property', 'Professional conduct', 'Other'] &&
-        request.resource.data.description is string &&
-        request.resource.data.description.size() >= 10 &&
-        request.resource.data.description.size() <= 1000 &&
-        request.resource.data.status == 'open' &&
-        request.resource.data.createdAt == request.time;
-      allow update, delete: if false;
+        disputedBooking().status == 'completed' &&
+        disputedBooking().completedAt is timestamp &&
+        request.time < disputedBooking().completedAt + duration.value(3, 'd') &&
+        validDisputeContent(request.resource.data) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.respondDeadline is timestamp &&
+        request.resource.data.respondDeadline > request.time &&
+        request.resource.data.respondDeadline <= request.time + duration.value(25, 'h') &&
+        request.resource.data.get('adminNote', null) == null &&
+        request.resource.data.get('decision', null) == null &&
+        request.resource.data.get('refundAmount', null) == null &&
+        request.resource.data.get('providerResponse', null) == null;
+
+      allow update: if signedIn() && (
+        // The customer edits their own dispute while it is still pending.
+        (resource.data.customerId == request.auth.uid &&
+         resource.data.status == 'pending' &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['reason', 'tag', 'description', 'photoCount', 'updatedAt']) &&
+         validDisputeContent(request.resource.data) &&
+         request.resource.data.updatedAt == request.time) ||
+        // The safety desk reviews it and records the decision.
+        (isAdmin() &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'adminNote', 'decision', 'refundAmount',
+                     'providerResponse', 'updatedAt']) &&
+         request.resource.data.status in ['pending', 'under_review', 'resolved'])
+      );
+
+      // Withdrawing is only possible while the dispute is pending.
+      allow delete: if signedIn() &&
+        resource.data.customerId == request.auth.uid &&
+        resource.data.status == 'pending';
+
+      match /photos/{photoId} {
+        function parentPath() {
+          return /databases/$(database)/documents/disputes/$(disputeId);
+        }
+
+        allow get, list: if signedIn() &&
+          (get(parentPath()).data.customerId == request.auth.uid || isAdmin());
+        // Five fixed slots, only for the customer's own pending dispute.
+        allow create, update: if signedIn() &&
+          photoId in ['p0', 'p1', 'p2', 'p3', 'p4'] &&
+          getAfter(parentPath()).data.customerId == request.auth.uid &&
+          getAfter(parentPath()).data.status == 'pending' &&
+          request.resource.data.keys().hasOnly(['base64', 'mimeType',
+            'sizeBytes', 'createdAt']) &&
+          request.resource.data.base64 is string &&
+          request.resource.data.base64.size() > 0 &&
+          request.resource.data.base64.size() <= 950000 &&
+          request.resource.data.mimeType in ['image/jpeg', 'image/png'] &&
+          request.resource.data.sizeBytes is int &&
+          request.resource.data.createdAt == request.time;
+        allow delete: if signedIn() &&
+          get(parentPath()).data.customerId == request.auth.uid &&
+          get(parentPath()).data.status == 'pending';
+      }
     }
   }
 }
