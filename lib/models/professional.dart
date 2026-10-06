@@ -1,3 +1,5 @@
+import 'rating_stats.dart';
+
 /// Public profile of a service professional at `professionals/{providerId}`.
 /// Written only by the trusted backend; any signed-in customer may read it.
 class Professional {
@@ -7,6 +9,11 @@ class Professional {
     this.photoUrl,
     this.specialty = '',
     this.rating,
+    this.reviewCount = 0,
+    this.providerCode,
+    this.about = '',
+    this.experienceYears,
+    this.services = const [],
     this.completedJobs = 0,
     this.verified = false,
     this.phone = '',
@@ -19,6 +26,17 @@ class Professional {
   final String id, name, specialty, phone, licenseNumber, area;
   final String? photoUrl;
   final double? rating;
+
+  /// Customer reviews behind [rating]; 0 when it is only the seeded value.
+  final int reviewCount;
+
+  /// Public Provider ID (e.g. HCP-1001), given when an admin verifies them.
+  final String? providerCode;
+  final String about;
+  final int? experienceYears;
+
+  /// What they offer (e.g. their profession), used for the categories.
+  final List<String> services;
   final int completedJobs;
   final bool verified;
 
@@ -36,6 +54,27 @@ class Professional {
     ('17:30', '19:00'),
   ];
   static const defaultDays = [1, 2, 3, 4, 5, 6];
+
+  /// The same professional with the live rating from `ratingStats`.
+  Professional withStats(RatingStats stats) => Professional(
+    id: id,
+    name: name,
+    photoUrl: photoUrl,
+    specialty: specialty,
+    rating: stats.average,
+    reviewCount: stats.count,
+    providerCode: providerCode,
+    about: about,
+    experienceYears: experienceYears,
+    services: services,
+    completedJobs: completedJobs,
+    verified: verified,
+    phone: phone,
+    licenseNumber: licenseNumber,
+    area: area,
+    workingSlots: workingSlots,
+    workingDays: workingDays,
+  );
 
   String get firstName => name.trim().split(RegExp(r'\s+')).first;
 
@@ -70,6 +109,15 @@ class Professional {
       rating: rating is num && rating >= 0 && rating <= 5
           ? rating.toDouble()
           : null,
+      providerCode: data['providerCode'] is String &&
+              (data['providerCode'] as String).isNotEmpty
+          ? data['providerCode'] as String
+          : null,
+      about: text('about'),
+      experienceYears: (data['experienceYears'] as num?)?.toInt(),
+      services: data['services'] is List
+          ? (data['services'] as List).whereType<String>().toList()
+          : const [],
       completedJobs: (data['completedJobs'] as num?)?.toInt() ?? 0,
       verified: data['verified'] == true,
       phone: text('phone'),

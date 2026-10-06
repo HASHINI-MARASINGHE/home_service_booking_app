@@ -144,6 +144,8 @@ const P = 'provider-p';
 await seed(`users/${A}`, {uid: A, name: 'A', email: 'a@x.test', role: 'customer'});
 await seed(`users/${B}`, {uid: B, name: 'B', email: 'b@x.test', role: 'customer'});
 await seed(`users/${P}`, {uid: P, name: 'P', email: 'p@x.test', role: 'provider'});
+// P is an admin-verified provider (only verified providers can act on jobs).
+await seed(`providerVerifications/${P}`, {providerId: P, status: 'verified', providerCode: 'HCP-1000'});
 
 const D = colomboDate(3);
 const L1 = lock(P, D, '10:30');
@@ -199,6 +201,8 @@ await seed('bookings/late', {
 await seed('bookings/done', {...base, status: 'completed', paymentStatus: 'paid'});
 await seed('receipts/done', {customerId: A, providerId: P, receiptNumber: 'INV-1', totalAmount: 5500});
 await seed('bookings/req', {...base, status: 'pending', paymentStatus: 'unpaid'});
+// A second completed job, owned by customer B, for the rating-total tests.
+await seed('bookings/done2', {...base, customerId: B, customerName: 'B', status: 'completed', paymentStatus: 'paid'});
 
 // ---------------------------------------------------------------- addresses
 const address = {
@@ -377,11 +381,133 @@ await expectDenied(
   commit(A, [set('receipts/b2', {customerId: A, totalAmount: 1})]),
   'customer forges a receipt',
 );
-const review = (id) =>
-  set(`reviews/${id}`, {bookingId: id, customerId: A, providerId: P, rating: 5, comment: 'Great'}, ['createdAt']);
-await expectDenied(commit(A, [review('req')]), 'review before job completion');
-await expectAllowed(commit(A, [review('done')]), 'review a completed job');
+const review = (id, extra = {}) =>
+  set(`reviews/${id}`, {bookingId: id, customerId: A, providerId: P, customerName: 'A',
+    serviceName: 'AC Deep Clean', rating: 5, tags: ['On Time', 'Clean Work'], comment: 'Great',
+    recommend: true, ...extra}, ['createdAt']);
+// The provider's running rating total, written in the same commit as a review.
+const stats = (id, sum, count, extra = {}) =>
+  set('ratingStats/' + P, {providerId: P, ratingSum: sum, ratingCount: count, lastReviewId: id, ...extra}, ['updatedAt']);
+const reviewNote = (id, extra = {}) =>
+  set(`notifications/review_${id}`, {recipientId: P, senderId: A, type: 'review', bookingId: id,
+    title: 'New review from A', body: '5 stars for AC Deep Clean', rating: 5, read: false, ...extra}, ['createdAt']);
+await expectDenied(commit(A, [review('req'), stats('req', 5, 1)]), 'review before job completion');
+await expectDenied(commit(A, [review('done', {tags: ['Free pizza']}), stats('done', 5, 1)]), 'review with a made-up highlight tag');
+await expectDenied(commit(A, [review('done', {rating: 6}), stats('done', 6, 1)]), 'review with 6 stars');
+await expectDenied(commit(A, [reviewNote('done')]), 'review notification without its review');
+await expectDenied(
+  commit(A, [review('done'), stats('done', 5, 1), reviewNote('done', {recipientId: B})]),
+  'review notification addressed to someone other than the job provider',
+);
+await expectDenied(
+  commit(A, [review('done'), stats('done', 5, 1), reviewNote('done', {rating: 1})]),
+  'review notification that misstates the rating',
+);
+await expectDenied(commit(A, [review('done'), reviewNote('done')]), 'review that skips the provider rating total');
+await expectDenied(commit(A, [review('done'), stats('done', 50, 1), reviewNote('done')]), 'review that inflates the rating total');
+await expectDenied(commit(A, [review('done'), stats('done', 5, 2), reviewNote('done')]), 'review that inflates the review count');
+await expectDenied(commit(A, [stats('done', 5, 1)]), 'rating total written without a review');
+await expectDenied(commit(A, [review('done'), stats('req', 5, 1), reviewNote('done')]), 'rating total pointing at a different review');
+await expectAllowed(commit(A, [review('done'), stats('done', 5, 1), reviewNote('done')]), 'review a completed job + update rating total + notify the provider');
+await expectAllowed(get(B, 'ratingStats/' + P), 'any signed-in user reads a provider overall rating');
+await expectAllowed(get(P, 'ratingStats/' + P), 'provider reads own overall rating');
+await expectDenied(commit(A, [patch('ratingStats/' + P, {ratingSum: 999})]), 'customer edits a rating total directly');
+await expectDenied(commit(B, [stats('done', 10, 2)]), 're-counting an already counted review');
+await expectDenied(
+  commit(B, [set('reviews/done2', {bookingId: 'done2', customerId: B, providerId: P, customerName: 'B', serviceName: 'AC Deep Clean',
+    rating: 3, tags: [], comment: 'ok', recommend: false}, ['createdAt']), stats('done2', 10, 2)]),
+  'second review that adds the wrong number of stars',
+);
+await expectAllowed(
+  commit(B, [set('reviews/done2', {bookingId: 'done2', customerId: B, providerId: P, customerName: 'B', serviceName: 'AC Deep Clean',
+    rating: 3, tags: [], comment: 'ok', recommend: false}, ['createdAt']), stats('done2', 8, 2)]),
+  'a second customer review moves the total by exactly its stars (5 + 3 = 8 over 2)',
+);
 await expectDenied(commit(A, [review('done')]), 'overwrite an existing review');
+await expectAllowed(get(A, 'reviews/done'), 'customer reads own review');
+await expectAllowed(get(P, 'reviews/done'), 'provider reads the review of their job');
+await expectDenied(get(B, 'reviews/done'), "another customer reads someone else's review");
+await expectAllowed(get(P, 'notifications/review_done'), 'provider reads own notification');
+await expectDenied(get(A, 'notifications/review_done'), 'sender reads a notification addressed to the provider');
+await expectDenied(get(B, 'notifications/review_done'), "another user reads someone else's notification");
+await expectDenied(
+  commit(A, [patch('notifications/review_done', {read: true})]),
+  'customer edits the provider notification',
+);
+await expectDenied(
+  commit(P, [patch('notifications/review_done', {title: 'Hacked'})]),
+  'provider rewrites a notification title',
+);
+await expectAllowed(
+  commit(P, [patch('notifications/review_done', {read: true})]),
+  'provider marks own notification read',
+);
+await expectDenied(commit(P, [del('notifications/review_done')]), 'provider deletes a notification');
+
+// ----------------------- edit / delete a review (state: A=5 on done, B=3 on done2 -> sum 8, count 2)
+const editReview = (id, rating, extra = {}) =>
+  patch(`reviews/${id}`, {rating, tags: [], comment: 'Changed my mind', recommend: false, ...extra}, ['updatedAt']);
+const editNote = (id, rating, extra = {}) =>
+  patch(`notifications/review_${id}`, {title: 'Review updated by A', body: `${rating} stars for AC Deep Clean`,
+    rating, read: false, ...extra}, ['createdAt']);
+await expectDenied(commit(A, [editReview('done', 2), editNote('done', 2)]), 'edit a review without moving the provider rating total');
+await expectDenied(
+  commit(A, [editReview('done', 2), stats('done', 8, 2), editNote('done', 2)]),
+  'edit a review but leave the rating total unchanged',
+);
+await expectDenied(
+  commit(A, [editReview('done', 2), stats('done', 9, 2), editNote('done', 2)]),
+  'edit a review with a wrong rating total',
+);
+await expectDenied(
+  commit(A, [editReview('done', 2), stats('done', 5, 3), editNote('done', 2)]),
+  'edit a review that also bumps the review count',
+);
+await expectDenied(
+  commit(P, [editReview('done', 5), stats('done', 8, 2)]),
+  "provider edits a customer's review",
+);
+await expectDenied(
+  commit(B, [editReview('done', 1), stats('done', 4, 2)]),
+  "another customer edits someone else's review",
+);
+await expectDenied(
+  commit(A, [editReview('done', 2, {customerName: 'Somebody else'}), stats('done', 5, 2), editNote('done', 2)]),
+  'edit that rewrites who the review is from',
+);
+await expectDenied(
+  commit(A, [editReview('done', 2, {tags: ['Free pizza']}), stats('done', 5, 2), editNote('done', 2)]),
+  'edit with a made-up highlight tag',
+);
+await expectDenied(
+  commit(A, [editReview('done', 2), stats('done', 5, 2), editNote('done', 4)]),
+  'edit whose notification misstates the new rating',
+);
+await expectAllowed(
+  commit(A, [editReview('done', 2), stats('done', 5, 2), editNote('done', 2)]),
+  'customer edits own review: stars 5 -> 2, total 8 -> 5, provider notified again',
+);
+await expectAllowed(get(P, 'notifications/review_done'), 'provider still reads the refreshed notification');
+await expectDenied(commit(P, [del('reviews/done'), stats('done', 3, 1)]), "provider deletes a customer's review");
+await expectDenied(commit(B, [del('reviews/done'), stats('done', 3, 1)]), "another customer deletes someone else's review");
+await expectDenied(commit(A, [del('reviews/done'), del('notifications/review_done')]), 'delete a review without moving the rating total');
+await expectDenied(
+  commit(A, [del('reviews/done'), stats('done', 5, 1), del('notifications/review_done')]),
+  'delete a review but keep its stars in the total',
+);
+await expectDenied(
+  commit(A, [del('reviews/done'), stats('done', 3, 2), del('notifications/review_done')]),
+  'delete a review but keep it in the review count',
+);
+await expectAllowed(
+  commit(A, [del('reviews/done'), stats('done', 3, 1), del('notifications/review_done')]),
+  'customer deletes own review: stars leave the total (5 -> 3), notification removed',
+);
+await expectReadableMissing(get(A, 'reviews/done'), 'deleted review is gone');
+await expectAllowed(
+  commit(A, [review('done'), stats('done', 8, 2), reviewNote('done')]),
+  'customer can review the job again after deleting; it counts once (3 -> 8 over 2)',
+);
 await expectAllowed(
   commit(A, [set('disputes/d1', {bookingId: 'done', customerId: A, providerId: P,
     category: 'Work quality', description: 'Unit still rattles after repair.', status: 'open'}, ['createdAt'])]),
@@ -403,5 +529,108 @@ await expectAllowed(
   'provider accepts assigned request',
 );
 await expectAllowed(get(P, 'bookings/req'), 'provider reads assigned booking');
+
+// ------------------------------------------- provider verification (admin)
+const ADM = 'admin-1';
+const NP = 'provider-new';
+const NP2 = 'provider-new-2';
+const NP3 = 'provider-unverified';
+const NP4 = 'provider-minimal';
+await seed(`users/${ADM}`, {uid: ADM, name: 'Admin', email: 'admin@admin.homecare.app', role: 'admin'});
+for (const [uid, name] of [[NP, 'New Pro'], [NP2, 'New Pro Two'], [NP3, 'Unverified Pro'], [NP4, 'Name Only']]) {
+  await seed(`users/${uid}`, {uid, name, email: `${uid}@x.test`, role: 'provider'});
+}
+const file = (n) => ({name: n, url: 'https://example.test/' + n});
+const submission = (uid, extra = {}) =>
+  set(`providerVerifications/${uid}`, {
+    providerId: uid, fullName: 'New Pro', phone: '+94771234567', profession: 'Plumber',
+    experienceYears: 3, about: '', idType: 'nic', idNumber: '928471923V',
+    idFront: file('front.jpg'), idBack: file('back.jpg'), selfie: file('selfie.jpg'),
+    cv: file('cv.pdf'), certificates: [file('cert.pdf')], experiences: [], status: 'pending', ...extra,
+  }, ['submittedAt']);
+const noStatus = (uid, drop) => {
+  const w = submission(uid);
+  delete w.update.fields[drop];
+  return w;
+};
+
+await expectDenied(commit(NP2, [submission(NP)]), "provider submits for someone else's account");
+await expectDenied(commit(A, [submission(A)]), 'customer submits a provider verification');
+await expectDenied(commit(NP, [submission(NP, {status: 'verified'})]), 'provider approves their own verification');
+await expectDenied(commit(NP, [submission(NP, {providerCode: 'HCP-1001'})]), 'provider writes their own Provider ID');
+// Sign-up is relaxed: documents and most details are optional, but what is sent must still be well formed.
+await expectDenied(commit(NP, [submission(NP, {fullName: 'A'})]), 'submission without a real name');
+await expectDenied(commit(NP, [submission(NP, {idNumber: 'X'.repeat(21)})]), 'submission with an oversized ID number');
+await expectDenied(commit(NP, [submission(NP, {selfie: {name: 'selfie.jpg'}})]), 'submission with a malformed document');
+await expectDenied(commit(NP, [submission(NP, {certificates: [file('1.pdf'), file('2.pdf'), file('3.pdf'), file('4.pdf'), file('5.pdf'), file('6.pdf')]})]), 'submission with six certificates');
+await expectDenied(commit(NP, [noStatus(NP, 'fullName')]), 'submission without a name field');
+const minimal = (uid) => set(`providerVerifications/${uid}`, {providerId: uid, fullName: 'Name Only', phone: '', profession: '',
+  experienceYears: 0, about: '', idType: 'nic', idNumber: '', certificates: [], experiences: [], status: 'pending'}, ['submittedAt']);
+await expectAllowed(commit(NP4, [minimal(NP4)]), 'provider submits with only a name (no documents yet)');
+await expectAllowed(get(ADM, `providerVerifications/${NP4}`), 'admin sees a submission without documents');
+await expectAllowed(commit(NP, [submission(NP, {experiences: [{title: 'Site helper', company: 'ABC', years: 2}]})]), 'provider submits details, ID, selfie, CV and certificate (+ optional experience)');
+await expectAllowed(commit(NP2, [submission(NP2)]), 'a second provider submits (no optional experience)');
+await expectAllowed(get(NP, `providerVerifications/${NP}`), 'provider reads own submission');
+await expectDenied(get(NP2, `providerVerifications/${NP}`), "provider reads another provider's submission");
+await expectDenied(get(A, `providerVerifications/${NP}`), "customer reads a provider's submission");
+await expectAllowed(get(ADM, `providerVerifications/${NP}`), 'admin reads a submission');
+await expectAllowed(get(ADM, 'providerVerifications'), 'admin lists submissions');
+await expectDenied(get(NP, 'providerVerifications'), 'provider lists all submissions');
+await expectDenied(commit(NP, [patch(`providerVerifications/${NP}`, {about: 'edited while pending'})]), 'provider edits a pending submission');
+
+const adminReview = (uid, status, extra = {}) =>
+  patch(`providerVerifications/${uid}`, {status, reviewedBy: ADM, ...extra}, ['reviewedAt']);
+const publicProfile = (uid, code) =>
+  set(`professionals/${uid}`, {name: 'New Pro', specialty: 'Plumber', phone: '+94771234567', verified: true,
+    providerCode: code, completedJobs: 0, area: ''});
+const verifyNote = (id, to) =>
+  set(`notifications/${id}`, {recipientId: to, senderId: ADM, type: 'verification', bookingId: '',
+    title: 'You are verified!', body: 'Your Provider ID is HCP-1001. You can now accept jobs.', read: false}, ['createdAt']);
+
+await expectDenied(commit(NP, [adminReview(NP, 'verified', {providerCode: 'HCP-1001'})]), 'provider verifies themselves');
+await expectDenied(commit(A, [adminReview(NP, 'verified', {providerCode: 'HCP-1001'})]), 'customer verifies a provider');
+await expectDenied(commit(ADM, [adminReview(NP, 'verified')]), 'admin verifies without a Provider ID');
+await expectDenied(commit(ADM, [adminReview(NP, 'rejected', {rejectionReason: 'no'})]), 'admin sends back without a real reason');
+await expectDenied(commit(ADM, [patch(`providerVerifications/${NP}`, {status: 'verified', providerCode: 'HCP-1001', reviewedBy: ADM, fullName: 'Changed'}, ['reviewedAt'])]), 'admin changes the submitted details while verifying');
+await expectDenied(commit(NP, [set('professionals/' + NP, {name: 'Fake', verified: true})]), 'provider publishes their own verified profile');
+await expectDenied(commit(ADM, [set('counters/providerIds', {last: 5})]), 'admin starts the Provider ID counter at 5');
+await expectDenied(commit(NP, [set('counters/providerIds', {last: 1})]), 'provider moves the Provider ID counter');
+await expectDenied(commit(A, [verifyNote('v0', NP)]), 'customer sends a verification notification');
+await expectAllowed(
+  commit(ADM, [adminReview(NP, 'verified', {providerCode: 'HCP-1001'}), set('counters/providerIds', {last: 1}),
+    publicProfile(NP, 'HCP-1001'), verifyNote('v1', NP)]),
+  'admin verifies: Provider ID HCP-1001, public profile, counter, notification',
+);
+await expectAllowed(get(NP, 'notifications/v1'), 'verified provider reads the verification notification');
+await expectDenied(get(NP2, 'notifications/v1'), "another provider reads someone else's notification");
+await expectAllowed(get(A, `professionals/${NP}`), 'customers can read the verified provider profile');
+await expectDenied(commit(ADM, [adminReview(NP, 'verified', {providerCode: 'HCP-1009'}), set('counters/providerIds', {last: 2})]), 'verifying an already verified provider again');
+await expectDenied(commit(NP, [submission(NP)]), 'a verified provider overwrites their approved verification');
+await expectDenied(commit(ADM, [set('counters/providerIds', {last: 9})]), 'admin jumps the Provider ID counter');
+
+await expectAllowed(
+  commit(ADM, [adminReview(NP2, 'rejected', {rejectionReason: 'ID photo is blurry, please re-upload.'}),
+    set(`notifications/v2`, {recipientId: NP2, senderId: ADM, type: 'verification', bookingId: '',
+      title: 'Verification needs changes', body: 'ID photo is blurry, please re-upload.', read: false}, ['createdAt'])]),
+  'admin sends a submission back with a reason',
+);
+await expectAllowed(commit(NP2, [submission(NP2, {fullName: 'New Pro Two'})]), 'provider fixes and resubmits after being sent back');
+await expectAllowed(
+  commit(ADM, [adminReview(NP2, 'verified', {providerCode: 'HCP-1002'}), set('counters/providerIds', {last: 2}),
+    publicProfile(NP2, 'HCP-1002')]),
+  'admin verifies the resubmission (second Provider ID)',
+);
+
+// Unverified providers cannot take jobs; the moment they are verified they can.
+await seed('bookings/req3', {...base, providerId: NP3, status: 'pending', paymentStatus: 'unpaid'});
+await expectDenied(
+  commit(NP3, [patch('bookings/req3', {status: 'confirmed'}, ['acceptedAt'])]),
+  'unverified provider accepts a job',
+);
+await seed(`providerVerifications/${NP3}`, {providerId: NP3, status: 'verified', providerCode: 'HCP-1003'});
+await expectAllowed(
+  commit(NP3, [patch('bookings/req3', {status: 'confirmed'}, ['acceptedAt'])]),
+  'the same provider accepts the job once verified',
+);
 
 console.log(`\nAll ${checks} security-rule checks passed.`);

@@ -53,6 +53,8 @@ function commit(user, path, data, timestamp) {
 const a = await account('provider-a', 'provider');
 const b = await account('provider-b', 'provider');
 const customer = await account('customer', 'customer');
+// Only admin-verified providers can act on jobs.
+await seed('providerVerifications/' + a.uid, {providerId: a.uid, status: 'verified', providerCode: 'HCP-1000'});
 const path = 'bookings/rules-' + run;
 const pending = {
   providerId: a.uid, customerId: customer.uid, serviceName: 'Emulator test',

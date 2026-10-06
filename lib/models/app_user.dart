@@ -2,6 +2,9 @@ class AppUser {
   static const customerRole = 'customer';
   static const providerRole = 'provider';
 
+  /// Created only by the trusted backend (tool/seed), never by sign-up.
+  static const adminRole = 'admin';
+
   const AppUser({
     required this.uid,
     required this.name,
@@ -23,7 +26,9 @@ class AppUser {
     final photoUrl = data['photoUrl'];
     if (name is! String ||
         email is! String ||
-        (role != customerRole && role != providerRole) ||
+        (role != customerRole &&
+            role != providerRole &&
+            role != adminRole) ||
         (photoUrl != null && photoUrl is! String)) {
       throw const FormatException('The user profile is invalid.');
     }

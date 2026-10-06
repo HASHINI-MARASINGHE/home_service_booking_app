@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/customer_home_data.dart';
+import '../../models/professional.dart';
+import '../../models/service_category.dart';
 import '../../models/app_user.dart';
 import '../../services/address_service.dart';
 import '../../services/auth_service.dart';
@@ -15,6 +16,7 @@ import 'bookings/booking_history_screen.dart';
 import 'customer_profile_screen.dart';
 import 'customer_scope.dart';
 import 'widgets/customer_home_widgets.dart';
+import 'widgets/provider_directory_widgets.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({
@@ -150,10 +152,45 @@ class _TabNavigator extends StatelessWidget {
   );
 }
 
-class _CustomerHomeContent extends StatelessWidget {
+class _CustomerHomeContent extends StatefulWidget {
   const _CustomerHomeContent({required this.user});
 
   final AppUser user;
+
+  @override
+  State<_CustomerHomeContent> createState() => _CustomerHomeContentState();
+}
+
+class _CustomerHomeContentState extends State<_CustomerHomeContent> {
+  Stream<List<Professional>>? _directory;
+  ServiceCategory? _category;
+  String _query = '';
+
+  AppUser get user => widget.user;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _directory ??= CustomerScope.of(context).bookings.watchProfessionals();
+  }
+
+  void _reload() => setState(
+    () => _directory = CustomerScope.of(context).bookings.watchProfessionals(),
+  );
+
+  /// Verified providers matching the chosen category and the search text.
+  List<Professional> _visible(List<Professional> all) {
+    final query = _query.trim().toLowerCase();
+    return [
+      for (final p in all)
+        if ((_category == null || _category!.matches(p)) &&
+            (query.isEmpty ||
+                '${p.name} ${p.specialty} ${p.services.join(' ')} ${p.providerCode ?? ''}'
+                    .toLowerCase()
+                    .contains(query)))
+          p,
+    ];
+  }
 
   @override
   Widget build(BuildContext context) => CustomScrollView(
@@ -236,29 +273,78 @@ class _CustomerHomeContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            const CustomerSearchBar(),
-            const SizedBox(height: 30),
-            const _SectionHeading(title: 'Provider Profiles'),
-            const SizedBox(height: 14),
-            SizedBox(
-              height: 92,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: customerProviders.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 14),
-                itemBuilder: (context, index) => ProviderAvatar(
-                  provider: customerProviders[index],
-                ),
-              ),
+            CustomerSearchBar(
+              onChanged: (text) => setState(() => _query = text),
             ),
             const SizedBox(height: 30),
             const _SectionHeading(title: 'Services for your home'),
             const SizedBox(height: 14),
-            ...customerServices.map(
-              (service) => Padding(
-                padding: const EdgeInsets.only(bottom: 18),
-                child: ServiceCard(service: service),
-              ),
+            StreamBuilder<List<Professional>>(
+              stream: _directory,
+              builder: (context, snapshot) {
+                final all = snapshot.data ?? const <Professional>[];
+                final shown = _visible(all);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CategoryRow(
+                      providers: all,
+                      selected: _category,
+                      onSelected: (c) => setState(() => _category = c),
+                    ),
+                    const SizedBox(height: 26),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: _SectionHeading(title: 'Verified providers'),
+                        ),
+                        if (snapshot.hasData)
+                          Text(
+                            '${shown.length} ${shown.length == 1 ? 'provider' : 'providers'}',
+                            key: const ValueKey('provider-count'),
+                            style: const TextStyle(
+                              color: CustomerHomeTheme.mutedText,
+                              fontSize: 13,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (snapshot.hasError)
+                      Column(
+                        children: [
+                          const DirectoryMessage(
+                            text: 'Providers could not be loaded right now.',
+                            icon: Icons.cloud_off_outlined,
+                          ),
+                          TextButton(
+                            onPressed: _reload,
+                            child: const Text('Try again'),
+                          ),
+                        ],
+                      )
+                    else if (!snapshot.hasData)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (shown.isEmpty)
+                      DirectoryMessage(
+                        key: const ValueKey('no-providers'),
+                        icon: Icons.search_off_rounded,
+                        text: all.isEmpty
+                            ? 'No verified providers yet. Providers show up here as soon as our team verifies them.'
+                            : 'No providers match your search. Try another category or clear the search.',
+                      )
+                    else
+                      for (final provider in shown)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ProviderListCard(provider: provider),
+                        ),
+                  ],
+                );
+              },
             ),
           ]),
         ),

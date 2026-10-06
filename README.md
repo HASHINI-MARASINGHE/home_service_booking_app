@@ -25,6 +25,30 @@ Created by the seed script (`tool/seed/seed.mjs`). Password for every account:
 | `other@homecare.test` | Customer | Holds one of Nuwan's slots (shows as "Booked" when rescheduling) |
 | `nuwan@homecare.test` | Provider | Assigned AC jobs |
 | `kasun@homecare.test` | Provider | Assigned plumbing/cleaning jobs |
+| `admin` (sign in with **Admin sign in** on the login screen) | Admin | Password **`HomeCare@Admin2026`**. Reviews provider verifications |
+
+Seeded providers are already verified (Provider IDs `HCP-1001` and `HCP-1002`).
+
+## Provider verification and the admin side
+
+Providers cannot take jobs until an admin verifies them.
+
+1. **Sign up as a provider** (Create account > Provider): details, then ID/passport
+   (front + back for a National ID, plus the number), a live selfie, a CV and at least one
+   course certificate (extra work experience is optional), then the login (email + password).
+   Nothing is created until the last step, then the documents are uploaded together with the account.
+2. Until verified the provider only has **Profile** and **Notifications**.
+   The profile shows "Verification pending".
+3. An **admin** signs in with **Admin sign in** and sees **Providers** (pending / verified / rejected)
+   and their own **Profile**. Opening a provider shows every detail and document. **Verify provider**
+   gives them a Provider ID (`HCP-1001`, `HCP-1002`, ...), publishes the public profile customers see,
+   and sends a notification. **Send back** needs a reason; the provider fixes and resubmits.
+4. Once verified, the provider's profile shows the **Provider ID** and a verified badge, and the jobs unlock.
+
+Admin accounts cannot be created from the app. Create one with
+`node tool/seed/create_admin.mjs --emulator|--production --username admin --password '...' --name '...'`
+(`--production` needs a service-account key like the seed). Change the demo password before going live.
+Deploy both rule files: `firebase deploy --only firestore:rules,storage`.
 
 ## Prerequisites
 
@@ -36,7 +60,7 @@ Created by the seed script (`tool/seed/seed.mjs`). Password for every account:
 
 ```bash
 # 1. Start Auth + Firestore emulators (loads firestore.rules from firebase.json)
-firebase emulators:start --only auth,firestore
+firebase emulators:start --only auth,firestore,storage
 
 # 2. Seed demo data (second terminal)
 cd tool/seed

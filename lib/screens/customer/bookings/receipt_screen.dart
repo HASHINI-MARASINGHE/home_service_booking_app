@@ -4,11 +4,14 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../models/booking.dart';
 import '../../../models/receipt.dart';
+import '../../../models/review.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/formatters.dart';
 import '../../../widgets/common/app_widgets.dart';
+import '../../../widgets/common/review_widgets.dart';
 import '../customer_scope.dart';
 import 'feedback_sheets.dart';
+import 'review_screen.dart';
 
 class ReceiptScreen extends StatefulWidget {
   const ReceiptScreen({super.key, required this.bookingId});
@@ -611,14 +614,41 @@ class _ReceiptBody extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: Column(
             children: [
-              ListTile(
-                leading: const Icon(Icons.star_rounded, color: AppColors.star),
-                title: Text(
-                  'Rate & Review ${firstName.isEmpty ? 'your pro' : firstName}',
-                  style: AppTypography.subtitle,
+              StreamBuilder<Review?>(
+                stream: CustomerScope.of(context).bookings.watchReview(
+                  booking.id,
                 ),
-                trailing: const Icon(LucideIcons.chevronRight, size: 18),
-                onTap: () => showReviewSheet(context, booking, firstName),
+                builder: (context, snapshot) {
+                  final review = snapshot.data;
+                  final who = firstName.isEmpty ? 'your pro' : firstName;
+                  return ListTile(
+                    leading: const Icon(
+                      Icons.star_rounded,
+                      color: AppColors.star,
+                    ),
+                    title: Text(
+                      review == null
+                          ? 'Rate & Review $who'
+                          : 'Your review of $who',
+                      style: AppTypography.subtitle,
+                    ),
+                    subtitle: review == null
+                        ? null
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: StarRow(rating: review.rating, size: 16),
+                            ),
+                          ),
+                    trailing: const Icon(LucideIcons.chevronRight, size: 18),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ReviewScreen(bookingId: booking.id),
+                      ),
+                    ),
+                  );
+                },
               ),
               const Divider(indent: AppSpacing.md, endIndent: AppSpacing.md),
               ListTile(

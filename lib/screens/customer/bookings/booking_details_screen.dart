@@ -4,18 +4,20 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../models/booking.dart';
 import '../../../models/booking_policy.dart';
 import '../../../models/professional.dart';
+import '../../../models/review.dart';
 import '../../../services/app_error.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/formatters.dart';
 import '../../../widgets/booking/booking_widgets.dart';
 import '../../../widgets/common/app_widgets.dart';
+import '../../../widgets/common/review_widgets.dart';
 import '../customer_scope.dart';
 import 'booking_cancelled_screen.dart';
 import 'cancel_booking_screen.dart';
 import 'edit_booking_screen.dart';
-import 'feedback_sheets.dart';
 import 'receipt_screen.dart';
 import 'reschedule_booking_screen.dart';
+import 'review_screen.dart';
 
 class BookingDetailsScreen extends StatefulWidget {
   const BookingDetailsScreen({super.key, required this.bookingId});
@@ -53,8 +55,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     return _professional!;
   }
 
-  Future<void> _push(Widget screen) =>
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  Future<void> _push(Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    // A review given meanwhile changes the provider's overall rating.
+    if (mounted) setState(() => _professional = null);
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -341,6 +346,29 @@ class _Details extends StatelessWidget {
           booking: b,
           professionalName: professional?.firstName ?? proName,
         ),
+        if (b.status == BookingStatus.completed)
+          StreamBuilder<Review?>(
+            stream: CustomerScope.of(context).bookings.watchReview(b.id),
+            builder: (context, snapshot) {
+              final review = snapshot.data;
+              if (review == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: AppCard(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  onTap: () => onPush(ReviewScreen(bookingId: b.id)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionLabel('Your review'),
+                      const SizedBox(height: AppSpacing.sm),
+                      ReviewBody(review: review),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         const SizedBox(height: AppSpacing.md),
         const HomeCareGuarantee(
           message: '100% Satisfaction or free complimentary rework',
@@ -368,10 +396,13 @@ class _Details extends StatelessWidget {
             onPressed: () => onPush(ReceiptScreen(bookingId: b.id)),
           ),
           const SizedBox(height: AppSpacing.sm),
-          SecondaryButton(
-            label: 'Rate & Review',
-            icon: Icons.star_outline_rounded,
-            onPressed: () => showReviewSheet(context, b, pro?.firstName),
+          StreamBuilder<Review?>(
+            stream: CustomerScope.of(context).bookings.watchReview(b.id),
+            builder: (context, snapshot) => SecondaryButton(
+              label: snapshot.data == null ? 'Rate & Review' : 'View Your Review',
+              icon: Icons.star_outline_rounded,
+              onPressed: () => onPush(ReviewScreen(bookingId: b.id)),
+            ),
           ),
         ];
       case BookingStatus.cancelled:

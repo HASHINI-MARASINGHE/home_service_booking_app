@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/provider_profile.dart';
+import '../models/rating_stats.dart';
 
 class ProviderProfileService {
   ProviderProfileService({FirebaseAuth? auth, FirebaseFirestore? firestore})
@@ -26,6 +27,14 @@ class ProviderProfileService {
       return ProviderProfile.fromMap(uid, doc.data() ?? {});
     });
   }
+
+  /// The provider's overall rating: the live average of all customer
+  /// reviews (null until the first review).
+  Stream<RatingStats?> watchRatingStats() => _db
+      .collection('ratingStats')
+      .doc(_uid)
+      .snapshots()
+      .map((doc) => RatingStats.fromMap(doc.data()));
 
   Future<void> save(ProviderProfile profile) async {
     final uid = _uid;

@@ -1,0 +1,68 @@
+import 'package:flutter/material.dart';
+
+import '../../models/app_user.dart';
+import '../../models/provider_verification.dart';
+import '../../services/auth_service.dart';
+import '../../services/provider_verification_service.dart';
+import '../../widgets/common/app_widgets.dart';
+import 'provider_home_screen.dart';
+import 'unverified_provider_shell.dart';
+
+/// Decides what a signed-in provider gets: the full app once an admin has
+/// verified them, otherwise only the profile and notifications. It follows the
+/// verification live, so the moment an admin approves, the jobs unlock.
+class ProviderGate extends StatefulWidget {
+  const ProviderGate({
+    super.key,
+    required this.user,
+    required this.authService,
+    this.verificationService,
+  });
+
+  final AppUser user;
+  final AuthService authService;
+  final ProviderVerificationService? verificationService;
+
+  @override
+  State<ProviderGate> createState() => _ProviderGateState();
+}
+
+class _ProviderGateState extends State<ProviderGate> {
+  late final ProviderVerificationService _service =
+      widget.verificationService ?? ProviderVerificationService();
+  late Stream<ProviderVerification?> _verification = _service.watch();
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<ProviderVerification?>(
+    stream: _verification,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return Scaffold(
+          body: SafeArea(
+            child: ErrorState(
+              error: snapshot.error!,
+              onRetry: () => setState(() => _verification = _service.watch()),
+            ),
+          ),
+        );
+      }
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      final verification = snapshot.data;
+      if (verification?.isVerified == true) {
+        return ProviderHomeScreen(
+          user: widget.user,
+          authService: widget.authService,
+          verification: verification,
+        );
+      }
+      return UnverifiedProviderShell(
+        user: widget.user,
+        authService: widget.authService,
+        verificationService: _service,
+        verification: verification,
+      );
+    },
+  );
+}
