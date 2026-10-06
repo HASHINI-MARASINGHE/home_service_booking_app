@@ -69,8 +69,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
             Widget body;
             if (error != null) {
               body = ErrorState(error: error, onRetry: _retry);
-            } else if (bookingSnap.connectionState ==
-                    ConnectionState.waiting ||
+            } else if (bookingSnap.connectionState == ConnectionState.waiting ||
                 reviewSnap.connectionState == ConnectionState.waiting) {
               body = const LoadingState();
             } else if (booking == null) {
@@ -149,7 +148,10 @@ class _ReviewBodyState extends State<_ReviewBody> {
     try {
       final service = CustomerScope.of(context).bookings;
       // Keep the design's order rather than tap order.
-      final tags = [for (final t in Review.tagOptions) if (_tags.contains(t)) t];
+      final tags = [
+        for (final t in Review.tagOptions)
+          if (_tags.contains(t)) t,
+      ];
       final wasEditing = _editing;
       if (wasEditing) {
         await service.updateReview(
@@ -305,7 +307,8 @@ class _ReviewBodyState extends State<_ReviewBody> {
         icon: LucideIcons.trash2,
         title: 'Delete your review?',
         message: TextSpan(
-          text: 'Your review of ${b.serviceName} will be removed and no '
+          text:
+              'Your review of ${b.serviceName} will be removed and no '
               "longer counts towards the provider's overall rating.",
         ),
         keepIsPrimary: false,

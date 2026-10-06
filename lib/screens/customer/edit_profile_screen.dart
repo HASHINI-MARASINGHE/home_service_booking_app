@@ -309,9 +309,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       tooltip: _obscurePassword
                           ? 'Show password'
                           : 'Hide password',
-                      onPressed: () => setState(
-                        () => _obscurePassword = !_obscurePassword,
-                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                       icon: Icon(
                         _obscurePassword
                             ? Icons.visibility_outlined

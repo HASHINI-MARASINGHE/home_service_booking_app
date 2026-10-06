@@ -405,7 +405,9 @@ class _Details extends StatelessWidget {
           StreamBuilder<Review?>(
             stream: CustomerScope.of(context).bookings.watchReview(b.id),
             builder: (context, snapshot) => SecondaryButton(
-              label: snapshot.data == null ? 'Rate & Review' : 'View Your Review',
+              label: snapshot.data == null
+                  ? 'Rate & Review'
+                  : 'View Your Review',
               icon: Icons.star_outline_rounded,
               onPressed: () => onPush(ReviewScreen(bookingId: b.id)),
             ),

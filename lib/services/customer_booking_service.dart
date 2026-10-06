@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -56,6 +57,22 @@ class BookingEdit {
       );
     }
   }
+}
+
+/// A new booking from the Book Service screen.
+class BookingRequest {
+  const BookingRequest({
+    required this.professional,
+    required this.serviceName,
+    required this.slot,
+    required this.address,
+    required this.customerName,
+  });
+
+  final Professional professional;
+  final String serviceName, customerName;
+  final TimeSlot slot;
+  final Address address;
 }
 
 class CancellationResult {
@@ -208,9 +225,9 @@ class CustomerBookingService {
           }
           subs.add(
             query.snapshots().listen((snap) {
-                  people = snap;
-                  emit();
-                }, onError: controller.addError),
+              people = snap;
+              emit();
+            }, onError: controller.addError),
           );
           // Ratings are a nice-to-have: if they cannot be read the providers
           // still show with their stored rating.
@@ -292,6 +309,95 @@ class CustomerBookingService {
       bookingId: booking.id,
       now: now(),
     );
+  }
+
+  /// Bookable slots for [professional] on [date] (new bookings).
+  Future<List<TimeSlot>> openSlots({
+    required Professional professional,
+    required DateTime date,
+  }) async {
+    final iso = Formatters.isoDate(date);
+    final docs = await Future.wait([
+      for (final (start, _) in professional.workingSlots)
+        _lock(BookingPolicy.slotLockId(professional.id, iso, start)).get(),
+    ]);
+    final locks = <String, String>{
+      for (final doc in docs)
+        if (doc.exists &&
+            doc.data()?['startTime'] is String &&
+            doc.data()?['bookingId'] is String)
+          doc.data()!['startTime'] as String:
+              doc.data()!['bookingId'] as String,
+    };
+    return BookingPolicy.buildSlots(
+      professional: professional,
+      date: date,
+      locks: locks,
+      bookingId: '',
+      now: now(),
+    );
+  }
+
+  /// Creates a pending booking and its slot lock in one transaction, so two
+  /// customers can never take the same slot. Returns the new booking ID.
+  Future<String> createBooking(BookingRequest request) async {
+    final uid = _uid;
+    final pro = request.professional;
+    final slot = request.slot;
+    if (pro.id == uid) throw ArgumentError('You cannot book yourself.');
+    if (!slot.startsAt.isAfter(now().add(BookingPolicy.freeChangeWindow))) {
+      throw const BookingChangedException(
+        'Choose a slot at least 2 hours from now.',
+      );
+    }
+    final bookingRef = _db.collection('bookings').doc();
+    final lockId = BookingPolicy.slotLockId(pro.id, slot.isoDate, slot.start);
+    final a = request.address;
+    await _db.runTransaction((tx) async {
+      final lock = await tx.get(_lock(lockId));
+      if (lock.exists) throw const SlotTakenException();
+      tx.set(bookingRef, {
+        'reference': 'BK-${10000 + Random.secure().nextInt(90000)}',
+        'customerId': uid,
+        'customerName': request.customerName,
+        'providerId': pro.id,
+        'providerName': pro.name,
+        'serviceName': request.serviceName,
+        'status': BookingStatus.pending.name,
+        'slotDate': slot.isoDate,
+        'startTime': slot.start,
+        'endTime': slot.end,
+        'scheduledAt': Timestamp.fromDate(slot.startsAt),
+        'endAt': Timestamp.fromDate(
+          BookingPolicy.colomboInstant(slot.date, slot.end),
+        ),
+        'slotLockId': lockId,
+        'addressId': a.id,
+        'address': a.line,
+        'addressLabel': a.label,
+        'addressArea': a.province,
+        'accessNotes': a.accessNotes,
+        'contactPhone': '',
+        'jobNotes': '',
+        'photoUrls': <String>[],
+        // The provider's published starting price; null = priced on site.
+        'estimatedPrice': pro.pricing,
+        'totalAmount': pro.pricing,
+        'laborCharge': pro.pricing,
+        'serviceFee': 0,
+        'paymentStatus': 'unpaid',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(_lock(lockId), {
+        'providerId': pro.id,
+        'date': slot.isoDate,
+        'startTime': slot.start,
+        'endTime': slot.end,
+        'bookingId': bookingRef.id,
+      });
+    });
+    return bookingRef.id;
   }
 
   Future<void> reschedule(Booking booking, TimeSlot slot) async {
