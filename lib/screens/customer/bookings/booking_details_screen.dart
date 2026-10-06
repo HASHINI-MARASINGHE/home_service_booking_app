@@ -333,6 +333,12 @@ class _Details extends StatelessWidget {
                   ],
                 ),
               ],
+              if (b.photoUrls.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text('Issue Photos', style: AppTypography.label),
+                const SizedBox(height: AppSpacing.xs),
+                _PhotoStrip(urls: b.photoUrls),
+              ],
             ],
           ),
         ),
@@ -474,6 +480,44 @@ class _AddressWarning extends StatelessWidget {
         ),
         TextButton(onPressed: onUpdate, child: const Text('Update')),
       ],
+    ),
+  );
+}
+
+/// Thumbnails of the customer's issue photos (Cloudinary or any https URL).
+class _PhotoStrip extends StatelessWidget {
+  const _PhotoStrip({required this.urls});
+  final List<String> urls;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 76,
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: urls.length,
+      separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.xs),
+      itemBuilder: (context, i) => ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: Image.network(
+          urls[i],
+          width: 76,
+          height: 76,
+          fit: BoxFit.cover,
+          semanticLabel: 'Issue photo ${i + 1}',
+          loadingBuilder: (context, child, progress) => progress == null
+              ? child
+              : const ColoredBox(
+                  color: AppColors.surfaceLavender,
+                  child: SizedBox(width: 76, height: 76),
+                ),
+          errorBuilder: (_, _, _) => Container(
+            width: 76,
+            height: 76,
+            color: AppColors.surfaceLavender,
+            child: const Icon(LucideIcons.imageOff, color: AppColors.muted),
+          ),
+        ),
+      ),
     ),
   );
 }
