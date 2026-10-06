@@ -585,6 +585,9 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // Provider verification documents are hosted on Cloudinary
+    // (https://res.cloudinary.com/dclo5pyll/provider_docs/{uid}/...);
+    // Firebase Storage is not used.
     function validDocFile(file) {
       return file is map && file.name is string && file.name.size() > 0 &&
         file.name.size() <= 200 && file.url is string && file.url.size() > 0 &&
