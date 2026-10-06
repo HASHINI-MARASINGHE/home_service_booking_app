@@ -8,7 +8,8 @@ import 'logout_button.dart';
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../customer/customer_home_screen.dart';
-import '../provider/provider_home_screen.dart';
+import '../admin/admin_home_screen.dart';
+import '../provider/provider_gate.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key, this.authService});
@@ -131,7 +132,11 @@ class _ProfileGateState extends State<_ProfileGate> {
           user: profile,
           authService: widget.authService,
         ),
-        AppUser.providerRole => ProviderHomeScreen(
+        AppUser.providerRole => ProviderGate(
+          user: profile,
+          authService: widget.authService,
+        ),
+        AppUser.adminRole => AdminHomeScreen(
           user: profile,
           authService: widget.authService,
         ),

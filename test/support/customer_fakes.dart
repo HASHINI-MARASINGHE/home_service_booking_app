@@ -12,6 +12,7 @@ import 'package:home_service_bookin_app/models/booking_policy.dart';
 import 'package:home_service_bookin_app/models/professional.dart';
 import 'package:home_service_bookin_app/models/receipt.dart';
 import 'package:home_service_bookin_app/models/refund.dart';
+import 'package:home_service_bookin_app/models/review.dart';
 import 'package:home_service_bookin_app/screens/customer/customer_scope.dart';
 import 'package:home_service_bookin_app/services/address_service.dart';
 import 'package:home_service_bookin_app/services/customer_booking_service.dart';
@@ -186,6 +187,8 @@ class FakeBookingService extends CustomerBookingService {
   final locks = <String, Map<String, String>>{};
   final cancelled = <String, String>{};
   final rescheduled = <String, TimeSlot>{};
+  final reviews = <String, Review>{};
+  final _reviewChanges = StreamController<String>.broadcast();
 
   @override
   Stream<List<Booking>> watchBookings() => Stream.value(bookings);
@@ -228,6 +231,73 @@ class FakeBookingService extends CustomerBookingService {
     created.add(request);
     return 'new-booking';
   }
+
+  @override
+  Stream<Review?> watchReview(String bookingId) async* {
+    yield reviews[bookingId];
+    await for (final changed in _reviewChanges.stream) {
+      if (changed == bookingId) yield reviews[bookingId];
+    }
+  }
+
+  @override
+  Future<void> submitReview({
+    required Booking booking,
+    required int rating,
+    required String comment,
+    List<String> tags = const [],
+    bool? recommend,
+  }) async {
+    reviews[booking.id] = Review(
+      bookingId: booking.id,
+      customerId: booking.customerId,
+      providerId: booking.providerId,
+      customerName: booking.customerName,
+      serviceName: booking.serviceName,
+      rating: rating,
+      tags: tags,
+      comment: comment.trim(),
+      recommend: recommend,
+    );
+    _reviewChanges.add(booking.id);
+  }
+
+  @override
+  Future<void> updateReview({
+    required Booking booking,
+    required int rating,
+    required String comment,
+    List<String> tags = const [],
+    bool? recommend,
+  }) async {
+    final old = reviews[booking.id]!;
+    reviews[booking.id] = Review(
+      bookingId: old.bookingId,
+      customerId: old.customerId,
+      providerId: old.providerId,
+      customerName: old.customerName,
+      serviceName: old.serviceName,
+      rating: rating,
+      tags: tags,
+      comment: comment.trim(),
+      recommend: recommend,
+      createdAt: old.createdAt,
+      updatedAt: testNow,
+    );
+    _reviewChanges.add(booking.id);
+  }
+
+  @override
+  Future<void> deleteReview(Booking booking) async {
+    reviews.remove(booking.id);
+    _reviewChanges.add(booking.id);
+  }
+
+  /// Verified providers shown on the customer home screen.
+  List<Professional> directory = [professional];
+
+  @override
+  Stream<List<Professional>> watchProfessionals() => Stream.value(directory);
 
   @override
   Stream<Refund?> watchRefund(String bookingId) => Stream.value(refund);

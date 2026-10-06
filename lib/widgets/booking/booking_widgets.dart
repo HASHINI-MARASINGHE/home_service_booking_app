@@ -228,6 +228,14 @@ class ProfessionalCard extends StatelessWidget {
                   ),
                   if (p.specialty.isNotEmpty)
                     Text(p.specialty, style: AppTypography.body),
+                  if (p.providerCode != null)
+                    Text(
+                      'Provider ID · ${p.providerCode}',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 6,
@@ -241,7 +249,10 @@ class ProfessionalCard extends StatelessWidget {
                           background: AppColors.surfaceSage,
                         ),
                       Text(
-                        '(${p.completedJobs} verified jobs)',
+                        p.reviewCount > 0
+                            ? '(${p.reviewCount} ${p.reviewCount == 1 ? 'review' : 'reviews'} · '
+                                  '${p.completedJobs} jobs)'
+                            : '(${p.completedJobs} verified jobs)',
                         style: AppTypography.caption,
                       ),
                     ],
@@ -486,10 +497,18 @@ class PaymentSummaryCard extends StatelessWidget {
 
 /// Compact booking row for Booking History.
 class BookingCard extends StatelessWidget {
-  const BookingCard({super.key, required this.booking, required this.onTap});
+  const BookingCard({
+    super.key,
+    required this.booking,
+    required this.onTap,
+    this.footer,
+  });
 
   final Booking booking;
   final VoidCallback onTap;
+
+  /// Optional extra line under the price row, e.g. the customer's rating.
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -568,6 +587,7 @@ class BookingCard extends StatelessWidget {
               ),
             ],
           ),
+          ?footer,
         ],
       ),
     );

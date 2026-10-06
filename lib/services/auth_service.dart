@@ -11,6 +11,10 @@ class IncorrectPasswordException implements Exception {
   const IncorrectPasswordException();
 }
 
+class NotAnAdminException implements Exception {
+  const NotAnAdminException();
+}
+
 class AuthService {
   AuthService({
     FirebaseAuth? auth,
@@ -41,6 +45,10 @@ class AuthService {
     required String email,
     required String password,
     required String role,
+    // Runs right after the account exists and before the app sees the new
+    // session (e.g. uploading provider documents). If it throws, the new
+    // account is removed again so nothing is left half created.
+    Future<void> Function(User user)? onCreated,
   }) async {
     if (name.trim().isEmpty ||
         (role != AppUser.customerRole && role != AppUser.providerRole)) {
@@ -68,6 +76,7 @@ class AuthService {
           .collection('users')
           .doc(profile.uid)
           .set(profile.toMap());
+      await onCreated?.call(createdUser);
       return profile;
     } catch (_) {
       if (createdUser != null) {
@@ -91,6 +100,43 @@ class AuthService {
       email: email.trim(),
       password: password,
     );
+  }
+
+  /// Admin accounts sign in with a username. Usernames map to a fixed
+  /// address, so `admin` is `admin@admin.homecare.app`; a full email also works.
+  static String adminEmailFor(String username) {
+    final name = username.trim().toLowerCase();
+    return name.contains('@') ? name : '$name@admin.homecare.app';
+  }
+
+  /// Signs in an admin. Anyone whose account is not an admin is signed straight
+  /// back out, so this screen can never be used to enter another role.
+  Future<void> adminLogin({
+    required String username,
+    required String password,
+  }) async {
+    if (_registration != null) {
+      throw StateError('Another sign-in is in progress.');
+    }
+    // Hold back the session change until the role is known, so a non-admin
+    // never flashes into their own home screen from this form.
+    final completion = Completer<void>();
+    _registration = completion;
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: adminEmailFor(username),
+        password: password,
+      );
+      final uid = credential.user?.uid;
+      final profile = uid == null ? null : await getUserProfile(uid);
+      if (profile?.role != AppUser.adminRole) {
+        await _auth.signOut();
+        throw const NotAnAdminException();
+      }
+    } finally {
+      _registration = null;
+      completion.complete();
+    }
   }
 
   Future<void> logout() => _auth.signOut();
@@ -174,6 +220,14 @@ class AuthService {
 
   static String errorMessage(Object error) {
     if (error is IncorrectPasswordException) return 'Incorrect password.';
+    if (error is NotAnAdminException) {
+      return 'This sign-in is for HomeCare admins only.';
+    }
+    if (error is StateError) return error.message;
+    if (error is FormatException) {
+      return "This account's profile is incomplete. Check the name, email and "
+          'role fields in its users record.';
+    }
     if (error is ArgumentError) return error.message?.toString() ?? 'Invalid input.';
     if (error is FirebaseException) {
       return switch (error.code) {
@@ -188,6 +242,11 @@ class AuthService {
         'too-many-requests' => 'Too many attempts. Please try again later.',
         'network-request-failed' ||
         'unavailable' => 'Check your connection and try again.',
+        'unauthorized' =>
+          'A document could not be uploaded. Use a PDF, Word file or photo '
+              'under 10 MB.',
+        'retry-limit-exceeded' ||
+        'canceled' => 'The upload was interrupted. Please try again.',
         'permission-denied' =>
           'Your profile could not be accessed. Please contact support.',
         'requires-recent-login' =>

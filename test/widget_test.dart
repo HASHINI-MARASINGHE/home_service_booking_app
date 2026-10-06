@@ -8,6 +8,7 @@ import 'package:home_service_bookin_app/screens/customer/bookings/booking_detail
 import 'package:home_service_bookin_app/screens/customer/customer_home_screen.dart';
 import 'package:home_service_bookin_app/services/auth_service.dart';
 import 'package:home_service_bookin_app/theme/app_theme.dart';
+import 'package:home_service_bookin_app/widgets/common/app_bottom_nav.dart';
 
 import 'support/customer_fakes.dart';
 
@@ -34,9 +35,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Provider Profiles'), findsOneWidget);
-    expect(find.text('Nuwan'), findsOneWidget, reason: 'live provider shown');
-    final nav = find.byType(NavigationBar);
+    final nav = find.byType(AppBottomNav);
     expect(nav, findsOneWidget);
     expect(find.text('Bookings'), findsOneWidget);
 

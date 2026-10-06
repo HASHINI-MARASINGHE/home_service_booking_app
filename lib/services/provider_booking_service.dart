@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/booking.dart';
+import '../models/review.dart';
 
 class ProviderBookingService {
   ProviderBookingService({FirebaseAuth? auth, FirebaseFirestore? firestore})
@@ -38,6 +39,14 @@ class ProviderBookingService {
           return bookings;
         });
   }
+
+  /// The customer's review of one of this provider's jobs (null until
+  /// reviewed). Rules only serve it to the customer and the provider.
+  Stream<Review?> watchReview(String bookingId) => _db
+      .collection('reviews')
+      .doc(bookingId)
+      .snapshots()
+      .map((doc) => Review.fromMap(doc.id, doc.data()));
 
   Stream<List<Booking>> watchRequests() => watchBookings().map(
     (items) => items.where((b) => b.status == BookingStatus.pending).toList(),

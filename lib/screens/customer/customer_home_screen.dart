@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/customer_home_data.dart';
-import '../../models/app_user.dart';
 import '../../models/professional.dart';
+import '../../models/service_category.dart';
+import '../../models/app_user.dart';
 import '../../services/address_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/customer_booking_service.dart';
@@ -15,9 +15,8 @@ import 'addresses/my_addresses_screen.dart';
 import 'bookings/booking_history_screen.dart';
 import 'customer_profile_screen.dart';
 import 'customer_scope.dart';
-import 'providers/all_providers_screen.dart';
-import 'providers/provider_details_screen.dart';
 import 'widgets/customer_home_widgets.dart';
+import 'widgets/provider_directory_widgets.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({
@@ -153,278 +152,219 @@ class _TabNavigator extends StatelessWidget {
   );
 }
 
-class _CustomerHomeContent extends StatelessWidget {
+class _CustomerHomeContent extends StatefulWidget {
   const _CustomerHomeContent({required this.user});
 
   final AppUser user;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    bottom: false,
-    child: CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 104),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Welcome back',
-                          style: TextStyle(
-                            color: CustomerHomeTheme.mutedText,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Hi, ${user.name.split(' ').first}',
-                          style: const TextStyle(
-                            color: CustomerHomeTheme.text,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  CustomerAvatar(photoUrl: user.photoUrl, radius: 21),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const _TrustedProsBadge(),
-              const SizedBox(height: 14),
-              const Text(
-                'Your Home, Our Care',
-                style: TextStyle(
-                  color: CustomerHomeTheme.primaryDark,
-                  fontSize: 30,
-                  height: 1.12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Book trusted professionals for every home need.',
-                style: TextStyle(
-                  color: CustomerHomeTheme.mutedText,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const CustomerSearchBar(),
-              const SizedBox(height: 28),
-              _SectionHeading(
-                title: 'Provider Profiles',
-                onSeeAll: () => _push(context, const AllProvidersScreen()),
-              ),
-              const SizedBox(height: 14),
-              const _ProviderStrip(),
-              const SizedBox(height: 28),
-              const _SectionHeading(title: 'Services for your home'),
-              const SizedBox(height: 14),
-              ...customerServices.map(
-                (service) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: ServiceCard(service: service),
-                ),
-              ),
-            ]),
-          ),
-        ),
-      ],
-    ),
-  );
+  State<_CustomerHomeContent> createState() => _CustomerHomeContentState();
 }
 
-/// Live "Provider Profiles" row backed by the public `professionals`
-/// directory, so newly published providers appear without a restart.
-class _ProviderStrip extends StatefulWidget {
-  const _ProviderStrip();
+class _CustomerHomeContentState extends State<_CustomerHomeContent> {
+  Stream<List<Professional>>? _directory;
+  ServiceCategory? _category;
+  String _query = '';
 
-  @override
-  State<_ProviderStrip> createState() => _ProviderStripState();
-}
-
-class _ProviderStripState extends State<_ProviderStrip> {
-  Stream<List<Professional>>? _providers;
+  AppUser get user => widget.user;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _providers ??= _load();
+    _directory ??= CustomerScope.of(context).bookings.watchProfessionals();
   }
 
-  // A setup failure (e.g. Firebase unavailable) shows Retry instead of
-  // breaking the whole home page.
-  Stream<List<Professional>> _load() {
-    try {
-      return CustomerScope.of(context).bookings.watchProfessionals();
-    } catch (error) {
-      return Stream.error(error);
-    }
-  }
+  void _reload() => setState(
+    () => _directory = CustomerScope.of(context).bookings.watchProfessionals(),
+  );
 
-  void _retry() => setState(() => _providers = _load());
+  /// Verified providers matching the chosen category and the search text.
+  List<Professional> _visible(List<Professional> all) {
+    final query = _query.trim().toLowerCase();
+    return [
+      for (final p in all)
+        if ((_category == null || _category!.matches(p)) &&
+            (query.isEmpty ||
+                '${p.name} ${p.specialty} ${p.services.join(' ')} ${p.providerCode ?? ''}'
+                    .toLowerCase()
+                    .contains(query)))
+          p,
+    ];
+  }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 104,
-    child: StreamBuilder<List<Professional>>(
-      stream: _providers,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _StripMessage(
-            text: 'Could not load providers.',
-            action: TextButton(onPressed: _retry, child: const Text('Retry')),
-          );
-        }
-        final providers = snapshot.data;
-        if (providers == null) {
-          return ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 4,
-            separatorBuilder: (context, index) => const SizedBox(width: 16),
-            itemBuilder: (context, index) => const Align(
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: 68,
-                height: 68,
-                child: ClipOval(child: ProviderAvatarPlaceholder()),
+  Widget build(BuildContext context) => CustomScrollView(
+    slivers: [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate([
+            SafeArea(
+              bottom: false,
+              child: Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: CustomerHomeTheme.mint,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.verified_outlined,
+                            color: CustomerHomeTheme.primary,
+                            size: 15,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Trusted pros',
+                            style: TextStyle(
+                              color: CustomerHomeTheme.primaryDark,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Hi, ${user.name.split(' ').first}',
+                      textAlign: TextAlign.end,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: CustomerHomeTheme.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  CustomerAvatar(photoUrl: user.photoUrl, radius: 18),
+                ],
               ),
             ),
-          );
-        }
-        if (providers.isEmpty) {
-          return const _StripMessage(text: 'No providers have joined yet.');
-        }
-        return ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: providers.length,
-          separatorBuilder: (context, index) => const SizedBox(width: 16),
-          itemBuilder: (context, index) {
-            final provider = providers[index];
-            return ProviderAvatar(
-              provider: provider,
-              onTap: () => _push(
-                context,
-                ProviderDetailsScreen(
-                  providerId: provider.id,
-                  initial: provider,
-                ),
+            const SizedBox(height: 28),
+            const Text(
+              'Your Home,\nOur Care',
+              style: TextStyle(
+                color: CustomerHomeTheme.primaryDark,
+                fontSize: 36,
+                height: 1.08,
+                fontWeight: FontWeight.w800,
               ),
-            );
-          },
-        );
-      },
-    ),
-  );
-}
-
-class _StripMessage extends StatelessWidget {
-  const _StripMessage({required this.text, this.action});
-
-  final String text;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: CustomerHomeTheme.mutedText,
-            fontSize: 13,
-          ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Book trusted professionals for every home need, all in one place.',
+              style: TextStyle(
+                color: CustomerHomeTheme.mutedText,
+                fontSize: 15,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 22),
+            CustomerSearchBar(
+              onChanged: (text) => setState(() => _query = text),
+            ),
+            const SizedBox(height: 30),
+            const _SectionHeading(title: 'Services for your home'),
+            const SizedBox(height: 14),
+            StreamBuilder<List<Professional>>(
+              stream: _directory,
+              builder: (context, snapshot) {
+                final all = snapshot.data ?? const <Professional>[];
+                final shown = _visible(all);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CategoryRow(
+                      providers: all,
+                      selected: _category,
+                      onSelected: (c) => setState(() => _category = c),
+                    ),
+                    const SizedBox(height: 26),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: _SectionHeading(title: 'Verified providers'),
+                        ),
+                        if (snapshot.hasData)
+                          Text(
+                            '${shown.length} ${shown.length == 1 ? 'provider' : 'providers'}',
+                            key: const ValueKey('provider-count'),
+                            style: const TextStyle(
+                              color: CustomerHomeTheme.mutedText,
+                              fontSize: 13,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (snapshot.hasError)
+                      Column(
+                        children: [
+                          const DirectoryMessage(
+                            text: 'Providers could not be loaded right now.',
+                            icon: Icons.cloud_off_outlined,
+                          ),
+                          TextButton(
+                            onPressed: _reload,
+                            child: const Text('Try again'),
+                          ),
+                        ],
+                      )
+                    else if (!snapshot.hasData)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (shown.isEmpty)
+                      DirectoryMessage(
+                        key: const ValueKey('no-providers'),
+                        icon: Icons.search_off_rounded,
+                        text: all.isEmpty
+                            ? 'No verified providers yet. Providers show up here as soon as our team verifies them.'
+                            : 'No providers match your search. Try another category or clear the search.',
+                      )
+                    else
+                      for (final provider in shown)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ProviderListCard(provider: provider),
+                        ),
+                  ],
+                );
+              },
+            ),
+          ]),
         ),
       ),
-      ?action,
     ],
   );
 }
-
-/// Opens [page] inside the Home tab so the bottom navigation stays visible.
-void _push(BuildContext context, Widget page) =>
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => Material(child: page)));
 
 class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({required this.title, this.onSeeAll});
+  const _SectionHeading({required this.title});
 
   final String title;
-  final VoidCallback? onSeeAll;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Text(
-          title,
-          style: const TextStyle(
-            color: CustomerHomeTheme.text,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      TextButton(
-        onPressed:
-            onSeeAll ??
-            () {
-              // TODO: Open the full list for this section.
-            },
-        style: TextButton.styleFrom(
-          foregroundColor: CustomerHomeTheme.primary,
-          padding: EdgeInsets.zero,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        child: const Text(
-          'See all',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-      ),
-    ],
-  );
-}
-
-class _TrustedProsBadge extends StatelessWidget {
-  const _TrustedProsBadge();
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: CustomerHomeTheme.mint,
-      borderRadius: BorderRadius.circular(24),
-    ),
-    child: const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.verified_outlined,
-            color: CustomerHomeTheme.primary,
-            size: 15,
-          ),
-          SizedBox(width: 6),
-          Text(
-            'Trusted pros',
-            style: TextStyle(
-              color: CustomerHomeTheme.primaryDark,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+  Widget build(BuildContext context) => Text(
+    title,
+    style: const TextStyle(
+      color: CustomerHomeTheme.text,
+      fontSize: 20,
+      fontWeight: FontWeight.w800,
     ),
   );
 }

@@ -95,53 +95,12 @@ service cloud.firestore {
       }
     }
 
-    // ------------------------------------------- public provider directory
-    // Any signed-in user may read it (customer home "Provider Profiles").
-    // A provider may publish only their own identity fields, mirrored from
-    // users/{uid}; rating, verification, job counts, licence and working
-    // hours stay with the trusted backend (Admin SDK / tool/seed).
-    function selfListingFields() {
-      return ['name', 'photoUrl', 'specialty', 'phone', 'about', 'experience',
-        'services', 'pricing', 'updatedAt'];
-    }
-
-    function validSelfListing(d, keys, uid) {
-      let account = get(/databases/$(database)/documents/users/$(uid)).data;
-      return d.name == account.name &&
-        (!('photoUrl' in keys) || d.photoUrl == account.get('photoUrl', null)) &&
-        d.specialty is string && d.specialty.size() > 0 && d.specialty.size() <= 100 &&
-        d.phone is string && d.phone.size() <= 40 &&
-        d.get('about', '') is string && d.get('about', '').size() <= 2000 &&
-        d.get('experience', 0) is int &&
-        d.get('experience', 0) >= 0 && d.get('experience', 0) <= 80 &&
-        validServiceList(d.get('services', [])) &&
-        (d.get('pricing', null) == null ||
-          (d.pricing is number && d.pricing >= 0 && d.pricing <= 10000000)) &&
-        d.updatedAt == request.time;
-    }
-
-    function validServiceList(services) {
-      return services is list && services.size() <= 20 &&
-        validServiceAt(services, 0) && validServiceAt(services, 1) &&
-        validServiceAt(services, 2) && validServiceAt(services, 3) &&
-        validServiceAt(services, 4) && validServiceAt(services, 5) &&
-        validServiceAt(services, 6) && validServiceAt(services, 7) &&
-        validServiceAt(services, 8) && validServiceAt(services, 9) &&
-        validServiceAt(services, 10) && validServiceAt(services, 11) &&
-        validServiceAt(services, 12) && validServiceAt(services, 13) &&
-        validServiceAt(services, 14) && validServiceAt(services, 15) &&
-        validServiceAt(services, 16) && validServiceAt(services, 17) &&
-        validServiceAt(services, 18) && validServiceAt(services, 19);
-    }
-
+    // ------------------------------------------- read-only catalog data
+    // Written only by the trusted backend (Admin SDK / tool/seed).
     match /professionals/{providerId} {
       allow read: if signedIn();
-      allow create: if providerSignedIn() && request.auth.uid == providerId &&
-        request.resource.data.keys().hasOnly(selfListingFields()) &&
-        validSelfListing(request.resource.data, request.resource.data.keys(), providerId);
-      allow update: if providerSignedIn() && request.auth.uid == providerId &&
-        changedKeys().hasOnly(selfListingFields()) &&
-        validSelfListing(request.resource.data, changedKeys(), providerId);
+      // Admin publishes it when verifying a provider (see AdminService.verify).
+      allow create, update: if isAdmin();
       allow delete: if false;
     }
 
@@ -205,8 +164,12 @@ service cloud.firestore {
         resource.data.status in ['pending', 'confirmed'];
     }
 
+    function providerVerified() {
+      return get(/databases/$(database)/documents/providerVerifications/$(request.auth.uid)).data.status == 'verified';
+    }
+
     function providerTransition() {
-      return providerSignedIn() &&
+      return providerSignedIn() && providerVerified() &&
         resource.data.providerId == request.auth.uid &&
         (
           (resource.data.status == 'pending' &&
@@ -411,26 +374,295 @@ service cloud.firestore {
         return get(bookingPath(bookingId)).data;
       }
 
+      // The provider's rating total must be rewritten by this very commit
+      // (fresh timestamp) and point at this review, so a review can never
+      // change without the overall rating following it.
+      function ratingTotalMoves(providerId) {
+        return getAfter(/databases/$(database)/documents/ratingStats/$(providerId)).data.lastReviewId == bookingId &&
+          getAfter(/databases/$(database)/documents/ratingStats/$(providerId)).data.updatedAt == request.time;
+      }
+
+      function validReviewContent(data) {
+        return data.rating is int &&
+          data.rating >= 1 &&
+          data.rating <= 5 &&
+          data.comment is string &&
+          data.comment.size() <= 500 &&
+          data.get('tags', []) is list &&
+          data.get('tags', []).size() <= 6 &&
+          data.get('tags', []).hasOnly(['On Time',
+            'Polite & Professional', 'Clean Work', 'Fair Price',
+            'Good Communication', 'Careful with Furniture']) &&
+          (data.get('recommend', null) == null || data.recommend is bool);
+      }
+
+      // Customers read their own review, providers the reviews of their jobs;
+      // nobody else. Providers can never write one.
       allow get: if signedIn() &&
         (resource == null ||
          resource.data.customerId == request.auth.uid ||
          resource.data.providerId == request.auth.uid);
       allow list: if false;
+
       allow create: if signedIn() &&
         request.resource.data.keys().hasOnly(['bookingId', 'customerId',
+          'providerId', 'customerName', 'serviceName', 'rating', 'tags',
+          'comment', 'recommend', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['bookingId', 'customerId',
           'providerId', 'rating', 'comment', 'createdAt']) &&
         request.resource.data.bookingId == bookingId &&
         request.resource.data.customerId == request.auth.uid &&
         reviewedBooking().customerId == request.auth.uid &&
         reviewedBooking().status == 'completed' &&
         request.resource.data.providerId == reviewedBooking().providerId &&
-        request.resource.data.rating is int &&
-        request.resource.data.rating >= 1 &&
-        request.resource.data.rating <= 5 &&
-        request.resource.data.comment is string &&
-        request.resource.data.comment.size() <= 500 &&
+        validReviewContent(request.resource.data) &&
+        request.resource.data.get('customerName', '') is string &&
+        request.resource.data.get('customerName', '').size() <= 80 &&
+        request.resource.data.get('serviceName', '') is string &&
+        request.resource.data.get('serviceName', '').size() <= 120 &&
+        request.resource.data.createdAt == request.time &&
+        ratingTotalMoves(reviewedBooking().providerId);
+
+      // Only the customer who wrote it may change the stars, highlights,
+      // feedback and recommendation. Who/what/when it belongs to is fixed.
+      allow update: if signedIn() &&
+        resource.data.customerId == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['bookingId', 'customerId',
+          'providerId', 'customerName', 'serviceName', 'rating', 'tags',
+          'comment', 'recommend', 'createdAt', 'updatedAt']) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['rating', 'tags', 'comment', 'recommend', 'updatedAt']) &&
+        validReviewContent(request.resource.data) &&
+        request.resource.data.updatedAt == request.time &&
+        ratingTotalMoves(resource.data.providerId);
+
+      allow delete: if signedIn() &&
+        resource.data.customerId == request.auth.uid &&
+        ratingTotalMoves(resource.data.providerId);
+    }
+
+    // A provider's overall rating: running total of all customer reviews.
+    // Anyone signed in can read it (it is an aggregate, no personal data).
+    // It can only change in the same commit as the review it counts, and only
+    // by exactly that review's stars: added once, swapped when the customer
+    // edits, removed when the customer deletes. Nobody can set or skew it.
+    match /ratingStats/{providerId} {
+      function reviewDoc(id) {
+        return /databases/$(database)/documents/reviews/$(id);
+      }
+
+      function ownedByMe(review) {
+        return review.customerId == request.auth.uid &&
+          review.providerId == providerId;
+      }
+
+      function tiedToReview() {
+        return request.resource.data.keys().hasOnly(['providerId', 'ratingSum',
+            'ratingCount', 'lastReviewId', 'updatedAt']) &&
+          request.resource.data.providerId == providerId &&
+          request.resource.data.lastReviewId is string &&
+          request.resource.data.ratingSum is int &&
+          request.resource.data.ratingCount is int &&
+          request.resource.data.ratingSum >= 0 &&
+          request.resource.data.ratingCount >= 0 &&
+          request.resource.data.updatedAt == request.time;
+      }
+
+      function isAdd(id) {
+        return !exists(reviewDoc(id)) && existsAfter(reviewDoc(id)) &&
+          ownedByMe(getAfter(reviewDoc(id)).data);
+      }
+
+      function isEdit(id) {
+        return exists(reviewDoc(id)) && existsAfter(reviewDoc(id)) &&
+          ownedByMe(get(reviewDoc(id)).data) &&
+          ownedByMe(getAfter(reviewDoc(id)).data);
+      }
+
+      function isRemove(id) {
+        return exists(reviewDoc(id)) && !existsAfter(reviewDoc(id)) &&
+          ownedByMe(get(reviewDoc(id)).data);
+      }
+
+      allow read: if signedIn();
+      allow create: if signedIn() && tiedToReview() &&
+        isAdd(request.resource.data.lastReviewId) &&
+        request.resource.data.ratingCount == 1 &&
+        request.resource.data.ratingSum ==
+          getAfter(reviewDoc(request.resource.data.lastReviewId)).data.rating;
+      allow update: if signedIn() && tiedToReview() && (
+        (isAdd(request.resource.data.lastReviewId) &&
+          request.resource.data.ratingCount == resource.data.ratingCount + 1 &&
+          request.resource.data.ratingSum == resource.data.ratingSum +
+            getAfter(reviewDoc(request.resource.data.lastReviewId)).data.rating) ||
+        (isEdit(request.resource.data.lastReviewId) &&
+          request.resource.data.ratingCount == resource.data.ratingCount &&
+          request.resource.data.ratingSum == resource.data.ratingSum -
+            get(reviewDoc(request.resource.data.lastReviewId)).data.rating +
+            getAfter(reviewDoc(request.resource.data.lastReviewId)).data.rating) ||
+        (isRemove(request.resource.data.lastReviewId) &&
+          request.resource.data.ratingCount == resource.data.ratingCount - 1 &&
+          request.resource.data.ratingSum == resource.data.ratingSum -
+            get(reviewDoc(request.resource.data.lastReviewId)).data.rating)
+      );
+      allow delete: if false;
+    }
+
+    // Each user can only ever read their own notifications. Writes: the
+    // customer's review notification (created, refreshed on edit, removed on
+    // delete, always in the same commit as the review) and the recipient
+    // flipping `read`.
+    match /notifications/{notificationId} {
+      function reviewAfter(bookingId) {
+        return getAfter(/databases/$(database)/documents/reviews/$(bookingId)).data;
+      }
+
+      allow get, list: if signedIn() &&
+        resource.data.recipientId == request.auth.uid;
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'rating', 'read', 'createdAt']) &&
+        request.resource.data.type == 'review' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.bookingId is string &&
+        notificationId == 'review_' + request.resource.data.bookingId &&
+        existsAfter(/databases/$(database)/documents/reviews/$(request.resource.data.bookingId)) &&
+        reviewAfter(request.resource.data.bookingId).customerId == request.auth.uid &&
+        request.resource.data.recipientId ==
+          reviewAfter(request.resource.data.bookingId).providerId &&
+        request.resource.data.rating == reviewAfter(request.resource.data.bookingId).rating &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 200 &&
+        request.resource.data.read == false &&
         request.resource.data.createdAt == request.time;
-      allow update, delete: if false;
+      // An admin tells a provider the outcome of their verification.
+      allow create: if isAdmin() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'read', 'createdAt']) &&
+        request.resource.data.type == 'verification' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.recipientId is string &&
+        request.resource.data.bookingId == '' &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 300 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && (
+        // The recipient marks it read.
+        (resource.data.recipientId == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) &&
+         request.resource.data.read is bool) ||
+        // The customer who edited their review refreshes it as unread.
+        (resource.data.senderId == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['title', 'body', 'rating', 'read', 'createdAt']) &&
+         existsAfter(/databases/$(database)/documents/reviews/$(resource.data.bookingId)) &&
+         request.resource.data.rating == reviewAfter(resource.data.bookingId).rating &&
+         request.resource.data.title is string &&
+         request.resource.data.title.size() <= 120 &&
+         request.resource.data.body is string &&
+         request.resource.data.body.size() <= 200 &&
+         request.resource.data.read == false &&
+         request.resource.data.createdAt == request.time)
+      );
+      // Removed together with the review it announced.
+      allow delete: if signedIn() &&
+        resource.data.senderId == request.auth.uid &&
+        !existsAfter(/databases/$(database)/documents/reviews/$(resource.data.bookingId));
+    }
+
+    // ------------------------------------------- provider verification (admin)
+    // A provider submits their details and documents; only an admin (a user
+    // whose users/{uid}.role is 'admin', created by the trusted backend, never
+    // by sign-up) can verify or reject. Until verified a provider cannot take
+    // jobs (see providerVerified() in the bookings rules).
+    function isAdmin() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function validDocFile(file) {
+      return file is map && file.name is string && file.name.size() > 0 &&
+        file.name.size() <= 200 && file.url is string && file.url.size() > 0 &&
+        file.url.size() <= 2000;
+    }
+
+    function validSubmission(d, uid) {
+      return d.keys().hasOnly(['providerId', 'fullName', 'phone', 'profession',
+          'experienceYears', 'about', 'idType', 'idNumber', 'idFront', 'idBack',
+          'selfie', 'cv', 'certificates', 'experiences', 'status', 'submittedAt']) &&
+        d.keys().hasAll(['providerId', 'fullName', 'phone', 'profession',
+          'experienceYears', 'idType', 'idNumber', 'certificates', 'status',
+          'submittedAt']) &&
+        d.providerId == uid &&
+        d.fullName is string && d.fullName.size() >= 2 && d.fullName.size() <= 80 &&
+        // Sign-up is relaxed for now: only the name is compulsory and every
+        // document is optional (the admin sees what was provided). To make
+        // them compulsory again, require size() >= 9 / > 0 / >= 6 below and
+        // the document maps (see VerificationDraft.requireEverything).
+        d.phone is string && d.phone.size() <= 40 &&
+        d.profession is string && d.profession.size() <= 100 &&
+        d.experienceYears is int && d.experienceYears >= 0 && d.experienceYears <= 80 &&
+        d.get('about', '') is string && d.get('about', '').size() <= 2000 &&
+        d.idType in ['nic', 'passport'] &&
+        d.idNumber is string && d.idNumber.size() <= 20 &&
+        (d.get('idFront', null) == null || validDocFile(d.idFront)) &&
+        (d.get('idBack', null) == null || validDocFile(d.idBack)) &&
+        (d.get('selfie', null) == null || validDocFile(d.selfie)) &&
+        (d.get('cv', null) == null || validDocFile(d.cv)) &&
+        d.certificates is list && d.certificates.size() <= 5 &&
+        (d.certificates.size() < 1 || validDocFile(d.certificates[0])) &&
+        (d.certificates.size() < 2 || validDocFile(d.certificates[1])) &&
+        (d.certificates.size() < 3 || validDocFile(d.certificates[2])) &&
+        (d.certificates.size() < 4 || validDocFile(d.certificates[3])) &&
+        (d.certificates.size() < 5 || validDocFile(d.certificates[4])) &&
+        d.get('experiences', []) is list && d.get('experiences', []).size() <= 5 &&
+        d.status == 'pending' &&
+        d.submittedAt == request.time;
+    }
+
+    match /providerVerifications/{uid} {
+      allow get: if isUser(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if providerSignedIn() && request.auth.uid == uid &&
+        validSubmission(request.resource.data, uid);
+      allow update: if
+        // The provider fixes and resubmits after a rejection.
+        (providerSignedIn() && request.auth.uid == uid &&
+         resource.data.status == 'rejected' &&
+         validSubmission(request.resource.data, uid)) ||
+        // An admin reviews a pending submission.
+        (isAdmin() && resource.data.status == 'pending' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+           ['status', 'providerCode', 'reviewedAt', 'reviewedBy', 'rejectionReason']) &&
+         request.resource.data.reviewedAt == request.time &&
+         request.resource.data.reviewedBy == request.auth.uid &&
+         ((request.resource.data.status == 'verified' &&
+           request.resource.data.providerCode is string &&
+           request.resource.data.providerCode.size() > 0 &&
+           request.resource.data.providerCode.size() <= 20) ||
+          (request.resource.data.status == 'rejected' &&
+           request.resource.data.rejectionReason is string &&
+           request.resource.data.rejectionReason.size() >= 5 &&
+           request.resource.data.rejectionReason.size() <= 300)));
+      allow delete: if false;
+    }
+
+    // Last Provider ID number handed out (HCP-1001, HCP-1002, ...). Only an
+    // admin verifying a provider moves it, and only by exactly one.
+    match /counters/{counterId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && counterId == 'providerIds' &&
+        request.resource.data.keys().hasOnly(['last']) &&
+        request.resource.data.last == 1;
+      allow update: if isAdmin() && counterId == 'providerIds' &&
+        request.resource.data.keys().hasOnly(['last']) &&
+        request.resource.data.last == resource.data.last + 1;
+      allow delete: if false;
     }
 
     match /disputes/{disputeId} {
