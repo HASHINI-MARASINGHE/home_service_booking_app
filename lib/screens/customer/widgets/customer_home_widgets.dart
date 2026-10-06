@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../data/customer_home_data.dart';
+import '../../../models/professional.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/customer_home_theme.dart';
 
 class CustomerAvatar extends StatelessWidget {
-  const CustomerAvatar({
-    super.key,
-    required this.photoUrl,
-    this.radius = 28,
-  });
+  const CustomerAvatar({super.key, required this.photoUrl, this.radius = 28});
 
   final String? photoUrl;
   final double radius;
@@ -100,67 +97,99 @@ class CustomerSearchBar extends StatelessWidget {
 }
 
 class ProviderAvatar extends StatelessWidget {
-  const ProviderAvatar({super.key, required this.provider});
+  const ProviderAvatar({super.key, required this.provider, this.onTap});
 
-  final ProviderPreview provider;
+  final Professional provider;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 78,
-    child: Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(2),
-          decoration: const BoxDecoration(
-            color: CustomerHomeTheme.primary,
-            shape: BoxShape.circle,
-          ),
-          child: SizedBox(
-            width: 64,
-            height: 64,
-            child: ClipOval(
-              child: Image.network(
-                provider.imageUrl,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) => progress == null
-                    ? child
-                    : Container(
-                        color: CustomerHomeTheme.mint,
-                        alignment: Alignment.center,
-                        child: const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: CustomerHomeTheme.primary,
-                          ),
-                        ),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: const BoxDecoration(
+              color: CustomerHomeTheme.primary,
+              shape: BoxShape.circle,
+            ),
+            child: SizedBox(
+              width: 64,
+              height: 64,
+              child: ClipOval(
+                child: provider.photoUrl == null
+                    ? _initials()
+                    : Image.network(
+                        provider.photoUrl!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) =>
+                            progress == null
+                            ? child
+                            : const ProviderAvatarPlaceholder(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            _initials(),
                       ),
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: CustomerHomeTheme.mint,
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.person,
-                    color: CustomerHomeTheme.primary,
-                    size: 28,
-                  ),
-                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          provider.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: CustomerHomeTheme.text,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+          const SizedBox(height: 8),
+          Text(
+            provider.firstName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: CustomerHomeTheme.text,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+    ),
+  );
+
+  Widget _initials() {
+    final parts = provider.name.trim().split(RegExp(r'\s+'));
+    final letters = parts
+        .take(2)
+        .where((p) => p.isNotEmpty)
+        .map((p) => p[0].toUpperCase())
+        .join();
+    return Container(
+      color: CustomerHomeTheme.mint,
+      alignment: Alignment.center,
+      child: letters.isEmpty
+          ? const Icon(Icons.person, color: CustomerHomeTheme.primary, size: 28)
+          : Text(
+              letters,
+              style: const TextStyle(
+                color: CustomerHomeTheme.primaryDark,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+    );
+  }
+}
+
+/// Mint circle shown while a provider photo or the directory is loading.
+class ProviderAvatarPlaceholder extends StatelessWidget {
+  const ProviderAvatarPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: CustomerHomeTheme.mint,
+    alignment: Alignment.center,
+    child: const SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: CustomerHomeTheme.primary,
+      ),
     ),
   );
 }
@@ -194,7 +223,8 @@ class ServiceCard extends StatelessWidget {
                   child: Image.network(
                     service.imageUrl,
                     fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) => progress == null
+                    loadingBuilder: (context, child, progress) =>
+                        progress == null
                         ? child
                         : Container(
                             color: CustomerHomeTheme.mint,

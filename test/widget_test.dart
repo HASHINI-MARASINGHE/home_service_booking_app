@@ -34,6 +34,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.text('Provider Profiles'), findsOneWidget);
+    expect(find.text('Nuwan'), findsOneWidget, reason: 'live provider shown');
     final nav = find.byType(NavigationBar);
     expect(nav, findsOneWidget);
     expect(find.text('Bookings'), findsOneWidget);

@@ -95,11 +95,54 @@ service cloud.firestore {
       }
     }
 
-    // ------------------------------------------- read-only catalog data
-    // Written only by the trusted backend (Admin SDK / tool/seed).
+    // ------------------------------------------- public provider directory
+    // Any signed-in user may read it (customer home "Provider Profiles").
+    // A provider may publish only their own identity fields, mirrored from
+    // users/{uid}; rating, verification, job counts, licence and working
+    // hours stay with the trusted backend (Admin SDK / tool/seed).
+    function selfListingFields() {
+      return ['name', 'photoUrl', 'specialty', 'phone', 'about', 'experience',
+        'services', 'pricing', 'updatedAt'];
+    }
+
+    function validSelfListing(d, keys, uid) {
+      let account = get(/databases/$(database)/documents/users/$(uid)).data;
+      return d.name == account.name &&
+        (!('photoUrl' in keys) || d.photoUrl == account.get('photoUrl', null)) &&
+        d.specialty is string && d.specialty.size() > 0 && d.specialty.size() <= 100 &&
+        d.phone is string && d.phone.size() <= 40 &&
+        d.get('about', '') is string && d.get('about', '').size() <= 2000 &&
+        d.get('experience', 0) is int &&
+        d.get('experience', 0) >= 0 && d.get('experience', 0) <= 80 &&
+        validServiceList(d.get('services', [])) &&
+        (d.get('pricing', null) == null ||
+          (d.pricing is number && d.pricing >= 0 && d.pricing <= 10000000)) &&
+        d.updatedAt == request.time;
+    }
+
+    function validServiceList(services) {
+      return services is list && services.size() <= 20 &&
+        validServiceAt(services, 0) && validServiceAt(services, 1) &&
+        validServiceAt(services, 2) && validServiceAt(services, 3) &&
+        validServiceAt(services, 4) && validServiceAt(services, 5) &&
+        validServiceAt(services, 6) && validServiceAt(services, 7) &&
+        validServiceAt(services, 8) && validServiceAt(services, 9) &&
+        validServiceAt(services, 10) && validServiceAt(services, 11) &&
+        validServiceAt(services, 12) && validServiceAt(services, 13) &&
+        validServiceAt(services, 14) && validServiceAt(services, 15) &&
+        validServiceAt(services, 16) && validServiceAt(services, 17) &&
+        validServiceAt(services, 18) && validServiceAt(services, 19);
+    }
+
     match /professionals/{providerId} {
       allow read: if signedIn();
-      allow write: if false;
+      allow create: if providerSignedIn() && request.auth.uid == providerId &&
+        request.resource.data.keys().hasOnly(selfListingFields()) &&
+        validSelfListing(request.resource.data, request.resource.data.keys(), providerId);
+      allow update: if providerSignedIn() && request.auth.uid == providerId &&
+        changedKeys().hasOnly(selfListingFields()) &&
+        validSelfListing(request.resource.data, changedKeys(), providerId);
+      allow delete: if false;
     }
 
     match /services/{serviceId} {

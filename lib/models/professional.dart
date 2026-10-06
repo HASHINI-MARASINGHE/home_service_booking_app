@@ -14,6 +14,10 @@ class Professional {
     this.area = '',
     this.workingSlots = defaultSlots,
     this.workingDays = defaultDays,
+    this.about = '',
+    this.experience = 0,
+    this.services = const [],
+    this.pricing,
   });
 
   final String id, name, specialty, phone, licenseNumber, area;
@@ -27,6 +31,14 @@ class Professional {
 
   /// ISO weekdays the professional works (Monday = 1).
   final List<int> workingDays;
+
+  /// Mirrored from the provider's own profile when they save it.
+  final String about;
+  final int experience;
+  final List<String> services;
+
+  /// Starting price in LKR.
+  final double? pricing;
 
   static const defaultSlots = [
     ('08:30', '10:00'),
@@ -61,6 +73,8 @@ class Professional {
         : defaultDays;
     final rating = data['rating'];
     final photo = data['photoUrl'];
+    final experience = data['experience'];
+    final pricing = data['pricing'];
     String text(String key) => data[key] is String ? data[key] as String : '';
     return Professional(
       id: id,
@@ -77,6 +91,20 @@ class Professional {
       area: text('area'),
       workingSlots: slots.isEmpty ? defaultSlots : slots,
       workingDays: days.isEmpty ? defaultDays : days,
+      about: text('about'),
+      experience: experience is num && experience >= 0 && experience <= 80
+          ? experience.toInt()
+          : 0,
+      services: data['services'] is List
+          ? (data['services'] as List)
+                .whereType<String>()
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList()
+          : const [],
+      pricing: pricing is num && pricing.isFinite && pricing >= 0
+          ? pricing.toDouble()
+          : null,
     );
   }
 }

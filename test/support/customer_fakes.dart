@@ -110,6 +110,10 @@ const professional = Professional(
   phone: '+94771112233',
   licenseNumber: 'LK-AC-409',
   area: 'Colombo 03',
+  about: 'Certified AC and electrical technician.',
+  experience: 8,
+  services: ['Electrical Repair', 'AC Servicing'],
+  pricing: 2500,
 );
 
 class FakeAddressService extends AddressService {
@@ -160,16 +164,21 @@ class FakeAddressService extends AddressService {
 }
 
 class FakeBookingService extends CustomerBookingService {
-  FakeBookingService({List<Booking>? bookings, this.receipt, this.refund})
-    : bookings = bookings ?? [],
-      super(
-        auth: _Auth(),
-        firestore: _Db(),
-        storage: _Storage(),
-        clock: () => testNow,
-      );
+  FakeBookingService({
+    List<Booking>? bookings,
+    this.receipt,
+    this.refund,
+    this.professionals = const [professional],
+  }) : bookings = bookings ?? [],
+       super(
+         auth: _Auth(),
+         firestore: _Db(),
+         storage: _Storage(),
+         clock: () => testNow,
+       );
 
   final List<Booking> bookings;
+  final List<Professional> professionals;
   final Receipt? receipt;
   Refund? refund;
 
@@ -186,10 +195,39 @@ class FakeBookingService extends CustomerBookingService {
       Stream.value(bookings.where((b) => b.id == id).firstOrNull);
 
   @override
+  Stream<List<Professional>> watchProfessionals({int limit = 50}) =>
+      Stream.value(professionals);
+
+  @override
+  Stream<Professional?> watchProfessional(String id) =>
+      Stream.value(professionals.where((p) => p.id == id).firstOrNull);
+
+  @override
   Future<Professional?> getProfessional(
     String providerId, {
     bool refresh = false,
   }) async => professional;
+
+  /// Requests passed to [createBooking], newest last.
+  final created = <BookingRequest>[];
+
+  @override
+  Future<List<TimeSlot>> openSlots({
+    required Professional professional,
+    required DateTime date,
+  }) async => BookingPolicy.buildSlots(
+    professional: professional,
+    date: date,
+    locks: locks[Formatters.isoDate(date)] ?? const {},
+    bookingId: '',
+    now: testNow,
+  );
+
+  @override
+  Future<String> createBooking(BookingRequest request) async {
+    created.add(request);
+    return 'new-booking';
+  }
 
   @override
   Stream<Refund?> watchRefund(String bookingId) => Stream.value(refund);

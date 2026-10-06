@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/customer_home_data.dart';
 import '../../models/app_user.dart';
+import '../../models/professional.dart';
 import '../../services/address_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/customer_booking_service.dart';
@@ -14,6 +15,8 @@ import 'addresses/my_addresses_screen.dart';
 import 'bookings/booking_history_screen.dart';
 import 'customer_profile_screen.dart';
 import 'customer_scope.dart';
+import 'providers/all_providers_screen.dart';
+import 'providers/provider_details_screen.dart';
 import 'widgets/customer_home_widgets.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -216,19 +219,12 @@ class _CustomerHomeContent extends StatelessWidget {
               const SizedBox(height: 20),
               const CustomerSearchBar(),
               const SizedBox(height: 28),
-              const _SectionHeading(title: 'Provider Profiles'),
-              const SizedBox(height: 14),
-              SizedBox(
-                height: 104,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: customerProviders.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 16),
-                  itemBuilder: (context, index) => ProviderAvatar(
-                    provider: customerProviders[index],
-                  ),
-                ),
+              _SectionHeading(
+                title: 'Provider Profiles',
+                onSeeAll: () => _push(context, const AllProvidersScreen()),
               ),
+              const SizedBox(height: 14),
+              const _ProviderStrip(),
               const SizedBox(height: 28),
               const _SectionHeading(title: 'Services for your home'),
               const SizedBox(height: 14),
@@ -246,10 +242,124 @@ class _CustomerHomeContent extends StatelessWidget {
   );
 }
 
+/// Live "Provider Profiles" row backed by the public `professionals`
+/// directory, so newly published providers appear without a restart.
+class _ProviderStrip extends StatefulWidget {
+  const _ProviderStrip();
+
+  @override
+  State<_ProviderStrip> createState() => _ProviderStripState();
+}
+
+class _ProviderStripState extends State<_ProviderStrip> {
+  Stream<List<Professional>>? _providers;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _providers ??= _load();
+  }
+
+  // A setup failure (e.g. Firebase unavailable) shows Retry instead of
+  // breaking the whole home page.
+  Stream<List<Professional>> _load() {
+    try {
+      return CustomerScope.of(context).bookings.watchProfessionals();
+    } catch (error) {
+      return Stream.error(error);
+    }
+  }
+
+  void _retry() => setState(() => _providers = _load());
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 104,
+    child: StreamBuilder<List<Professional>>(
+      stream: _providers,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _StripMessage(
+            text: 'Could not load providers.',
+            action: TextButton(onPressed: _retry, child: const Text('Retry')),
+          );
+        }
+        final providers = snapshot.data;
+        if (providers == null) {
+          return ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 4,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) => const Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 68,
+                height: 68,
+                child: ClipOval(child: ProviderAvatarPlaceholder()),
+              ),
+            ),
+          );
+        }
+        if (providers.isEmpty) {
+          return const _StripMessage(text: 'No providers have joined yet.');
+        }
+        return ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: providers.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 16),
+          itemBuilder: (context, index) {
+            final provider = providers[index];
+            return ProviderAvatar(
+              provider: provider,
+              onTap: () => _push(
+                context,
+                ProviderDetailsScreen(
+                  providerId: provider.id,
+                  initial: provider,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ),
+  );
+}
+
+class _StripMessage extends StatelessWidget {
+  const _StripMessage({required this.text, this.action});
+
+  final String text;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: CustomerHomeTheme.mutedText,
+            fontSize: 13,
+          ),
+        ),
+      ),
+      ?action,
+    ],
+  );
+}
+
+/// Opens [page] inside the Home tab so the bottom navigation stays visible.
+void _push(BuildContext context, Widget page) =>
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => Material(child: page)));
+
 class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({required this.title});
+  const _SectionHeading({required this.title, this.onSeeAll});
 
   final String title;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -265,9 +375,11 @@ class _SectionHeading extends StatelessWidget {
         ),
       ),
       TextButton(
-        onPressed: () {
-          // TODO: Open the full list for this section.
-        },
+        onPressed:
+            onSeeAll ??
+            () {
+              // TODO: Open the full list for this section.
+            },
         style: TextButton.styleFrom(
           foregroundColor: CustomerHomeTheme.primary,
           padding: EdgeInsets.zero,
