@@ -72,6 +72,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       final profile = snapshot.data!;
       if (_editing) {
         return _ProfileEditor(
+          user: widget.user,
           profile: profile,
           service: widget.service,
           onClose: () => setState(() => _editing = false),
@@ -459,10 +460,12 @@ class _NotificationsEntryState extends State<_NotificationsEntry> {
 
 class _ProfileEditor extends StatefulWidget {
   const _ProfileEditor({
+    required this.user,
     required this.profile,
     required this.service,
     required this.onClose,
   });
+  final AppUser user;
   final ProviderProfile profile;
   final ProviderProfileService service;
   final VoidCallback onClose;
@@ -531,6 +534,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
               : double.parse(_pricing.text.trim()),
           availability: _available,
         ),
+        user: widget.user,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -554,7 +558,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Your account name and email stay with your account. Add your professional details here.',
+          'Your account name and email stay with your account. Your name, profession and phone appear on the customer home page.',
           style: TextStyle(color: ProviderTheme.muted),
         ),
         const SizedBox(height: 20),
