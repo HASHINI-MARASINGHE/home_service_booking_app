@@ -10,7 +10,7 @@ import '../../../utils/formatters.dart';
 import '../../../widgets/common/app_widgets.dart';
 import '../../../widgets/common/review_widgets.dart';
 import '../customer_scope.dart';
-import 'feedback_sheets.dart';
+import '../disputes/dispute_screen.dart';
 import 'review_screen.dart';
 
 class ReceiptScreen extends StatefulWidget {
@@ -666,7 +666,11 @@ class _ReceiptBody extends StatelessWidget {
                   size: 18,
                   color: AppColors.danger,
                 ),
-                onTap: () => showDisputeSheet(context, booking),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => DisputeScreen(bookingId: booking.id),
+                  ),
+                ),
               ),
             ],
           ),

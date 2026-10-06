@@ -94,6 +94,12 @@ class _NotificationTile extends StatelessWidget {
                         color: ProviderTheme.orange,
                         size: 22,
                       )
+                    : item.type == AppNotification.disputeType
+                    ? const Icon(
+                        Icons.report_problem_outlined,
+                        color: ProviderTheme.red,
+                        size: 22,
+                      )
                     : const Icon(
                         Icons.verified_user_outlined,
                         color: ProviderTheme.teal,
