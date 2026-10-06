@@ -207,21 +207,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Nuwan'));
-    await tester.pumpAndSettle();
-    expect(find.byType(ProviderDetailsScreen), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Back'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('See all').first);
-    await tester.pumpAndSettle();
-    expect(find.byType(AllProvidersScreen), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
-
     await tester.tap(find.text('Nuwan Fernando'));
     await tester.pumpAndSettle();
-    expect(find.byType(ProviderDetailsScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('provider-sheet')), findsOneWidget);
   });
 
   for (final screen in [details(), const AllProvidersScreen()]) {

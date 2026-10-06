@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_service_bookin_app/models/address.dart';
@@ -25,7 +25,7 @@ class _Auth extends Fake implements FirebaseAuth {}
 
 class _Db extends Fake implements FirebaseFirestore {}
 
-class _Storage extends Fake implements FirebaseStorage {}
+
 
 /// Fixed "now": Monday 10 Nov 2025, 09:00 Colombo time.
 final testNow = DateTime.utc(2025, 11, 10, 3, 30);
@@ -174,12 +174,13 @@ class FakeBookingService extends CustomerBookingService {
        super(
          auth: _Auth(),
          firestore: _Db(),
-         storage: _Storage(),
          clock: () => testNow,
        );
 
   final List<Booking> bookings;
-  final List<Professional> professionals;
+  List<Professional> professionals;
+  List<Professional> get directory => professionals;
+  set directory(List<Professional> value) => professionals = value;
   final Receipt? receipt;
   Refund? refund;
 
@@ -198,7 +199,7 @@ class FakeBookingService extends CustomerBookingService {
       Stream.value(bookings.where((b) => b.id == id).firstOrNull);
 
   @override
-  Stream<List<Professional>> watchProfessionals({int limit = 50}) =>
+  Stream<List<Professional>> watchProfessionals({int? limit}) =>
       Stream.value(professionals);
 
   @override
@@ -293,11 +294,7 @@ class FakeBookingService extends CustomerBookingService {
     _reviewChanges.add(booking.id);
   }
 
-  /// Verified providers shown on the customer home screen.
-  List<Professional> directory = [professional];
 
-  @override
-  Stream<List<Professional>> watchProfessionals() => Stream.value(directory);
 
   @override
   Stream<Refund?> watchRefund(String bookingId) => Stream.value(refund);

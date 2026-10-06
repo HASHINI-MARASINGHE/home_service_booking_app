@@ -5,13 +5,13 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart' show Image, Scrollable;
 import 'package:home_service_bookin_app/models/booking.dart';
 import 'package:home_service_bookin_app/screens/customer/bookings/booking_details_screen.dart';
-import 'package:home_service_bookin_app/services/app_error.dart';
 import 'package:home_service_bookin_app/services/customer_booking_service.dart';
+import 'package:home_service_bookin_app/services/image_upload_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -83,22 +83,13 @@ class _Tx extends Fake implements Transaction {
   }
 }
 
-/// Fails the test if legacy Storage cleanup runs for a non-Firebase URL.
-class _Storage extends Fake implements FirebaseStorage {
-  final deleted = <String>[];
-  @override
-  Reference refFromURL(String url) {
-    expect(url, contains('firebasestorage'));
-    deleted.add(url);
-    throw StateError('not needed in tests');
-  }
-}
+
 
 void main() {
   const kept =
       'https://res.cloudinary.com/dclo5pyll/image/upload/v1/bookings/kept.jpg';
   const legacy =
-      'https://firebasestorage.googleapis.com/v0/b/x/o/bookings%2Fold.jpg';
+      'https://res.cloudinary.com/dclo5pyll/image/upload/v1/bookings/legacy.jpg';
   final original = booking();
 
   BookingEdit edit({List<String> keep = const [kept], int newPhotos = 1}) =>
@@ -109,7 +100,8 @@ void main() {
         jobNotes: 'Rattling noise',
         keptPhotoUrls: keep,
         newPhotos: [
-          for (var i = 0; i < newPhotos; i++) Uint8List.fromList([1, 2, 3]),
+          for (var i = 0; i < newPhotos; i++)
+            Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, i, 2, 3]),
         ],
       );
 
@@ -125,12 +117,10 @@ void main() {
       );
     });
     final db = _Db(original.toMap());
-    final storage = _Storage();
     final service = CustomerBookingService(
       auth: _Auth(),
       firestore: db,
-      storage: storage,
-      httpClient: client,
+      imageUploads: ImageUploadService(client: client),
       clock: () => testNow,
     );
     final withLegacy = Booking.fromMap(original.id, {
@@ -148,7 +138,7 @@ void main() {
     );
     final body = latin1.decode(request.bodyBytes);
     expect(body, contains('name="upload_preset"\r\n\r\nhomecare_unsigned'));
-    expect(body, contains('name="folder"\r\n\r\nbookings'));
+    expect(body, contains('name="folder"\r\n\r\nbookings/b1'));
     expect(
       body,
       contains(
@@ -161,8 +151,6 @@ void main() {
       kept,
       'https://res.cloudinary.com/dclo5pyll/image/upload/v2/bookings/new.jpg',
     ]);
-    // Only the removed Firebase Storage photo is cleaned up.
-    expect(storage.deleted, [legacy]);
   });
 
   test('a failed upload throws a friendly error and writes nothing', () async {
@@ -170,18 +158,19 @@ void main() {
     final service = CustomerBookingService(
       auth: _Auth(),
       firestore: db,
-      storage: _Storage(),
-      httpClient: MockClient((_) async => http.Response('bad preset', 400)),
+      imageUploads: ImageUploadService(
+        client: MockClient((_) async => http.Response('bad preset', 400)),
+      ),
       clock: () => testNow,
     );
 
     await expectLater(
       service.updateDetails(original, edit()),
       throwsA(
-        isA<BookingChangedException>().having(
+        isA<ImageUploadException>().having(
           (e) => e.message,
           'message',
-          'Photo upload failed. Check your connection and try again.',
+          ImageUploadService.failedMessage,
         ),
       ),
     );
@@ -192,15 +181,16 @@ void main() {
     final service = CustomerBookingService(
       auth: _Auth(),
       firestore: _Db(original.toMap()),
-      storage: _Storage(),
-      httpClient: MockClient(
-        (_) async => throw http.ClientException('offline'),
+      imageUploads: ImageUploadService(
+        client: MockClient(
+          (_) async => throw http.ClientException('offline'),
+        ),
       ),
       clock: () => testNow,
     );
     await expectLater(
       service.updateDetails(original, edit()),
-      throwsA(isA<BookingChangedException>()),
+      throwsA(isA<ImageUploadException>()),
     );
   });
 
@@ -210,11 +200,12 @@ void main() {
     final service = CustomerBookingService(
       auth: _Auth(),
       firestore: db,
-      storage: _Storage(),
-      httpClient: MockClient((_) async {
-        calls++;
-        return http.Response('{}', 200);
-      }),
+      imageUploads: ImageUploadService(
+        client: MockClient((_) async {
+          calls++;
+          return http.Response('{}', 200);
+        }),
+      ),
       clock: () => testNow,
     );
     await service.updateDetails(original, edit(newPhotos: 0));
