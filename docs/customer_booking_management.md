@@ -16,7 +16,7 @@ Storage. These features use that same backend; there is no second
 | JWT access token | Firebase ID token (a signed JWT), refreshed automatically by the SDK |
 | Token persistence / auto-login | Firebase Auth SDK session persistence; `AuthWrapper` listens to `authStateChanges()` on launch |
 | Authenticated API requests | Every Firestore/Storage call carries the ID token |
-| Protected endpoints, ownership checks | `firestore.rules` / `storage.rules`; identity comes from `request.auth.uid`, never from the request body |
+| Protected endpoints, ownership checks | `firestore.rules`; identity comes from `request.auth.uid`, never from the request body |
 | 401 handling | An expired or disabled session emits `null` from `authStateChanges()` and the app returns to Login; `AppError` maps `unauthenticated`/`permission-denied` to friendly messages |
 | Server-side validation and status transitions | Security rules validate field types/lengths, allowed fields per action, fee/refund maths, slot locking and status changes |
 | Transactions | Firestore transactions; rules use `getAfter()`/`existsAfter()` to check every write in a commit together |

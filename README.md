@@ -48,7 +48,7 @@ Providers cannot take jobs until an admin verifies them.
 Admin accounts cannot be created from the app. Create one with
 `node tool/seed/create_admin.mjs --emulator|--production --username admin --password '...' --name '...'`
 (`--production` needs a service-account key like the seed). Change the demo password before going live.
-Deploy both rule files: `firebase deploy --only firestore:rules,storage`.
+Deploy rule file: `firebase deploy --only firestore:rules`.
 
 ## Prerequisites
 
@@ -60,7 +60,7 @@ Deploy both rule files: `firebase deploy --only firestore:rules,storage`.
 
 ```bash
 # 1. Start Auth + Firestore emulators (loads firestore.rules from firebase.json)
-firebase emulators:start --only auth,firestore,storage
+firebase emulators:start --only auth,firestore
 
 # 2. Seed demo data (second terminal)
 cd tool/seed
@@ -81,6 +81,19 @@ port in `firebase.json` and pass it to the seed and the app:
 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 node seed.mjs --emulator` and
 `--dart-define=FIRESTORE_EMULATOR_PORT=8085`.
 
+## Image uploads
+
+All images across the app are uploaded to **Cloudinary** using an unsigned upload preset:
+- **Always use `ImageUploadService.uploadImage`** (`lib/services/image_upload_service.dart`).
+- Pass the appropriate folder constant from `UploadFolders`:
+  - `UploadFolders.booking(bookingId)` for booking issue photos
+  - `UploadFolders.providerDocs(uid)` for provider documents / verification scans
+  - `UploadFolders.profile(uid)` for user profile photos
+  - `UploadFolders.misc` for any other temporary or general images
+- **Never use Firebase Storage**: Firebase Storage has been completely removed from the project.
+- **Never add or commit Cloudinary secrets**: Uploads use an unsigned preset (`homecare_unsigned` on cloud `dclo5pyll`). No API key or API secret should ever be added to the app.
+- **Viewing uploaded images**: Log in to the Cloudinary Console and open the **Media Library** under account `dclo5pyll` to see all uploaded files organized by folder (`bookings/`, `provider_docs/`, `profiles/`). Note that client-side unsigned uploads cannot be deleted from the client; removal simply stops referencing the URL in Firestore.
+
 ## Run against the real Firebase project
 
 ```bash
@@ -88,7 +101,7 @@ flutter pub get
 flutter run                                  # uses lib/firebase_options.dart
 
 # Deploy the security rules once (required for the customer flows):
-firebase deploy --only firestore:rules,storage
+firebase deploy --only firestore:rules
 
 # Seed (needs a service-account key with Firestore/Auth admin access):
 GOOGLE_APPLICATION_CREDENTIALS=path/to/key.json node tool/seed/seed.mjs --production
@@ -115,3 +128,4 @@ flutter drive --driver=test_driver/integration_test.dart \
 
 The end-to-end test changes the seeded data; run `node seed.mjs --emulator`
 again to reset it.
+

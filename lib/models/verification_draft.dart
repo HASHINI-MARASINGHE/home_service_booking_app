@@ -6,7 +6,7 @@ import 'provider_verification.dart';
 /// [requireEverything] is the single switch for how strict sign-up is:
 /// * `false` (now): only the full name is required. Phone, profession, years,
 ///   ID, selfie, CV and certificates can be added, but nothing is compulsory.
-///   Use this while Firebase Storage is not set up.
+///   Handy while testing sign-up without documents.
 /// * `true`: details, ID document + number, live selfie, CV and at least one
 ///   certificate are all compulsory (extra work experience stays optional).
 class VerificationDraft {
@@ -20,7 +20,7 @@ class VerificationDraft {
     this.idNumber = '',
   });
 
-  /// Flip to `true` once Storage is ready to make every document compulsory.
+  /// Flip to `true` to make every document compulsory.
   static bool requireEverything = false;
 
   String fullName, phone, profession, experienceYears, about;
@@ -116,7 +116,7 @@ class VerificationDraft {
 
   bool get isComplete => firstProblem == null;
 
-  /// Whether any document was chosen (so Storage is needed at all).
+  /// Whether any document was chosen (so anything needs uploading).
   bool get hasDocuments =>
       idFront != null ||
       idBack != null ||

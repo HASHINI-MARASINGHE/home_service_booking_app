@@ -1,13 +1,10 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 import '../models/provider_verification.dart';
 import '../models/verification_draft.dart';
 import 'document_picker.dart';
+import 'image_upload_service.dart';
 
 /// A provider's own verification: watching its status and submitting the
 /// details and documents an admin reviews.
@@ -15,24 +12,14 @@ class ProviderVerificationService {
   ProviderVerificationService({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
-    http.Client? httpClient,
+    ImageUploadService? imageUploads,
   }) : _auth = auth ?? FirebaseAuth.instance,
        _db = firestore ?? FirebaseFirestore.instance,
-       _httpOverride = httpClient;
+       _uploads = imageUploads ?? ImageUploadService();
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _db;
-  final http.Client? _httpOverride;
-
-  // Verification photos go to Cloudinary (same unsigned preset as booking
-  // photos), so Firebase Storage is not needed. Public identifiers only; never
-  // add an API key/secret here.
-  static const cloudinaryCloudName = 'dclo5pyll';
-  static const cloudinaryUploadPreset = 'homecare_unsigned';
-  static const cloudinaryFolder = 'providerDocs';
-  static final cloudinaryUploadUri = Uri.parse(
-    'https://api.cloudinary.com/v1_1/$cloudinaryCloudName/image/upload',
-  );
+  final ImageUploadService _uploads;
 
   String get _uid {
     final user = _auth.currentUser;
@@ -60,6 +47,7 @@ class ProviderVerificationService {
   Future<void> submitFor(String uid, VerificationDraft draft) async {
     final problem = draft.firstProblem;
     if (problem != null) throw ArgumentError(problem);
+    // Each upload already times out after 30 s; this caps the whole submit.
     return _submit(uid, draft).timeout(
       const Duration(minutes: 3),
       onTimeout: () => throw StateError(_stuckMessage),
@@ -67,8 +55,7 @@ class ProviderVerificationService {
   }
 
   static const _stuckMessage =
-      'Uploading your photos is taking too long. Check your connection and '
-      'try again.';
+      'Uploading is taking too long. Check your connection and try again.';
 
   Future<void> _submit(String uid, VerificationDraft draft) async {
     final years = int.tryParse(draft.experienceYears.trim()) ?? 0;
@@ -80,12 +67,11 @@ class ProviderVerificationService {
       if (doc.size > DocumentPicker.maxBytes) {
         throw ArgumentError('${doc.name} is larger than 10 MB.');
       }
-      final safe = doc.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
       final stamp = DateTime.now().millisecondsSinceEpoch;
-      final url = await _uploadToCloudinary(
-        doc,
-        '${slot}_${stamp}_${safe.split('.').first}',
-        uid,
+      final url = await _uploads.uploadImage(
+        doc.bytes,
+        folder: UploadFolders.providerDocs(uid),
+        fileName: '${slot}_$stamp',
       );
       return VerificationFile(name: doc.name, url: url);
     }
@@ -120,46 +106,6 @@ class ProviderVerificationService {
       'status': VerificationStatus.pending.name,
       'submittedAt': FieldValue.serverTimestamp(),
     });
-  }
-
-  @visibleForTesting
-  Future<String> uploadPhotoForTest(
-    PickedDocument doc,
-    String name,
-    String uid,
-  ) => _uploadToCloudinary(doc, name, uid);
-
-  Future<String> _uploadToCloudinary(
-    PickedDocument doc,
-    String publicName,
-    String uid,
-  ) async {
-    const failure =
-        'A photo could not be uploaded. Use a JPG, PNG or WebP '
-        'photo under 10 MB and check your connection.';
-    final request = http.MultipartRequest('POST', cloudinaryUploadUri)
-      ..fields['upload_preset'] = cloudinaryUploadPreset
-      ..fields['folder'] = '$cloudinaryFolder/$uid'
-      ..fields['public_id'] = publicName
-      ..files.add(
-        http.MultipartFile.fromBytes('file', doc.bytes, filename: doc.name),
-      );
-    final http.Response response;
-    final client = _httpOverride ?? http.Client();
-    try {
-      response = await http.Response.fromStream(
-        await client.send(request).timeout(const Duration(seconds: 60)),
-      );
-    } catch (_) {
-      throw StateError(failure);
-    } finally {
-      if (_httpOverride == null) client.close();
-    }
-    if (response.statusCode != 200) throw StateError(failure);
-    final url =
-        (jsonDecode(response.body) as Map<String, dynamic>)['secure_url'];
-    if (url is! String || url.isEmpty) throw StateError(failure);
-    return url;
   }
 
   /// Creates the provider profile (or refreshes its basic details when one

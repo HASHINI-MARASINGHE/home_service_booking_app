@@ -64,8 +64,9 @@ const people = {
 
 const ts = (date) => Timestamp.fromDate(date);
 // 1x1 PNG used as a stand-in for the seeded providers' uploaded documents.
-const DEMO_IMAGE =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+// Public placeholder image for seeded verification documents (Cloudinary's
+// own demo account). Real uploads come from the app via ImageUploadService.
+const DEMO_IMAGE = 'https://res.cloudinary.com/demo/image/upload/sample.jpg';
 const daysAgo = (n) => new Date(Date.now() - n * 86400000);
 
 async function upsertUser(person) {

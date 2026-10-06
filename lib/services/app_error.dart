@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 
+import 'image_upload_service.dart';
+
 /// The chosen slot was taken by another booking between loading and saving.
 class SlotTakenException implements Exception {
   const SlotTakenException();
@@ -48,6 +50,7 @@ abstract final class AppError {
       return 'That time slot was just booked. Please choose another.';
     }
     if (error is BookingChangedException) return error.message;
+    if (error is ImageUploadException) return error.message;
     if (error is ArgumentError) {
       return error.message?.toString() ?? 'Please check your input.';
     }
