@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../../theme/customer_home_theme.dart';
-import '../auth/logout_button.dart';
 import 'edit_profile_screen.dart';
 import 'widgets/customer_home_widgets.dart';
 
@@ -88,130 +87,218 @@ class _ProfileContent extends StatelessWidget {
   final VoidCallback onEdit;
 
   @override
-  Widget build(BuildContext context) => CustomScrollView(
-    slivers: [
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-        sliver: SliverList(
-          delegate: SliverChildListDelegate([
-            const Text(
-              'Profile',
-              style: TextStyle(
-                color: CustomerHomeTheme.primaryDark,
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) => SafeArea(
+    child: CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              const Text(
+                'Profile',
+                style: TextStyle(
+                  color: CustomerHomeTheme.primaryDark,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Your account details',
-              style: TextStyle(
-                color: CustomerHomeTheme.mutedText,
-                fontSize: 15,
+              const SizedBox(height: 8),
+              const Text(
+                'Your account details',
+                style: TextStyle(
+                  color: CustomerHomeTheme.mutedText,
+                  fontSize: 15,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
+              _ProfileHeader(user: user, onEdit: onEdit),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit Profile'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: CustomerHomeTheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _ProfileDetailsCard(user: user),
+              const SizedBox(height: 32),
+              _ProfileLogoutButton(authService: authService),
+            ]),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.user, required this.onEdit});
+
+  final AppUser user;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [CustomerHomeTheme.mint, CustomerHomeTheme.background],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: CustomerHomeTheme.border),
+    ),
+    child: Column(
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: CustomerHomeTheme.border),
+                shape: BoxShape.circle,
                 boxShadow: const [
                   BoxShadow(
                     color: CustomerHomeTheme.shadow,
-                    blurRadius: 22,
+                    blurRadius: 18,
                     offset: Offset(0, 8),
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  CustomerAvatar(photoUrl: user.photoUrl, radius: 34),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _valueOrFallback(user.name),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: CustomerHomeTheme.text,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _valueOrFallback(user.email),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: CustomerHomeTheme.mutedText,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+              child: CustomerAvatar(photoUrl: user.photoUrl, radius: 48),
+            ),
+            Positioned(
+              right: -2,
+              bottom: 0,
+              child: Material(
+                color: CustomerHomeTheme.primary,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: onEdit,
+                  customBorder: const CircleBorder(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(9),
+                    child: Icon(
+                      Icons.camera_alt_outlined,
+                      color: Colors.white,
+                      size: 17,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Edit Profile'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: CustomerHomeTheme.primary,
-                side: const BorderSide(color: CustomerHomeTheme.primary),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
             ),
-            const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: CustomerHomeTheme.border),
-              ),
-              child: Column(
-                children: [
-                  _ProfileDetail(
-                    icon: Icons.badge_outlined,
-                    label: 'Full name',
-                    value: _valueOrFallback(user.name),
-                  ),
-                  const Divider(height: 1, color: CustomerHomeTheme.border),
-                  _ProfileDetail(
-                    icon: Icons.email_outlined,
-                    label: 'Email',
-                    value: _valueOrFallback(user.email),
-                  ),
-                  const Divider(height: 1, color: CustomerHomeTheme.border),
-                  _ProfileDetail(
-                    icon: Icons.account_circle_outlined,
-                    label: 'Account type',
-                    value: _valueOrFallback(user.role),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              child: LogoutButton(authService: authService),
-            ),
-          ]),
+          ],
         ),
-      ),
-    ],
+        const SizedBox(height: 16),
+        Text(
+          _valueOrFallback(user.name),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: CustomerHomeTheme.text,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _valueOrFallback(user.email),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: CustomerHomeTheme.mutedText,
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(height: 14),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.verified_user_outlined,
+                  color: CustomerHomeTheme.primary,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _accountLabel(user.role),
+                  style: const TextStyle(
+                    color: CustomerHomeTheme.primaryDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ProfileDetailsCard extends StatelessWidget {
+  const _ProfileDetailsCard({required this.user});
+
+  final AppUser user;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: const [
+        BoxShadow(
+          color: CustomerHomeTheme.shadow,
+          blurRadius: 18,
+          offset: Offset(0, 8),
+        ),
+      ],
+    ),
+    child: Column(
+      children: [
+        _ProfileDetail(
+          icon: Icons.badge_outlined,
+          label: 'Full name',
+          value: _valueOrFallback(user.name),
+        ),
+        const Divider(height: 1, color: CustomerHomeTheme.border),
+        _ProfileDetail(
+          icon: Icons.email_outlined,
+          label: 'Email',
+          value: _valueOrFallback(user.email),
+        ),
+        const Divider(height: 1, color: CustomerHomeTheme.border),
+        _ProfileDetail(
+          icon: Icons.account_circle_outlined,
+          label: 'Account type',
+          value: _accountLabel(user.role),
+        ),
+      ],
+    ),
   );
 }
 
@@ -231,7 +318,15 @@ class _ProfileDetail extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 16),
     child: Row(
       children: [
-        Icon(icon, color: CustomerHomeTheme.primary, size: 21),
+        Container(
+          width: 36,
+          height: 36,
+          decoration: const BoxDecoration(
+            color: CustomerHomeTheme.mint,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: CustomerHomeTheme.primary, size: 19),
+        ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -250,13 +345,77 @@ class _ProfileDetail extends StatelessWidget {
                 style: const TextStyle(
                   color: CustomerHomeTheme.text,
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _ProfileLogoutButton extends StatefulWidget {
+  const _ProfileLogoutButton({required this.authService});
+
+  final AuthService authService;
+
+  @override
+  State<_ProfileLogoutButton> createState() => _ProfileLogoutButtonState();
+}
+
+class _ProfileLogoutButtonState extends State<_ProfileLogoutButton> {
+  bool _busy = false;
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await widget.authService.logout();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AuthService.errorMessage(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: OutlinedButton.icon(
+      onPressed: _busy ? null : _confirmLogout,
+      icon: const Icon(Icons.logout_outlined),
+      label: Text(_busy ? 'Logging out...' : 'Log out'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.error,
+        side: BorderSide(color: Theme.of(context).colorScheme.error),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
     ),
   );
 }
@@ -301,3 +460,9 @@ String _valueOrFallback(String value) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? 'Not provided' : trimmed;
 }
+
+String _accountLabel(String role) => switch (role) {
+  AppUser.customerRole => 'Customer',
+  AppUser.providerRole => 'Provider',
+  _ => _valueOrFallback(role),
+};

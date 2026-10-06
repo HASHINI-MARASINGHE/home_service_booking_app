@@ -208,9 +208,17 @@ class DetailRow extends StatelessWidget {
 }
 
 class BookingTile extends StatelessWidget {
-  const BookingTile({super.key, required this.booking, required this.onTap});
+  const BookingTile({
+    super.key,
+    required this.booking,
+    required this.onTap,
+    this.footer,
+  });
   final Booking booking;
   final VoidCallback onTap;
+
+  /// Optional extra line, e.g. the customer's rating on a finished job.
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) => ProviderCard(
@@ -264,6 +272,7 @@ class BookingTile extends StatelessWidget {
             ),
           ],
         ),
+        ?footer,
       ],
     ),
   );

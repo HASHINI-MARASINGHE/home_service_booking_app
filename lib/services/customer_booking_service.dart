@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,11 +7,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/app_notification.dart';
+import '../models/address.dart';
 import '../models/booking.dart';
 import '../models/booking_policy.dart';
 import '../models/professional.dart';
+import '../models/rating_stats.dart';
 import '../models/receipt.dart';
 import '../models/refund.dart';
+import '../models/review.dart';
 import '../utils/formatters.dart';
 import 'app_error.dart';
 
@@ -155,8 +160,93 @@ class CustomerBookingService {
     final doc = await _db.collection('professionals').doc(providerId).get();
     final data = doc.data();
     if (data == null) return null;
-    return _professionals[providerId] = Professional.fromMap(doc.id, data);
+    var professional = Professional.fromMap(doc.id, data);
+    // The live overall rating is the average of every customer review.
+    // If it cannot be read, the profile still shows its stored rating.
+    try {
+      final stats = RatingStats.fromMap(
+        (await _db.collection('ratingStats').doc(providerId).get()).data(),
+      );
+      if (stats != null) professional = professional.withStats(stats);
+    } catch (_) {}
+    return _professionals[providerId] = professional;
   }
+
+  /// Every verified provider, with their live overall rating, A to Z.
+  /// Providers appear here the moment an admin verifies them.
+  Stream<List<Professional>> watchProfessionals({int? limit}) {
+    late StreamController<List<Professional>> controller;
+    QuerySnapshot<Map<String, dynamic>>? people;
+    QuerySnapshot<Map<String, dynamic>>? ratings;
+    final subs = <StreamSubscription<Object?>>[];
+
+    void emit() {
+      final p = people;
+      if (p == null) return;
+      final stats = <String, RatingStats>{
+        if (ratings != null)
+          for (final doc in ratings!.docs)
+            if (RatingStats.fromMap(doc.data()) case final s?) doc.id: s,
+      };
+      final list = <Professional>[
+        for (final doc in p.docs)
+          if (doc.data()['verified'] == true)
+            if (Professional.fromMap(doc.id, doc.data()) case final pro)
+              stats[doc.id] == null ? pro : pro.withStats(stats[doc.id]!),
+      ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      controller.add(list);
+    }
+
+    controller = StreamController<List<Professional>>(
+      onListen: () {
+        try {
+          Query<Map<String, dynamic>> query = _db
+              .collection('professionals')
+              .where('verified', isEqualTo: true);
+          if (limit != null) {
+            query = query.limit(limit);
+          }
+          subs.add(
+            query.snapshots().listen((snap) {
+                  people = snap;
+                  emit();
+                }, onError: controller.addError),
+          );
+          // Ratings are a nice-to-have: if they cannot be read the providers
+          // still show with their stored rating.
+          subs.add(
+            _db.collection('ratingStats').snapshots().listen((snap) {
+              ratings = snap;
+              emit();
+            }, onError: (Object _) {}),
+          );
+        } catch (error) {
+          controller.addError(error);
+        }
+      },
+      onCancel: () async {
+        for (final sub in subs) {
+          await sub.cancel();
+        }
+      },
+    );
+    return controller.stream;
+  }
+
+  /// One provider's public listing, live; null once it no longer exists.
+  Stream<Professional?> watchProfessional(String id) =>
+      _db.collection('professionals').doc(id).snapshots().asyncMap((doc) async {
+        final data = doc.data();
+        if (data == null) return null;
+        var professional = Professional.fromMap(doc.id, data);
+        try {
+          final stats = RatingStats.fromMap(
+            (await _db.collection('ratingStats').doc(id).get()).data(),
+          );
+          if (stats != null) professional = professional.withStats(stats);
+        } catch (_) {}
+        return _professionals[id] = professional;
+      });
 
   Stream<Refund?> watchRefund(String bookingId) =>
       _db.collection('refunds').doc(bookingId).snapshots().map((doc) {
@@ -418,21 +508,175 @@ class CustomerBookingService {
   Future<bool> hasReview(String bookingId) async =>
       (await _db.collection('reviews').doc(bookingId).get()).exists;
 
+  /// Live review for one of this customer's jobs (null until reviewed).
+  Stream<Review?> watchReview(String bookingId) => _db
+      .collection('reviews')
+      .doc(bookingId)
+      .snapshots()
+      .map((doc) => Review.fromMap(doc.id, doc.data()));
+
+  /// Saves the review, adds it to the provider's overall rating and notifies
+  /// the provider, all in one transaction. Security rules check that the three
+  /// writes agree (the rating total grows by exactly this review's stars).
   Future<void> submitReview({
     required Booking booking,
     required int rating,
     required String comment,
+    List<String> tags = const [],
+    bool? recommend,
   }) async {
     if (rating < 1 || rating > 5) throw ArgumentError('Choose 1 to 5 stars.');
-    if (comment.length > 500) throw ArgumentError('Keep reviews under 500.');
-    await _db.collection('reviews').doc(booking.id).set({
-      'bookingId': booking.id,
-      'customerId': _uid,
-      'providerId': booking.providerId,
-      'rating': rating,
-      'comment': comment.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
+    if (comment.length > Review.maxComment) {
+      throw ArgumentError('Keep reviews under ${Review.maxComment}.');
+    }
+    if (tags.any((tag) => !Review.tagOptions.contains(tag))) {
+      throw ArgumentError('Choose from the listed highlights.');
+    }
+    final uid = _uid;
+    final customer = booking.customerName.trim().isEmpty
+        ? 'A customer'
+        : booking.customerName.trim();
+    final reviewRef = _db.collection('reviews').doc(booking.id);
+    final statsRef = _db.collection('ratingStats').doc(booking.providerId);
+    final noteRef = _db.collection('notifications').doc('review_${booking.id}');
+    // One transaction: the review, the provider's running rating total and
+    // the provider notification are saved together or not at all.
+    await _db.runTransaction((tx) async {
+      if ((await tx.get(reviewRef)).exists) {
+        throw StateError('You have already reviewed this job.');
+      }
+      final stats =
+          RatingStats.fromMap((await tx.get(statsRef)).data()) ??
+          const RatingStats(sum: 0, count: 0);
+      final next = stats.plus(rating);
+      tx.set(reviewRef, {
+        'bookingId': booking.id,
+        'customerId': uid,
+        'providerId': booking.providerId,
+        'customerName': customer,
+        'serviceName': booking.serviceName,
+        'rating': rating,
+        'tags': tags,
+        'comment': comment.trim(),
+        'recommend': recommend,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(statsRef, {
+        'providerId': booking.providerId,
+        'ratingSum': next.sum,
+        'ratingCount': next.count,
+        'lastReviewId': booking.id,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(noteRef, {
+        'recipientId': booking.providerId,
+        'senderId': uid,
+        'type': AppNotification.reviewType,
+        'bookingId': booking.id,
+        'title': 'New review from $customer',
+        'body':
+            '$rating ${rating == 1 ? 'star' : 'stars'} for '
+            '${booking.serviceName}',
+        'rating': rating,
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     });
+    // Make the next profile load show the new overall rating.
+    _professionals.remove(booking.providerId);
+  }
+
+  /// Changes the customer's own review. The provider's overall rating is
+  /// recalculated in the same transaction (old stars out, new stars in) and
+  /// the provider is notified again.
+  Future<void> updateReview({
+    required Booking booking,
+    required int rating,
+    required String comment,
+    List<String> tags = const [],
+    bool? recommend,
+  }) async {
+    if (rating < 1 || rating > 5) throw ArgumentError('Choose 1 to 5 stars.');
+    if (comment.length > Review.maxComment) {
+      throw ArgumentError('Keep reviews under ${Review.maxComment}.');
+    }
+    if (tags.any((tag) => !Review.tagOptions.contains(tag))) {
+      throw ArgumentError('Choose from the listed highlights.');
+    }
+    final uid = _uid;
+    final customer = booking.customerName.trim().isEmpty
+        ? 'A customer'
+        : booking.customerName.trim();
+    final reviewRef = _db.collection('reviews').doc(booking.id);
+    final statsRef = _db.collection('ratingStats').doc(booking.providerId);
+    final noteRef = _db.collection('notifications').doc('review_${booking.id}');
+    await _db.runTransaction((tx) async {
+      final old = Review.fromMap(booking.id, (await tx.get(reviewRef)).data());
+      if (old == null || old.customerId != uid) {
+        throw StateError('This review was not found.');
+      }
+      final stats = RatingStats.fromMap((await tx.get(statsRef)).data());
+      if (stats == null) {
+        throw StateError('The provider rating is unavailable. Try again.');
+      }
+      tx.update(reviewRef, {
+        'rating': rating,
+        'tags': tags,
+        'comment': comment.trim(),
+        'recommend': recommend,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(statsRef, {
+        'providerId': booking.providerId,
+        'ratingSum': stats.sum - old.rating + rating,
+        'ratingCount': stats.count,
+        'lastReviewId': booking.id,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(noteRef, {
+        'recipientId': booking.providerId,
+        'senderId': uid,
+        'type': AppNotification.reviewType,
+        'bookingId': booking.id,
+        'title': 'Review updated by $customer',
+        'body':
+            '$rating ${rating == 1 ? 'star' : 'stars'} for '
+            '${booking.serviceName}',
+        'rating': rating,
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    });
+    _professionals.remove(booking.providerId);
+  }
+
+  /// Deletes the customer's own review. Its stars leave the provider's
+  /// overall rating in the same transaction and the notification is removed.
+  Future<void> deleteReview(Booking booking) async {
+    final uid = _uid;
+    final reviewRef = _db.collection('reviews').doc(booking.id);
+    final statsRef = _db.collection('ratingStats').doc(booking.providerId);
+    final noteRef = _db.collection('notifications').doc('review_${booking.id}');
+    await _db.runTransaction((tx) async {
+      final old = Review.fromMap(booking.id, (await tx.get(reviewRef)).data());
+      if (old == null || old.customerId != uid) {
+        throw StateError('This review was not found.');
+      }
+      final stats = RatingStats.fromMap((await tx.get(statsRef)).data());
+      if (stats == null) {
+        throw StateError('The provider rating is unavailable. Try again.');
+      }
+      tx.delete(reviewRef);
+      tx.set(statsRef, {
+        'providerId': booking.providerId,
+        'ratingSum': stats.sum - old.rating,
+        'ratingCount': stats.count - 1,
+        'lastReviewId': booking.id,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      tx.delete(noteRef);
+    });
+    _professionals.remove(booking.providerId);
   }
 
   static const disputeCategories = [

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/booking.dart';
+import '../../models/review.dart';
 import '../../services/provider_booking_service.dart';
+import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import 'provider_job_actions.dart';
 import 'provider_theme.dart';
@@ -60,6 +62,30 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
     }
     return ProviderPage(
       children: [
+        // First on the page so a review notification lands right on it.
+        if (b.status == BookingStatus.completed)
+          StreamBuilder<Review?>(
+            stream: widget.service.watchReview(b.id),
+            builder: (context, snapshot) {
+              final review = snapshot.data;
+              if (review == null) return const SizedBox.shrink();
+              return ProviderCard(
+                key: const ValueKey('customer-review'),
+                color: ProviderTheme.tealLight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Review from ${review.customerName.isEmpty ? b.customerName : review.customerName}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 10),
+                    ReviewBody(review: review),
+                  ],
+                ),
+              );
+            },
+          ),
         if (pending) ...[
           Text(
             'New Job Request',

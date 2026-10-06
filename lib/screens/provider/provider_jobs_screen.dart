@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/booking.dart';
+import '../../models/review.dart';
+import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
 
 class ProviderJobsScreen extends StatelessWidget {
@@ -10,11 +12,15 @@ class ProviderJobsScreen extends StatelessWidget {
     required this.tab,
     required this.onTab,
     required this.onOpen,
+    this.watchReview,
   });
   final List<Booking> bookings;
   final int tab;
   final ValueChanged<int> onTab;
   final ValueChanged<Booking> onOpen;
+
+  /// Streams the customer's review of a job, shown on completed jobs.
+  final Stream<Review?> Function(String bookingId)? watchReview;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +75,17 @@ class ProviderJobsScreen extends StatelessWidget {
                   ][tab],
                 ),
               ...filtered.map(
-                (b) => BookingTile(booking: b, onTap: () => onOpen(b)),
+                (b) => BookingTile(
+                  booking: b,
+                  onTap: () => onOpen(b),
+                  footer:
+                      b.status == BookingStatus.completed && watchReview != null
+                      ? ReviewRatingLine(
+                          prefix: 'Customer rating',
+                          stream: watchReview!(b.id),
+                        )
+                      : null,
+                ),
               ),
             ],
           ),

@@ -53,6 +53,8 @@ function commit(user, path, data, timestamp) {
 const a = await account('provider-a', 'provider');
 const b = await account('provider-b', 'provider');
 const customer = await account('customer', 'customer');
+// Only admin-verified providers can act on jobs.
+await seed('providerVerifications/' + a.uid, {providerId: a.uid, status: 'verified', providerCode: 'HCP-1000'});
 const path = 'bookings/rules-' + run;
 const pending = {
   providerId: a.uid, customerId: customer.uid, serviceName: 'Emulator test',
@@ -111,4 +113,21 @@ await check(await commit(b, profilePath, {about: 'Unauthorized'}, 'updatedAt'), 
 await check(await commit(a, profilePath, {rating: 5}, 'updatedAt'), false, 'provider cannot award own rating');
 await check(await commit(a, profilePath, {verificationStatus: 'verified'}, 'updatedAt'), false, 'provider cannot self-verify');
 await check(await commit(a, profilePath, {experience: -1}, 'updatedAt'), false, 'invalid experience rejected');
+
+const listingPath = 'professionals/' + a.uid;
+const listing = {name: 'provider-a', specialty: 'Electrician', phone: ''};
+await check(await commit(a, listingPath, listing, 'updatedAt'), true, 'provider publishes own listing');
+await check(await commit(a, listingPath, {specialty: 'Plumber'}, 'updatedAt'), true, 'provider updates own listing');
+await check(await commit(a, listingPath, {name: 'Someone Else'}, 'updatedAt'), false, 'listing name must match account');
+await check(await commit(a, listingPath, {verified: true}, 'updatedAt'), false, 'provider cannot self-verify listing');
+await check(await commit(a, listingPath, {rating: 5}, 'updatedAt'), false, 'provider cannot rate own listing');
+await check(await commit(b, listingPath, {specialty: 'Hijack'}, 'updatedAt'), false, 'other provider cannot edit listing');
+await check(await commit(a, listingPath, {about: 'Ten years of wiring work', experience: 10, services: ['Wiring', 'Panels'], pricing: 3000}, 'updatedAt'), true, 'provider publishes profile details');
+await check(await commit(a, listingPath, {experience: -1}, 'updatedAt'), false, 'listing experience must be 0-80');
+await check(await commit(a, listingPath, {services: Array.from({length: 21}, (_, i) => 'S' + i)}, 'updatedAt'), false, 'listing allows at most 20 services');
+await check(await commit(customer, 'professionals/' + customer.uid, {name: 'customer', specialty: 'Fake', phone: ''}, 'updatedAt'), false, 'customer cannot publish a listing');
+const listed = await request(base + '/' + listingPath, 'GET', customer.token);
+assert.equal(listed.status, 200, 'customer can read provider listing');
+console.log('PASS customer can read provider listing');
+checks++;
 console.log(checks + ' security checks passed. Only local emulator data was created.');

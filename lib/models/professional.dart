@@ -1,3 +1,5 @@
+import 'rating_stats.dart';
+
 /// Public profile of a service professional at `professionals/{providerId}`.
 /// Written only by the trusted backend; any signed-in customer may read it.
 class Professional {
@@ -7,6 +9,11 @@ class Professional {
     this.photoUrl,
     this.specialty = '',
     this.rating,
+    this.reviewCount = 0,
+    this.providerCode,
+    this.about = '',
+    this.experienceYears,
+    this.services = const [],
     this.completedJobs = 0,
     this.verified = false,
     this.phone = '',
@@ -14,11 +21,26 @@ class Professional {
     this.area = '',
     this.workingSlots = defaultSlots,
     this.workingDays = defaultDays,
+    this.about = '',
+    this.experience = 0,
+    this.services = const [],
+    this.pricing,
   });
 
   final String id, name, specialty, phone, licenseNumber, area;
   final String? photoUrl;
   final double? rating;
+
+  /// Customer reviews behind [rating]; 0 when it is only the seeded value.
+  final int reviewCount;
+
+  /// Public Provider ID (e.g. HCP-1001), given when an admin verifies them.
+  final String? providerCode;
+  final String about;
+  final int? experienceYears;
+
+  /// What they offer (e.g. their profession), used for the categories.
+  final List<String> services;
   final int completedJobs;
   final bool verified;
 
@@ -28,6 +50,14 @@ class Professional {
   /// ISO weekdays the professional works (Monday = 1).
   final List<int> workingDays;
 
+  /// Mirrored from the provider's own profile when they save it.
+  final String about;
+  final int experience;
+  final List<String> services;
+
+  /// Starting price in LKR.
+  final double? pricing;
+
   static const defaultSlots = [
     ('08:30', '10:00'),
     ('10:30', '12:00'),
@@ -36,6 +66,27 @@ class Professional {
     ('17:30', '19:00'),
   ];
   static const defaultDays = [1, 2, 3, 4, 5, 6];
+
+  /// The same professional with the live rating from `ratingStats`.
+  Professional withStats(RatingStats stats) => Professional(
+    id: id,
+    name: name,
+    photoUrl: photoUrl,
+    specialty: specialty,
+    rating: stats.average,
+    reviewCount: stats.count,
+    providerCode: providerCode,
+    about: about,
+    experienceYears: experienceYears,
+    services: services,
+    completedJobs: completedJobs,
+    verified: verified,
+    phone: phone,
+    licenseNumber: licenseNumber,
+    area: area,
+    workingSlots: workingSlots,
+    workingDays: workingDays,
+  );
 
   String get firstName => name.trim().split(RegExp(r'\s+')).first;
 
@@ -61,6 +112,8 @@ class Professional {
         : defaultDays;
     final rating = data['rating'];
     final photo = data['photoUrl'];
+    final experience = data['experience'];
+    final pricing = data['pricing'];
     String text(String key) => data[key] is String ? data[key] as String : '';
     return Professional(
       id: id,
@@ -70,6 +123,15 @@ class Professional {
       rating: rating is num && rating >= 0 && rating <= 5
           ? rating.toDouble()
           : null,
+      providerCode: data['providerCode'] is String &&
+              (data['providerCode'] as String).isNotEmpty
+          ? data['providerCode'] as String
+          : null,
+      about: text('about'),
+      experienceYears: (data['experienceYears'] as num?)?.toInt(),
+      services: data['services'] is List
+          ? (data['services'] as List).whereType<String>().toList()
+          : const [],
       completedJobs: (data['completedJobs'] as num?)?.toInt() ?? 0,
       verified: data['verified'] == true,
       phone: text('phone'),
@@ -77,6 +139,20 @@ class Professional {
       area: text('area'),
       workingSlots: slots.isEmpty ? defaultSlots : slots,
       workingDays: days.isEmpty ? defaultDays : days,
+      about: text('about'),
+      experience: experience is num && experience >= 0 && experience <= 80
+          ? experience.toInt()
+          : 0,
+      services: data['services'] is List
+          ? (data['services'] as List)
+                .whereType<String>()
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList()
+          : const [],
+      pricing: pricing is num && pricing.isFinite && pricing >= 0
+          ? pricing.toDouble()
+          : null,
     );
   }
 }

@@ -5,6 +5,7 @@ import '../../../models/booking.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/booking/booking_widgets.dart';
 import '../../../widgets/common/app_widgets.dart';
+import '../../../widgets/common/review_widgets.dart';
 import '../customer_scope.dart';
 import 'booking_details_screen.dart';
 
@@ -178,6 +179,14 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                     child: BookingCard(
                       booking: booking,
                       onTap: () => _open(booking),
+                      footer: booking.status == BookingStatus.completed
+                          ? ReviewRatingLine(
+                              prefix: 'Your rating',
+                              stream: CustomerScope.of(
+                                context,
+                              ).bookings.watchReview(booking.id),
+                            )
+                          : null,
                     ),
                   ),
             ],

@@ -18,6 +18,8 @@ import {
 
 const {auth, db} = connect();
 const PASSWORD = 'HomeCare@123';
+// Admin sign-in (Admin sign in on the login screen): username `admin`.
+const ADMIN_PASSWORD = 'HomeCare@Admin2026';
 
 const people = {
   customer: {
@@ -50,16 +52,27 @@ const people = {
     name: 'Kasun Wijesinghe',
     role: 'provider',
   },
+  admin: {
+    uid: 'seed-admin',
+    // Username `admin` signs in as admin@admin.homecare.app.
+    email: 'admin@admin.homecare.app',
+    name: 'HomeCare Admin',
+    role: 'admin',
+    password: ADMIN_PASSWORD,
+  },
 };
 
 const ts = (date) => Timestamp.fromDate(date);
+// 1x1 PNG used as a stand-in for the seeded providers' uploaded documents.
+const DEMO_IMAGE =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 const daysAgo = (n) => new Date(Date.now() - n * 86400000);
 
 async function upsertUser(person) {
   try {
     await auth.updateUser(person.uid, {
       email: person.email,
-      password: PASSWORD,
+      password: person.password ?? PASSWORD,
       displayName: person.name,
       emailVerified: true,
     });
@@ -68,7 +81,7 @@ async function upsertUser(person) {
     await auth.createUser({
       uid: person.uid,
       email: person.email,
-      password: PASSWORD,
+      password: person.password ?? PASSWORD,
       displayName: person.name,
       emailVerified: true,
     });
@@ -99,6 +112,10 @@ const professionals = {
     rating: 4.9,
     completedJobs: 128,
     verified: true,
+    providerCode: 'HCP-1001',
+    about: 'AC servicing and electrical repairs across Colombo, with 8 years of hands-on experience.',
+    experienceYears: 8,
+    services: ['Air Conditioning & Electrical Specialist'],
     phone: '+94771112233',
     licenseNumber: 'LK-AC-409',
     area: 'Colombo 03',
@@ -113,6 +130,10 @@ const professionals = {
     rating: 4.7,
     completedJobs: 86,
     verified: true,
+    providerCode: 'HCP-1002',
+    about: 'Leak repairs, pipe fitting and bathroom plumbing in Dehiwala and nearby areas.',
+    experienceYears: 8,
+    services: ['Plumbing & Sanitation Specialist'],
     phone: '+94772223344',
     licenseNumber: 'LK-PL-112',
     area: 'Dehiwala',
@@ -420,6 +441,7 @@ async function clearPrevious() {
     batch.delete(db.doc(`refunds/${id}`));
     batch.delete(db.doc(`receipts/${id}`));
     batch.delete(db.doc(`reviews/${id}`));
+    batch.delete(db.doc(`notifications/review_${id}`));
   }
   for (const person of [people.customer, people.newCustomer, people.otherCustomer]) {
     const addresses = await db.collection(`users/${person.uid}/addresses`).get();
@@ -438,6 +460,15 @@ async function main() {
   const batch = db.batch();
   for (const [uid, pro] of Object.entries(professionals)) {
     batch.set(db.doc(`professionals/${uid}`), pro);
+    // Demo baseline for the live overall rating: 10 earlier reviews that
+    // average the seeded rating. Every new customer review moves it.
+    batch.set(db.doc(`ratingStats/${uid}`), {
+      providerId: uid,
+      ratingSum: Math.round(pro.rating * 10),
+      ratingCount: 10,
+      lastReviewId: 'seed-baseline',
+      updatedAt: FieldValue.serverTimestamp(),
+    });
     batch.set(db.doc(`providerProfiles/${uid}`), {
       providerId: uid,
       phone: pro.phone,
@@ -452,6 +483,36 @@ async function main() {
       updatedAt: FieldValue.serverTimestamp(),
     });
   }
+  // The seeded providers are already verified (Provider IDs HCP-1001/1002).
+  // Anyone who registered through the app since the last seed is removed so
+  // the Provider ID counter and the admin queue start clean.
+  const stale = await db.collection('providerVerifications').get();
+  stale.forEach((doc) => batch.delete(doc.ref));
+  const demoFile = (name) => ({name, url: DEMO_IMAGE});
+  for (const [uid, pro] of Object.entries(professionals)) {
+    batch.set(db.doc(`providerVerifications/${uid}`), {
+      providerId: uid,
+      fullName: pro.name,
+      phone: pro.phone,
+      profession: pro.specialty,
+      experienceYears: 8,
+      about: `${pro.name} is a HomeCare verified professional.`,
+      idType: 'nic',
+      idNumber: uid.endsWith('nuwan') ? '928471923V' : '871234567V',
+      idFront: demoFile('NIC_Front.png'),
+      idBack: demoFile('NIC_Back.png'),
+      selfie: demoFile('Selfie.png'),
+      cv: demoFile('CV.png'),
+      certificates: [demoFile('Certificate.png')],
+      experiences: [],
+      status: 'verified',
+      providerCode: pro.providerCode,
+      submittedAt: ts(daysAgo(30)),
+      reviewedAt: ts(daysAgo(29)),
+      reviewedBy: people.admin.uid,
+    });
+  }
+  batch.set(db.doc('counters/providerIds'), {last: 2});
   for (const [id, service] of Object.entries(services)) {
     batch.set(db.doc(`services/${id}`), service);
   }
@@ -528,6 +589,8 @@ async function main() {
   for (const person of Object.values(people)) {
     console.log(`  ${person.role.padEnd(8)} ${person.email}`);
   }
+  console.log(`
+Admin: username admin / password ${ADMIN_PASSWORD}`);
   console.log(`\nUpcoming AC booking: ${upcomingDate} 10:30 (BK-78924)`);
 }
 
