@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/app_notification.dart';
+import '../models/address.dart';
 import '../models/booking.dart';
 import '../models/booking_policy.dart';
 import '../models/professional.dart';
@@ -158,7 +160,7 @@ class CustomerBookingService {
 
   /// Every verified provider, with their live overall rating, A to Z.
   /// Providers appear here the moment an admin verifies them.
-  Stream<List<Professional>> watchProfessionals() {
+  Stream<List<Professional>> watchProfessionals({int? limit}) {
     late StreamController<List<Professional>> controller;
     QuerySnapshot<Map<String, dynamic>>? people;
     QuerySnapshot<Map<String, dynamic>>? ratings;
@@ -170,7 +172,7 @@ class CustomerBookingService {
       final stats = <String, RatingStats>{
         if (ratings != null)
           for (final doc in ratings!.docs)
-            doc.id: ?RatingStats.fromMap(doc.data()),
+            if (RatingStats.fromMap(doc.data()) case final s?) doc.id: s,
       };
       final list = <Professional>[
         for (final doc in p.docs)
@@ -184,12 +186,14 @@ class CustomerBookingService {
     controller = StreamController<List<Professional>>(
       onListen: () {
         try {
+          Query<Map<String, dynamic>> query = _db
+              .collection('professionals')
+              .where('verified', isEqualTo: true);
+          if (limit != null) {
+            query = query.limit(limit);
+          }
           subs.add(
-            _db
-                .collection('professionals')
-                .where('verified', isEqualTo: true)
-                .snapshots()
-                .listen((snap) {
+            query.snapshots().listen((snap) {
                   people = snap;
                   emit();
                 }, onError: controller.addError),
@@ -214,6 +218,21 @@ class CustomerBookingService {
     );
     return controller.stream;
   }
+
+  /// One provider's public listing, live; null once it no longer exists.
+  Stream<Professional?> watchProfessional(String id) =>
+      _db.collection('professionals').doc(id).snapshots().asyncMap((doc) async {
+        final data = doc.data();
+        if (data == null) return null;
+        var professional = Professional.fromMap(doc.id, data);
+        try {
+          final stats = RatingStats.fromMap(
+            (await _db.collection('ratingStats').doc(id).get()).data(),
+          );
+          if (stats != null) professional = professional.withStats(stats);
+        } catch (_) {}
+        return _professionals[id] = professional;
+      });
 
   Stream<Refund?> watchRefund(String bookingId) =>
       _db.collection('refunds').doc(bookingId).snapshots().map((doc) {

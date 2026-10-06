@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/app_user.dart';
 import '../models/provider_profile.dart';
 import '../models/rating_stats.dart';
 
@@ -36,9 +37,9 @@ class ProviderProfileService {
       .snapshots()
       .map((doc) => RatingStats.fromMap(doc.data()));
 
-  Future<void> save(ProviderProfile profile) async {
+  Future<void> save(ProviderProfile profile, {AppUser? user}) async {
     final uid = _uid;
-    if (profile.providerId != uid) {
+    if (profile.providerId != uid || (user != null && user.uid != uid)) {
       throw StateError('You can only edit your own profile.');
     }
     profile.validate();
