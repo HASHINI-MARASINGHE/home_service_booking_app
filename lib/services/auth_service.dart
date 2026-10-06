@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/app_user.dart';
+import 'image_upload_service.dart';
 
 class IncorrectPasswordException implements Exception {
   const IncorrectPasswordException();
@@ -19,17 +19,16 @@ class AuthService {
   AuthService({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
+    ImageUploadService? imageUploads,
   })
     : _auth = auth ?? FirebaseAuth.instance,
       _firestore = firestore ?? FirebaseFirestore.instance,
-      _storageOverride = storage;
+      _uploadsOverride = imageUploads;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
-  // Resolved on first use so auth-only callers (and tests) need no Storage.
-  final FirebaseStorage? _storageOverride;
-  FirebaseStorage get _storage => _storageOverride ?? FirebaseStorage.instance;
+  final ImageUploadService? _uploadsOverride;
+  ImageUploadService get _uploads => _uploadsOverride ?? ImageUploadService();
   Completer<void>? _registration;
 
   // Account creation signs in immediately. Delay that event until the profile
@@ -181,12 +180,11 @@ class AuthService {
     required String uid,
     required Uint8List fileBytes,
   }) async {
-    final reference = _storage.ref().child('users/$uid/profile.jpg');
-    await reference.putData(
+    return _uploads.uploadImage(
       fileBytes,
-      SettableMetadata(contentType: 'image/jpeg'),
+      folder: UploadFolders.profile(uid),
+      fileName: 'profile_${DateTime.now().millisecondsSinceEpoch}',
     );
-    return reference.getDownloadURL();
   }
 
   Future<void> changeEmail({
@@ -220,6 +218,7 @@ class AuthService {
 
   static String errorMessage(Object error) {
     if (error is IncorrectPasswordException) return 'Incorrect password.';
+    if (error is ImageUploadException) return error.message;
     if (error is NotAnAdminException) {
       return 'This sign-in is for HomeCare admins only.';
     }

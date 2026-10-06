@@ -1,11 +1,8 @@
-import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:http/http.dart' as http;
 
 import '../models/app_notification.dart';
 import '../models/address.dart';
@@ -18,6 +15,7 @@ import '../models/refund.dart';
 import '../models/review.dart';
 import '../utils/formatters.dart';
 import 'app_error.dart';
+import 'image_upload_service.dart';
 
 /// Customer-editable booking fields from the Edit Booking Details screen.
 class BookingEdit {
@@ -69,6 +67,23 @@ class CancellationResult {
   final String? refundReference;
 }
 
+/// Everything the Book Service screen collects before creating a booking.
+class BookingRequest {
+  const BookingRequest({
+    required this.professional,
+    required this.serviceName,
+    required this.slot,
+    required this.address,
+    required this.customerName,
+  });
+
+  final Professional professional;
+  final String serviceName;
+  final TimeSlot slot;
+  final Address address;
+  final String customerName;
+}
+
 /// Customer booking operations. Each state change runs in a Firestore
 /// transaction and is re-validated by `firestore.rules`, so a modified client
 /// cannot change prices, double-book a slot or skip status rules.
@@ -76,35 +91,21 @@ class CustomerBookingService {
   CustomerBookingService({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
-    http.Client? httpClient,
+    ImageUploadService? imageUploads,
     DateTime Function()? clock,
   }) : _authOverride = auth,
        _dbOverride = firestore,
-       _storageOverride = storage,
-       _httpOverride = httpClient,
+       _uploads = imageUploads ?? ImageUploadService(),
        _clock = clock ?? DateTime.now;
-
-  // Issue photos go to Cloudinary through an unsigned upload preset. These
-  // are public identifiers, not credentials; never add an API key/secret.
-  static const cloudinaryCloudName = 'dclo5pyll';
-  static const cloudinaryUploadPreset = 'homecare_unsigned';
-  static const cloudinaryFolder = 'bookings';
-  static final cloudinaryUploadUri = Uri.parse(
-    'https://api.cloudinary.com/v1_1/$cloudinaryCloudName/image/upload',
-  );
 
   final FirebaseAuth? _authOverride;
   final FirebaseFirestore? _dbOverride;
-  // Only used to delete legacy photos uploaded before the Cloudinary switch.
-  final FirebaseStorage? _storageOverride;
-  final http.Client? _httpOverride;
+  final ImageUploadService _uploads;
   final DateTime Function() _clock;
   final _professionals = <String, Professional>{};
 
   FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
   FirebaseFirestore get _db => _dbOverride ?? FirebaseFirestore.instance;
-  FirebaseStorage get _storage => _storageOverride ?? FirebaseStorage.instance;
 
   DateTime now() => _clock();
 
@@ -183,11 +184,13 @@ class CustomerBookingService {
     void emit() {
       final p = people;
       if (p == null) return;
-      final stats = <String, RatingStats>{
-        if (ratings != null)
-          for (final doc in ratings!.docs)
-            if (RatingStats.fromMap(doc.data()) case final s?) doc.id: s,
-      };
+      final stats = <String, RatingStats>{};
+      if (ratings != null) {
+        for (final doc in ratings!.docs) {
+          final s = RatingStats.fromMap(doc.data());
+          if (s != null) stats[doc.id] = s;
+        }
+      }
       final list = <Professional>[
         for (final doc in p.docs)
           if (doc.data()['verified'] == true)
@@ -258,6 +261,82 @@ class CustomerBookingService {
     final doc = await _db.collection('receipts').doc(bookingId).get();
     final data = doc.data();
     return data == null ? null : Receipt.fromMap(doc.id, data);
+  }
+
+  // ---------------------------------------------------------------------
+  // New bookings
+  // ---------------------------------------------------------------------
+
+  /// Open slots for [date] when creating a new booking for [professional].
+  Future<List<TimeSlot>> openSlots({
+    required Professional professional,
+    required DateTime date,
+  }) async {
+    final iso = Formatters.isoDate(date);
+    final docs = await Future.wait([
+      for (final (start, _) in professional.workingSlots)
+        _lock(BookingPolicy.slotLockId(professional.id, iso, start)).get(),
+    ]);
+    final locks = <String, String>{
+      for (final doc in docs)
+        if (doc.exists &&
+            doc.data()?['startTime'] is String &&
+            doc.data()?['bookingId'] is String)
+          doc.data()!['startTime'] as String:
+              doc.data()!['bookingId'] as String,
+    };
+    return BookingPolicy.buildSlots(
+      professional: professional,
+      date: date,
+      locks: locks,
+      bookingId: '',
+      now: now(),
+    );
+  }
+
+  /// Creates a pending booking and locks the chosen slot.
+  Future<String> createBooking(BookingRequest request) async {
+    final uid = _uid;
+    final slot = request.slot;
+    final lockId = BookingPolicy.slotLockId(
+      request.professional.id,
+      slot.isoDate,
+      slot.start,
+    );
+    final bookingRef = _db.collection('bookings').doc();
+    final endsAt = BookingPolicy.colomboInstant(slot.date, slot.end);
+    await _db.runTransaction((tx) async {
+      final lock = await tx.get(_lock(lockId));
+      if (lock.exists) throw const SlotTakenException();
+      tx.set(_lock(lockId), {
+        'providerId': request.professional.id,
+        'date': slot.isoDate,
+        'startTime': slot.start,
+        'endTime': slot.end,
+        'bookingId': bookingRef.id,
+      });
+      tx.set(bookingRef, {
+        'customerId': uid,
+        'customerName': request.customerName,
+        'providerId': request.professional.id,
+        'providerName': request.professional.name,
+        'serviceName': request.serviceName,
+        'address': request.address.line,
+        'addressId': request.address.id,
+        'addressLabel': request.address.label,
+        'slotDate': slot.isoDate,
+        'startTime': slot.start,
+        'endTime': slot.end,
+        'scheduledAt': Timestamp.fromDate(slot.startsAt),
+        'endAt': Timestamp.fromDate(endsAt),
+        'slotLockId': lockId,
+        'status': BookingStatus.pending.name,
+        'photoUrls': <String>[],
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+    return bookingRef.id;
   }
 
   // ---------------------------------------------------------------------
@@ -428,9 +507,10 @@ class CustomerBookingService {
     final photoUrls = [
       ...edit.keptPhotoUrls,
       for (final (index, bytes) in edit.newPhotos.indexed)
-        await _uploadToCloudinary(
+        await _uploads.uploadImage(
           bytes,
-          '${booking.id}_${now().millisecondsSinceEpoch}_$index',
+          folder: UploadFolders.booking(booking.id),
+          fileName: '${booking.id}_${now().millisecondsSinceEpoch}_$index',
         ),
     ];
     await _db.runTransaction((tx) async {
@@ -460,45 +540,8 @@ class CustomerBookingService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
-    // Best-effort cleanup of removed photos. Only legacy Firebase Storage
-    // photos can be deleted from the app; Cloudinary URLs are skipped.
-    for (final url in booking.photoUrls) {
-      if (edit.keptPhotoUrls.contains(url)) continue;
-      if (!url.contains('firebasestorage')) continue;
-      try {
-        await _storage.refFromURL(url).delete();
-      } catch (_) {}
-    }
-  }
-
-  /// Uploads one issue photo with the unsigned preset and returns its
-  /// `https://res.cloudinary.com/...` URL.
-  Future<String> _uploadToCloudinary(Uint8List bytes, String name) async {
-    const failure = BookingChangedException(
-      'Photo upload failed. Check your connection and try again.',
-    );
-    final request = http.MultipartRequest('POST', cloudinaryUploadUri)
-      ..fields['upload_preset'] = cloudinaryUploadPreset
-      ..fields['folder'] = cloudinaryFolder
-      ..files.add(
-        http.MultipartFile.fromBytes('file', bytes, filename: '$name.jpg'),
-      );
-    final http.Response response;
-    try {
-      final client = _httpOverride ?? http.Client();
-      try {
-        response = await http.Response.fromStream(await client.send(request));
-      } finally {
-        if (_httpOverride == null) client.close();
-      }
-    } catch (_) {
-      throw failure;
-    }
-    if (response.statusCode != 200) throw failure;
-    final url =
-        (jsonDecode(response.body) as Map<String, dynamic>)['secure_url'];
-    if (url is! String || url.isEmpty) throw failure;
-    return url;
+    // Removed photos simply stop being referenced (unsigned Cloudinary
+    // uploads can't be deleted from the app).
   }
 
   // ---------------------------------------------------------------------
