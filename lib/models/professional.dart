@@ -21,9 +21,9 @@ class Professional {
     this.area = '',
     this.workingSlots = defaultSlots,
     this.workingDays = defaultDays,
-    this.about = '',
+
     this.experience = 0,
-    this.services = const [],
+
     this.pricing,
   });
 
@@ -38,6 +38,7 @@ class Professional {
   final String? providerCode;
   final String about;
   final int? experienceYears;
+  final int experience;
 
   /// What they offer (e.g. their profession), used for the categories.
   final List<String> services;
@@ -51,9 +52,7 @@ class Professional {
   final List<int> workingDays;
 
   /// Mirrored from the provider's own profile when they save it.
-  final String about;
-  final int experience;
-  final List<String> services;
+
 
   /// Starting price in LKR.
   final double? pricing;
@@ -120,17 +119,19 @@ class Professional {
       name: text('name').trim().isEmpty ? 'Your professional' : text('name'),
       photoUrl: photo is String && photo.isNotEmpty ? photo : null,
       specialty: text('specialty'),
-      rating: rating is num && rating >= 0 && rating <= 5
-          ? rating.toDouble()
-          : null,
-      providerCode: data['providerCode'] is String &&
-              (data['providerCode'] as String).isNotEmpty
+      rating: rating is num && rating >= 0 && rating <= 5 ? rating.toDouble() : null,
+      providerCode: data['providerCode'] is String && (data['providerCode'] as String).isNotEmpty
           ? data['providerCode'] as String
           : null,
       about: text('about'),
       experienceYears: (data['experienceYears'] as num?)?.toInt(),
+      experience: experience is num && experience >= 0 && experience <= 80 ? experience.toInt() : 0,
       services: data['services'] is List
-          ? (data['services'] as List).whereType<String>().toList()
+          ? (data['services'] as List)
+              .whereType<String>()
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList()
           : const [],
       completedJobs: (data['completedJobs'] as num?)?.toInt() ?? 0,
       verified: data['verified'] == true,
@@ -139,20 +140,7 @@ class Professional {
       area: text('area'),
       workingSlots: slots.isEmpty ? defaultSlots : slots,
       workingDays: days.isEmpty ? defaultDays : days,
-      about: text('about'),
-      experience: experience is num && experience >= 0 && experience <= 80
-          ? experience.toInt()
-          : 0,
-      services: data['services'] is List
-          ? (data['services'] as List)
-                .whereType<String>()
-                .map((s) => s.trim())
-                .where((s) => s.isNotEmpty)
-                .toList()
-          : const [],
-      pricing: pricing is num && pricing.isFinite && pricing >= 0
-          ? pricing.toDouble()
-          : null,
+      pricing: pricing is num && pricing.isFinite && pricing >= 0 ? pricing.toDouble() : null,
     );
   }
 }
