@@ -188,7 +188,8 @@ class _ProviderRegistrationScreenState
           autocorrect: false,
           textInputAction: TextInputAction.next,
           validator: (value) =>
-              RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value?.trim() ?? '')
+              RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                  .hasMatch(value?.trim() ?? '')
               ? null
               : 'Enter a valid email address.',
         ),
@@ -203,9 +204,8 @@ class _ProviderRegistrationScreenState
           enableSuggestions: false,
           autofillHints: const [AutofillHints.newPassword],
           textInputAction: TextInputAction.next,
-          validator: (value) => (value ?? '').length < 6
-              ? 'Use at least 6 characters.'
-              : null,
+          validator: (value) =>
+              (value ?? '').length < 6 ? 'Use at least 6 characters.' : null,
         ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(

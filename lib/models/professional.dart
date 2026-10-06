@@ -117,7 +117,8 @@ class Professional {
       rating: rating is num && rating >= 0 && rating <= 5
           ? rating.toDouble()
           : null,
-      providerCode: data['providerCode'] is String &&
+      providerCode:
+          data['providerCode'] is String &&
               (data['providerCode'] as String).isNotEmpty
           ? data['providerCode'] as String
           : null,

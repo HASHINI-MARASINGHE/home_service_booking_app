@@ -164,15 +164,16 @@ class AdminService {
       .where('verified', isEqualTo: true)
       .snapshots()
       .map(
-        (snap) => [
-          for (final doc in snap.docs)
-            Professional.fromMap(doc.id, doc.data()),
-        ]..sort((a, b) {
-          // Sort: highest rating first, unrated at the end.
-          final ra = a.rating ?? -1;
-          final rb = b.rating ?? -1;
-          return rb.compareTo(ra);
-        }),
+        (snap) =>
+            [
+              for (final doc in snap.docs)
+                Professional.fromMap(doc.id, doc.data()),
+            ]..sort((a, b) {
+              // Sort: highest rating first, unrated at the end.
+              final ra = a.rating ?? -1;
+              final rb = b.rating ?? -1;
+              return rb.compareTo(ra);
+            }),
       );
 
   /// Live rating stats for one provider.
@@ -189,8 +190,7 @@ class AdminService {
       .snapshots()
       .map((snap) {
         final reviews = [
-          for (final doc in snap.docs)
-            ?Review.fromMap(doc.id, doc.data()),
+          for (final doc in snap.docs) ?Review.fromMap(doc.id, doc.data()),
         ];
         reviews.sort(
           (a, b) => (b.createdAt ?? DateTime(0)).compareTo(

@@ -102,9 +102,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     autocorrect: false,
                     enableSuggestions: false,
                     onFieldSubmitted: (_) => _submit(),
-                    validator: (value) => (value ?? '').isEmpty
-                        ? 'Enter your password.'
-                        : null,
+                    validator: (value) =>
+                        (value ?? '').isEmpty ? 'Enter your password.' : null,
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),

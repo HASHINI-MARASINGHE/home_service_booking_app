@@ -57,8 +57,7 @@ class _ProviderNotificationsScreenState
           if (items.isEmpty)
             const ProviderEmpty(
               title: 'No notifications yet',
-              message:
-                  'When a customer reviews one of your jobs, you will see it here.',
+              message: 'When a customer reviews one of your jobs, you will see it here.',
             ),
           for (final item in items)
             _NotificationTile(item: item, onTap: () => _tap(item)),

@@ -26,9 +26,7 @@ class AppUser {
     final photoUrl = data['photoUrl'];
     if (name is! String ||
         email is! String ||
-        (role != customerRole &&
-            role != providerRole &&
-            role != adminRole) ||
+        (role != customerRole && role != providerRole && role != adminRole) ||
         (photoUrl != null && photoUrl is! String)) {
       throw const FormatException('The user profile is invalid.');
     }
