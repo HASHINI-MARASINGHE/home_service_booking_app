@@ -17,6 +17,7 @@ import 'package:home_service_bookin_app/screens/auth/admin_login_screen.dart';
 import 'package:home_service_bookin_app/screens/auth/auth_form.dart';
 import 'package:home_service_bookin_app/screens/auth/provider_registration_screen.dart';
 import 'package:home_service_bookin_app/screens/provider/unverified_provider_shell.dart';
+import 'package:home_service_bookin_app/models/professional.dart';
 import 'package:home_service_bookin_app/screens/provider/verification/verification_screen.dart';
 import 'package:home_service_bookin_app/screens/provider/verification/verification_widgets.dart';
 import 'package:home_service_bookin_app/services/admin_service.dart';
@@ -61,7 +62,7 @@ class _Picker implements DocumentPicker {
   @override
   Future<PickedDocument?> pickDocument() async {
     picked.add('document');
-    return _doc('doc_${picked.length}.pdf', 'application/pdf');
+    return _doc('doc_${picked.length}.jpg', 'image/jpeg');
   }
 }
 
@@ -137,9 +138,11 @@ class _Admin extends AdminService {
   final rejected = <String, String>{};
 
   @override
-  Stream<List<ProviderVerification>> watchByStatus(
-    VerificationStatus status,
-  ) => Stream.value(items.where((v) => v.status == status).toList());
+  Stream<List<ProviderVerification>> watchByStatus(VerificationStatus status) =>
+      Stream.value(items.where((v) => v.status == status).toList());
+
+  @override
+  Stream<List<Professional>> watchAllProfessionals() => Stream.value(const []);
 
   @override
   Stream<int> watchPendingCount() => Stream.value(
@@ -176,8 +179,8 @@ ProviderVerification submission({
   idFront: file('front.jpg'),
   idBack: file('back.jpg'),
   selfie: file('selfie.jpg'),
-  cv: file('cv.pdf'),
-  certificates: [file('cert.pdf')],
+  cv: file('cv.jpg'),
+  certificates: [file('cert.jpg')],
   experiences: const [ExperienceEntry(title: 'Site helper', years: 2)],
   status: status,
   providerCode: code,
@@ -287,9 +290,9 @@ void main() {
         'idNumber': 'N1234567',
         'idFront': {'name': 'f.jpg', 'url': 'https://x/f.jpg'},
         'selfie': {'name': 's.jpg', 'url': 'https://x/s.jpg'},
-        'cv': {'name': 'cv.pdf', 'url': 'https://x/cv.pdf'},
+        'cv': {'name': 'cv.jpg', 'url': 'https://x/cv.jpg'},
         'certificates': [
-          {'name': 'c.pdf', 'url': 'https://x/c.pdf'},
+          {'name': 'c.jpg', 'url': 'https://x/c.jpg'},
           {'name': 'broken'},
         ],
         'status': 'verified',
@@ -383,10 +386,7 @@ void main() {
           find.byKey(const ValueKey('detail-profession')),
           'Plumber',
         );
-        await tester.enterText(
-          find.byKey(const ValueKey('detail-years')),
-          '4',
-        );
+        await tester.enterText(find.byKey(const ValueKey('detail-years')), '4');
         await tester.tap(find.byKey(const ValueKey('registration-next')));
         await tester.pumpAndSettle();
         expect(find.text('Step 2 of 3'), findsOneWidget);
@@ -400,7 +400,10 @@ void main() {
           ),
         );
         expect(next().onPressed, isNull);
-        expect(find.text('Upload the front of your ID or passport.'), findsOneWidget);
+        expect(
+          find.text('Upload the front of your ID or passport.'),
+          findsOneWidget,
+        );
 
         await tester.tap(find.byKey(const ValueKey('upload-id-front')));
         await tester.pumpAndSettle();
@@ -424,7 +427,11 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('upload-cv')));
         await tester.pumpAndSettle();
-        expect(next().onPressed, isNull, reason: 'a certificate is still missing');
+        expect(
+          next().onPressed,
+          isNull,
+          reason: 'a certificate is still missing',
+        );
         await tester.tap(find.byKey(const ValueKey('add-certificate')));
         await tester.pumpAndSettle();
         expect(find.text('Step 3 of 3 · 3 Completed'), findsOneWidget);
@@ -527,69 +534,68 @@ void main() {
   });
 
   group('resubmitting from the verification page', () {
-    testWidgets(
-      'works even when the details form has scrolled out of view',
-      (tester) async {
-        // A short phone so the details card is far above the submit button.
-        tester.view.physicalSize = const Size(390, 700);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        DocumentPicker.instance = _Picker();
-        final service = _Verification();
-        await tester.pumpWidget(
-          app(
-            VerificationScreen(
-              user: const AppUser(
-                uid: 'new-provider',
-                name: 'Sahan Perera',
-                email: 's@x.test',
-                role: 'provider',
-              ),
-              service: service,
-              previous: submission(
-                status: VerificationStatus.rejected,
-                reason: 'ID photo is blurry.',
-              ),
+    testWidgets('works even when the details form has scrolled out of view', (
+      tester,
+    ) async {
+      // A short phone so the details card is far above the submit button.
+      tester.view.physicalSize = const Size(390, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      DocumentPicker.instance = _Picker();
+      final service = _Verification();
+      await tester.pumpWidget(
+        app(
+          VerificationScreen(
+            user: const AppUser(
+              uid: 'new-provider',
+              name: 'Sahan Perera',
+              email: 's@x.test',
+              role: 'provider',
+            ),
+            service: service,
+            previous: submission(
+              status: VerificationStatus.rejected,
+              reason: 'ID photo is blurry.',
             ),
           ),
-        );
-        // Details are pre-filled from the rejected submission.
-        expect(find.byKey(const ValueKey('rejection-reason')), findsOneWidget);
+        ),
+      );
+      // Details are pre-filled from the rejected submission.
+      expect(find.byKey(const ValueKey('rejection-reason')), findsOneWidget);
 
-        Future<void> tapScrolled(String key) async {
-          final finder = find.byKey(ValueKey(key));
-          await tester.scrollUntilVisible(
-            finder,
-            200,
-            scrollable: find.byType(Scrollable).first,
-          );
-          await tester.tap(finder);
-          await tester.pumpAndSettle();
-        }
-
-        await tapScrolled('upload-id-front');
-        await tapScrolled('upload-id-back');
+      Future<void> tapScrolled(String key) async {
+        final finder = find.byKey(ValueKey(key));
         await tester.scrollUntilVisible(
-          find.byKey(const ValueKey('id-number')),
+          finder,
           200,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.enterText(
-          find.byKey(const ValueKey('id-number')),
-          '928471923V',
-        );
-        await tapScrolled('step-selfie');
-        await tapScrolled('upload-selfie');
-        await tapScrolled('step-qualifications');
-        await tapScrolled('upload-cv');
-        await tapScrolled('add-certificate');
-        await tapScrolled('verification-submit');
+        await tester.tap(finder);
+        await tester.pumpAndSettle();
+      }
 
-        expect(service.submitted, hasLength(1));
-        expect(service.submitted.single.fullName, 'Sahan Perera');
-        expect(tester.takeException(), isNull);
-      },
-    );
+      await tapScrolled('upload-id-front');
+      await tapScrolled('upload-id-back');
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('id-number')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('id-number')),
+        '928471923V',
+      );
+      await tapScrolled('step-selfie');
+      await tapScrolled('upload-selfie');
+      await tapScrolled('step-qualifications');
+      await tapScrolled('upload-cv');
+      await tapScrolled('add-certificate');
+      await tapScrolled('verification-submit');
+
+      expect(service.submitted, hasLength(1));
+      expect(service.submitted.single.fullName, 'Sahan Perera');
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('provider waiting for verification', () {
@@ -831,8 +837,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('admin-signin')));
       await tester.pump();
       expect(find.text('Enter your admin username.'), findsOneWidget);
-      await tester.enterText(find.byKey(const ValueKey('admin-username')), 'admin');
-      await tester.enterText(find.byKey(const ValueKey('admin-password')), 'pw');
+      await tester.enterText(
+        find.byKey(const ValueKey('admin-username')),
+        'admin',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('admin-password')),
+        'pw',
+      );
       await tester.tap(find.byKey(const ValueKey('admin-signin')));
       await tester.pumpAndSettle();
       expect(auth.adminUser, 'admin');
@@ -875,7 +887,9 @@ void main() {
       expect(find.text('Sahan Perera'), findsOneWidget);
       expect(find.text('1'), findsOneWidget, reason: 'pending badge');
 
-      await tester.tap(find.byKey(const ValueKey('provider-tile-new-provider')));
+      await tester.tap(
+        find.byKey(const ValueKey('provider-tile-new-provider')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Review provider'), findsOneWidget);
       expect(find.text('+94771234567'), findsOneWidget);
@@ -894,7 +908,9 @@ void main() {
       final service = _Admin([submission()]);
       await tester.pumpWidget(dashboard(service));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('provider-tile-new-provider')));
+      await tester.tap(
+        find.byKey(const ValueKey('provider-tile-new-provider')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('verify-provider')));
       await tester.pumpAndSettle();
@@ -913,7 +929,9 @@ void main() {
       final service = _Admin([submission()]);
       await tester.pumpWidget(dashboard(service));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('provider-tile-new-provider')));
+      await tester.tap(
+        find.byKey(const ValueKey('provider-tile-new-provider')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('reject-provider')));
       await tester.pumpAndSettle();
@@ -944,6 +962,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('HomeCare Admin'), findsOneWidget);
       expect(find.text('Administrator'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Log out'), 200);
       expect(find.text('Log out'), findsOneWidget);
     });
   });

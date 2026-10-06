@@ -31,9 +31,7 @@ class VerificationDetailsForm extends StatefulWidget {
 class _VerificationDetailsFormState extends State<VerificationDetailsForm> {
   late final _name = TextEditingController(text: widget.draft.fullName);
   late final _phone = TextEditingController(text: widget.draft.phone);
-  late final _profession = TextEditingController(
-    text: widget.draft.profession,
-  );
+  late final _profession = TextEditingController(text: widget.draft.profession);
   late final _years = TextEditingController(text: widget.draft.experienceYears);
   late final _about = TextEditingController(text: widget.draft.about);
 
@@ -176,7 +174,11 @@ class _VerificationDocumentsStepState extends State<VerificationDocumentsStep> {
       if (doc == null) return;
       if (doc.size > DocumentPicker.maxBytes) {
         if (mounted) {
-          showAppSnack(context, '${doc.name} is larger than 10 MB.', error: true);
+          showAppSnack(
+            context,
+            '${doc.name} is larger than 10 MB.',
+            error: true,
+          );
         }
         return;
       }
@@ -219,15 +221,20 @@ class _VerificationDocumentsStepState extends State<VerificationDocumentsStep> {
                 children: [
                   const Icon(Icons.circle, size: 9, color: AppColors.primary),
                   const SizedBox(width: 6),
-                  Text('ONBOARDING', style: AppTypography.overline.copyWith(
-                    color: AppColors.primary,
-                  )),
+                  Text(
+                    'ONBOARDING',
+                    style: AppTypography.overline.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
                 'Provider Verification',
-                style: AppTypography.headline.copyWith(color: AppColors.primaryDark),
+                style: AppTypography.headline.copyWith(
+                  color: AppColors.primaryDark,
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
@@ -250,7 +257,9 @@ class _VerificationDocumentsStepState extends State<VerificationDocumentsStep> {
             child: Text(
               'Documents are optional for now. Adding them helps our team '
               'verify you faster.',
-              style: AppTypography.caption.copyWith(color: AppColors.primaryDark),
+              style: AppTypography.caption.copyWith(
+                color: AppColors.primaryDark,
+              ),
             ),
           ),
         ],
@@ -477,7 +486,7 @@ class _VerificationDocumentsStepState extends State<VerificationDocumentsStep> {
   Widget _qualificationsStep() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const SectionLabel('Your CV (required)'),
+      const SectionLabel('Your CV (photo, required)'),
       const SizedBox(height: AppSpacing.xs),
       if (d.cv != null)
         _FileTile(
@@ -492,16 +501,16 @@ class _VerificationDocumentsStepState extends State<VerificationDocumentsStep> {
       else
         _UploadBox(
           key: const ValueKey('upload-cv'),
-          title: 'Upload CV',
-          hint: 'PDF, Word document or photo, up to 10 MB',
-          icon: LucideIcons.fileText,
-          onTap: () => _pick(
-            DocumentPicker.instance.pickDocument,
-            (doc) => d.cv = doc,
-          ),
+          title: 'Upload CV photo',
+          hint: 'Tap to upload a photo, up to 10 MB',
+          icon: LucideIcons.image,
+          onTap: () =>
+              _pick(DocumentPicker.instance.pickDocument, (doc) => d.cv = doc),
         ),
       const SizedBox(height: AppSpacing.md),
-      const SectionLabel('Course / training certificates (at least one)'),
+      const SectionLabel(
+        'Course / training certificates (photos, at least one)',
+      ),
       const SizedBox(height: AppSpacing.xs),
       for (var i = 0; i < d.certificates.length; i++) ...[
         _FileTile(
@@ -519,14 +528,12 @@ class _VerificationDocumentsStepState extends State<VerificationDocumentsStep> {
         _UploadBox(
           key: const ValueKey('add-certificate'),
           title: d.certificates.isEmpty
-              ? 'Upload Certificate'
-              : 'Add another certificate',
-          hint: 'PDF, Word document or photo, up to 10 MB',
+              ? 'Upload Certificate photo'
+              : 'Add another certificate photo',
+          hint: 'Tap to upload a photo, up to 10 MB',
           icon: LucideIcons.award,
-          onTap: () => _pick(
-            DocumentPicker.instance.pickDocument,
-            d.certificates.add,
-          ),
+          onTap: () =>
+              _pick(DocumentPicker.instance.pickDocument, d.certificates.add),
         ),
       const SizedBox(height: AppSpacing.md),
       const SectionLabel('Other work experience (optional)'),
@@ -588,7 +595,9 @@ class _StepCard extends StatelessWidget {
   Widget build(BuildContext context) => AppCard(
     padding: EdgeInsets.zero,
     border: Border.all(
-      color: open ? AppColors.primary.withValues(alpha: 0.45) : AppColors.border,
+      color: open
+          ? AppColors.primary.withValues(alpha: 0.45)
+          : AppColors.border,
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -632,7 +641,9 @@ class _StepCard extends StatelessWidget {
                 else
                   Text(
                     'Next',
-                    style: AppTypography.label.copyWith(color: AppColors.primary),
+                    style: AppTypography.label.copyWith(
+                      color: AppColors.primary,
+                    ),
                   ),
               ],
             ),
@@ -671,7 +682,9 @@ class _NumberDot extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: filled ? (done ? AppColors.success : AppColors.primary) : Colors.white,
+        color: filled
+            ? (done ? AppColors.success : AppColors.primary)
+            : Colors.white,
         border: Border.all(
           color: filled ? Colors.transparent : AppColors.divider,
           width: 1.5,
@@ -803,9 +816,12 @@ class _UploadBox extends StatelessWidget {
                   child: Icon(icon, size: 20, color: AppColors.primary),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(title, style: AppTypography.subtitle.copyWith(
-                  color: AppColors.primaryDark,
-                )),
+                Text(
+                  title,
+                  style: AppTypography.subtitle.copyWith(
+                    color: AppColors.primaryDark,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   hint,

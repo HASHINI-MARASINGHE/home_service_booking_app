@@ -30,9 +30,6 @@ class PickedDocument {
       'jpg' || 'jpeg' => 'image/jpeg',
       'png' => 'image/png',
       'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      'doc' => 'application/msword',
-      'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       _ => 'application/octet-stream',
     };
   }
@@ -52,7 +49,7 @@ abstract class DocumentPicker {
   /// A live selfie from the front camera (a photo picker where there is none).
   Future<PickedDocument?> takeSelfie();
 
-  /// A CV or certificate: PDF, Word document or photo.
+  /// A photo of a CV or certificate (photos only, no PDF or Word files).
   Future<PickedDocument?> pickDocument();
 }
 
@@ -74,8 +71,7 @@ class SystemDocumentPicker implements DocumentPicker {
   Future<PickedDocument?> pickImage() => _pick(['jpg', 'jpeg', 'png', 'webp']);
 
   @override
-  Future<PickedDocument?> pickDocument() =>
-      _pick(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']);
+  Future<PickedDocument?> pickDocument() => pickImage();
 
   @override
   Future<PickedDocument?> takeSelfie() async {

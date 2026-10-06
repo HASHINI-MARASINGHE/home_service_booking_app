@@ -20,7 +20,7 @@ service firebase.storage {
         isImageUnder5MB();
     }
 
-    // Provider verification documents (ID, selfie, CV, certificates). Private:
+    // Provider verification photos (ID, selfie, CV, certificates). Private:
     // only the provider who uploaded them and admins can read them. Nobody can
     // overwrite an uploaded file; a new upload gets a new name.
     match /providerDocs/{uid}/{fileName} {
@@ -28,11 +28,7 @@ service firebase.storage {
         (request.auth.uid == uid || isAdmin());
       allow create: if request.auth != null && request.auth.uid == uid &&
         request.resource.size < 10 * 1024 * 1024 &&
-        (request.resource.contentType.matches('image/.*') ||
-         request.resource.contentType == 'application/pdf' ||
-         request.resource.contentType == 'application/msword' ||
-         request.resource.contentType ==
-           'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        request.resource.contentType.matches('image/.*');
       allow update, delete: if false;
     }
 

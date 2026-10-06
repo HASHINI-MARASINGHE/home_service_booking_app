@@ -32,8 +32,8 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
     length: ServiceCategory.all.length + 2,
     vsync: this,
   );
-  late final Stream<List<Professional>> _professionals =
-      widget.service.watchAllProfessionals();
+  late final Stream<List<Professional>> _professionals = widget.service
+      .watchAllProfessionals();
 
   @override
   void dispose() {
@@ -139,8 +139,9 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
                       ),
                       for (final cat in ServiceCategory.all)
                         _ProviderList(
-                          professionals:
-                              _filter(all.where(cat.matches).toList()),
+                          professionals: _filter(
+                            all.where(cat.matches).toList(),
+                          ),
                           service: widget.service,
                           emptyLabel: _search.text.isEmpty
                               ? 'No verified ${cat.label.toLowerCase()} providers.'
@@ -182,8 +183,10 @@ class _SummaryBar extends StatelessWidget {
     final avgAll = rated.isEmpty
         ? null
         : rated.fold<double>(0, (s, p) => s + p.rating!) / rated.length;
-    final totalReviews =
-        professionals.fold<int>(0, (s, p) => s + p.reviewCount);
+    final totalReviews = professionals.fold<int>(
+      0,
+      (s, p) => s + p.reviewCount,
+    );
 
     return Container(
       color: AppColors.surface,
@@ -309,10 +312,8 @@ class _ProviderList extends StatelessWidget {
       ),
       itemCount: professionals.length,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, i) => _ProviderRatingCard(
-        professional: professionals[i],
-        service: service,
-      ),
+      itemBuilder: (context, i) =>
+          _ProviderRatingCard(professional: professionals[i], service: service),
     );
   }
 }
@@ -332,10 +333,8 @@ class _ProviderRatingCard extends StatelessWidget {
       key: ValueKey('rating-card-${p.id}'),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => AdminProviderReviewsScreen(
-            professional: p,
-            service: service,
-          ),
+          builder: (_) =>
+              AdminProviderReviewsScreen(professional: p, service: service),
         ),
       ),
       child: Column(
@@ -511,10 +510,11 @@ class AdminProviderReviewsScreen extends StatefulWidget {
 
 class _AdminProviderReviewsScreenState
     extends State<AdminProviderReviewsScreen> {
-  late final Stream<RatingStats?> _stats =
-      widget.service.watchRatingStats(widget.professional.id);
-  late final Stream<List<Review>> _reviews =
-      widget.service.watchProviderReviews(widget.professional.id);
+  late final Stream<RatingStats?> _stats = widget.service.watchRatingStats(
+    widget.professional.id,
+  );
+  late final Stream<List<Review>> _reviews = widget.service
+      .watchProviderReviews(widget.professional.id);
 
   @override
   Widget build(BuildContext context) {

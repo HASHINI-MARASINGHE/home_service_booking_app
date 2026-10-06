@@ -92,8 +92,9 @@ class AdminProvidersScreen extends StatefulWidget {
 
 class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
   VerificationStatus _filter = VerificationStatus.pending;
-  late Stream<List<ProviderVerification>> _items = widget.service
-      .watchByStatus(_filter);
+  late Stream<List<ProviderVerification>> _items = widget.service.watchByStatus(
+    _filter,
+  );
 
   void _select(VerificationStatus status) => setState(() {
     _filter = status;
@@ -251,7 +252,11 @@ class _ProviderTile extends StatelessWidget {
               color: AppColors.warning,
             ),
           },
-          const Icon(LucideIcons.chevronRight, size: 18, color: AppColors.muted),
+          const Icon(
+            LucideIcons.chevronRight,
+            size: 18,
+            color: AppColors.muted,
+          ),
         ],
       ),
     );
@@ -321,10 +326,8 @@ class AdminProfileScreen extends StatelessWidget {
           } else {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => AdminRatingsScreen(
-                  service: service,
-                  standalone: true,
-                ),
+                builder: (_) =>
+                    AdminRatingsScreen(service: service, standalone: true),
               ),
             );
           }
@@ -353,8 +356,10 @@ class _RatingsMonitorCard extends StatelessWidget {
         final avgRating = rated.isEmpty
             ? null
             : rated.fold<double>(0, (s, p) => s + p.rating!) / rated.length;
-        final totalReviews =
-            professionals.fold<int>(0, (s, p) => s + p.reviewCount);
+        final totalReviews = professionals.fold<int>(
+          0,
+          (s, p) => s + p.reviewCount,
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

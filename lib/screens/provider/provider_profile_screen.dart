@@ -130,10 +130,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     providerCode: widget.verification?.providerCode,
                   ),
                 const SizedBox(height: 16),
-                _OverallRating(
-                  stream: _ratingStats,
-                  fallback: profile.rating,
-                ),
+                _OverallRating(stream: _ratingStats, fallback: profile.rating),
               ],
             ),
           ),
@@ -237,8 +234,7 @@ class _OverallRating extends StatelessWidget {
                 style: TextStyle(color: ProviderTheme.muted),
               )
             : Semantics(
-                label:
-                    'Overall rating ${average.toStringAsFixed(1)} out of 5',
+                label: 'Overall rating ${average.toStringAsFixed(1)} out of 5',
                 child: ExcludeSemantics(
                   child: Column(
                     children: [
