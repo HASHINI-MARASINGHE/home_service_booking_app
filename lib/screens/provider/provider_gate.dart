@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
@@ -5,6 +6,7 @@ import '../../models/provider_verification.dart';
 import '../../services/auth_service.dart';
 import '../../services/provider_verification_service.dart';
 import '../../widgets/common/app_widgets.dart';
+import '../auth/logout_button.dart';
 import 'provider_home_screen.dart';
 import 'unverified_provider_shell.dart';
 
@@ -37,11 +39,38 @@ class _ProviderGateState extends State<ProviderGate> {
     stream: _verification,
     builder: (context, snapshot) {
       if (snapshot.hasError) {
+        final error = snapshot.error!;
+        final denied =
+            error is FirebaseException && error.code == 'permission-denied';
         return Scaffold(
           body: SafeArea(
-            child: ErrorState(
-              error: snapshot.error!,
-              onRetry: () => setState(() => _verification = _service.watch()),
+            child: Column(
+              children: [
+                Expanded(
+                  child: ErrorState(
+                    error: error,
+                    onRetry: () =>
+                        setState(() => _verification = _service.watch()),
+                  ),
+                ),
+                if (denied)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Technical detail: the Firestore security rules in '
+                      'this Firebase project do not allow reading '
+                      'providerVerifications yet. Publish the latest '
+                      'firestore.rules (Firebase console > Firestore > Rules '
+                      '> Publish), then tap Try again.',
+                      key: const ValueKey('rules-hint'),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                // Never leave a provider stuck on an error screen.
+                LogoutButton(authService: widget.authService),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
         );
