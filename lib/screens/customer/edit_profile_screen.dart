@@ -185,7 +185,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     canPop: false,
     onPopInvokedWithResult: (didPop, result) async {
       if (didPop || !mounted) return;
-      if (await _confirmDiscard() && mounted) Navigator.pop(context);
+      final shouldDiscard = await _confirmDiscard();
+      if (!context.mounted) return;
+      if (shouldDiscard) Navigator.pop(context);
     },
     child: Scaffold(
       backgroundColor: CustomerHomeTheme.background,

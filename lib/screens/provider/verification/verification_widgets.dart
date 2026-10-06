@@ -493,7 +493,7 @@ class _VerificationDocumentsStepState extends State<VerificationDocumentsStep> {
         _UploadBox(
           key: const ValueKey('upload-cv'),
           title: 'Upload CV',
-          hint: 'PDF, Word document or photo, up to 10 MB',
+          hint: 'Photo or scan (JPG, PNG or WEBP), up to 10 MB',
           icon: LucideIcons.fileText,
           onTap: () => _pick(
             DocumentPicker.instance.pickDocument,
@@ -521,7 +521,7 @@ class _VerificationDocumentsStepState extends State<VerificationDocumentsStep> {
           title: d.certificates.isEmpty
               ? 'Upload Certificate'
               : 'Add another certificate',
-          hint: 'PDF, Word document or photo, up to 10 MB',
+          hint: 'Photo or scan (JPG, PNG or WEBP), up to 10 MB',
           icon: LucideIcons.award,
           onTap: () => _pick(
             DocumentPicker.instance.pickDocument,
