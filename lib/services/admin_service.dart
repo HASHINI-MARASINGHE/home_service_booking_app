@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/professional.dart';
 import '../models/provider_verification.dart';
+import '../models/rating_stats.dart';
+import '../models/review.dart';
 
 /// Admin-only actions: reviewing provider verification submissions.
 /// Security rules only allow accounts with the `admin` role to do any of it.
@@ -152,4 +155,48 @@ class AdminService {
     'read': false,
     'createdAt': FieldValue.serverTimestamp(),
   };
+
+  // ─────────────────────────── Ratings monitoring ──────────────────────────
+
+  /// All verified professionals from the public `professionals` collection.
+  Stream<List<Professional>> watchAllProfessionals() => _db
+      .collection('professionals')
+      .where('verified', isEqualTo: true)
+      .snapshots()
+      .map(
+        (snap) => [
+          for (final doc in snap.docs)
+            Professional.fromMap(doc.id, doc.data()),
+        ]..sort((a, b) {
+          // Sort: highest rating first, unrated at the end.
+          final ra = a.rating ?? -1;
+          final rb = b.rating ?? -1;
+          return rb.compareTo(ra);
+        }),
+      );
+
+  /// Live rating stats for one provider.
+  Stream<RatingStats?> watchRatingStats(String providerId) => _db
+      .collection('ratingStats')
+      .doc(providerId)
+      .snapshots()
+      .map((doc) => RatingStats.fromMap(doc.data()));
+
+  /// All reviews written for one provider, newest first.
+  Stream<List<Review>> watchProviderReviews(String providerId) => _db
+      .collection('reviews')
+      .where('providerId', isEqualTo: providerId)
+      .snapshots()
+      .map((snap) {
+        final reviews = [
+          for (final doc in snap.docs)
+            ?Review.fromMap(doc.id, doc.data()),
+        ];
+        reviews.sort(
+          (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+            a.createdAt ?? DateTime(0),
+          ),
+        );
+        return reviews;
+      });
 }

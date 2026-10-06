@@ -188,7 +188,8 @@ service cloud.firestore {
     }
 
     match /providerProfiles/{uid} {
-      allow read: if providerSignedIn() && request.auth.uid == uid;
+      // The provider reads their own profile; admins can read any profile.
+      allow read: if (providerSignedIn() && request.auth.uid == uid) || isAdmin();
       allow create: if providerSignedIn() && request.auth.uid == uid &&
         request.resource.data.keys().hasOnly(editableProviderFields()) &&
         validProviderProfile(request.resource.data, uid);
@@ -442,12 +443,13 @@ service cloud.firestore {
       }
 
       // Customers read their own review, providers the reviews of their jobs;
-      // nobody else. Providers can never write one.
+      // admins can list all reviews for monitoring.
       allow get: if signedIn() &&
         (resource == null ||
          resource.data.customerId == request.auth.uid ||
-         resource.data.providerId == request.auth.uid);
-      allow list: if false;
+         resource.data.providerId == request.auth.uid ||
+         isAdmin());
+      allow list: if isAdmin();
 
       allow create: if signedIn() &&
         request.resource.data.keys().hasOnly(['bookingId', 'customerId',
