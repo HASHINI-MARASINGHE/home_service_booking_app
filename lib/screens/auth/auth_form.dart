@@ -11,11 +11,18 @@ class AuthForm extends StatefulWidget {
     required this.authService,
     required this.register,
     required this.onSwitch,
+    this.initialRole,
+    this.onChangeRole,
   });
 
   final AuthService authService;
   final bool register;
   final VoidCallback onSwitch;
+
+  /// Role already chosen on the role selection screen. When set, the role
+  /// dropdown is replaced by a short summary with a "Change" link.
+  final String? initialRole;
+  final VoidCallback? onChangeRole;
 
   @override
   State<AuthForm> createState() => _AuthFormState();
@@ -26,7 +33,7 @@ class _AuthFormState extends State<AuthForm> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  String _role = AppUser.customerRole;
+  late String _role = widget.initialRole ?? AppUser.customerRole;
   bool _busy = false;
   String? _error;
 
@@ -124,7 +131,25 @@ class _AuthFormState extends State<AuthForm> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (widget.register) ...[
+                      if (widget.register && widget.initialRole != null) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Signing up as '
+                                '${_role == AppUser.providerRole ? 'Provider' : 'Customer'}',
+                              ),
+                            ),
+                            if (widget.onChangeRole != null)
+                              TextButton(
+                                key: const ValueKey('change-role'),
+                                onPressed: _busy ? null : widget.onChangeRole,
+                                child: const Text('Change'),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ] else if (widget.register) ...[
                         DropdownButtonFormField<String>(
                           key: const ValueKey('role-dropdown'),
                           initialValue: _role,
