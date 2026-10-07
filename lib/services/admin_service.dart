@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/dispute.dart';
 import '../models/professional.dart';
 import '../models/provider_verification.dart';
 import '../models/rating_stats.dart';
 import '../models/review.dart';
+import 'dispute_service.dart';
 
 /// Admin-only actions: reviewing provider verification submissions.
 /// Security rules only allow accounts with the `admin` role to do any of it.
@@ -199,4 +201,163 @@ class AdminService {
         );
         return reviews;
       });
+
+  // ───────────────────────────── Disputes (safety desk) ─────────────────────
+
+  /// Disputes in [status], newest first.
+  Stream<List<Dispute>> watchDisputes(DisputeStatus status) => _db
+      .collection('disputes')
+      .where('status', isEqualTo: status.value)
+      .snapshots()
+      .map((snapshot) {
+        final items = [
+          for (final doc in snapshot.docs) ?Dispute.fromMap(doc.id, doc.data()),
+        ];
+        items.sort(
+          (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+            a.createdAt ?? DateTime(0),
+          ),
+        );
+        return items;
+      });
+
+  /// How many disputes are waiting for the safety desk to pick them up.
+  Stream<int> watchPendingDisputeCount() =>
+      watchDisputes(DisputeStatus.pending).map((items) => items.length);
+
+  /// One dispute, live, so the detail screen follows the admin's own actions.
+  Stream<Dispute?> watchDispute(String id) => _db
+      .collection('disputes')
+      .doc(id)
+      .snapshots()
+      .map((doc) => Dispute.fromMap(doc.id, doc.data()));
+
+  /// The photos the customer attached (Base64, one document each).
+  Stream<List<DisputePhoto>> watchDisputePhotos(String id) => _db
+      .collection('disputes')
+      .doc(id)
+      .collection('photos')
+      .snapshots()
+      .map(
+        (snapshot) => [
+          for (final doc in snapshot.docs)
+            ?DisputePhoto.fromMap(doc.id, doc.data()),
+        ]..sort((a, b) => a.id.compareTo(b.id)),
+      );
+
+  /// Pending -> Under Review, and tells the provider.
+  Future<void> startDisputeReview(Dispute dispute) async {
+    final adminId = _uid;
+    final ref = _db.collection('disputes').doc(dispute.id);
+    await _db.runTransaction((tx) async {
+      final current = Dispute.fromMap(dispute.id, (await tx.get(ref)).data());
+      if (current == null) {
+        throw const DisputeException('This dispute no longer exists.');
+      }
+      if (current.status != DisputeStatus.pending) {
+        throw const DisputeException('This dispute is already being reviewed.');
+      }
+      tx.update(ref, {
+        'status': DisputeStatus.underReview.value,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(
+        _db.collection('notifications').doc('dispute_${dispute.id}_review'),
+        _disputeNote(
+          adminId: adminId,
+          dispute: current,
+          title: 'Dispute under review',
+          body:
+              'The safety desk is reviewing the problem reported on '
+              '${current.serviceName.isEmpty ? 'a job' : current.serviceName} '
+              '(#${current.bookingRef}).',
+        ),
+      );
+    });
+  }
+
+  /// Under Review -> Resolved with the decision (and refund), and tells the
+  /// provider. The refund itself is paid outside the app for now; the amount
+  /// is recorded here and shown to the customer.
+  Future<void> resolveDispute({
+    required Dispute dispute,
+    required String decision,
+    double? refundAmount,
+    required String note,
+  }) async {
+    final adminId = _uid;
+    final text = note.trim();
+    if (!DisputeDecisions.all.contains(decision)) {
+      throw const DisputeException('Choose a decision.');
+    }
+    if (text.length < 5 || text.length > 500) {
+      throw const DisputeException(
+        'Write a note for the customer (5 to 500 characters).',
+      );
+    }
+    final rejected = decision == DisputeDecisions.rejected;
+    final total = dispute.amount;
+    if (!rejected) {
+      if (refundAmount == null || refundAmount <= 0) {
+        throw const DisputeException('Enter the refund amount.');
+      }
+      if (total != null && refundAmount > total) {
+        throw const DisputeException(
+          'The refund cannot be more than the job total.',
+        );
+      }
+      if (decision == DisputeDecisions.fullRefund &&
+          total != null &&
+          refundAmount != total) {
+        throw const DisputeException('A full refund must equal the job total.');
+      }
+    }
+    final ref = _db.collection('disputes').doc(dispute.id);
+    await _db.runTransaction((tx) async {
+      final current = Dispute.fromMap(dispute.id, (await tx.get(ref)).data());
+      if (current == null) {
+        throw const DisputeException('This dispute no longer exists.');
+      }
+      if (current.status != DisputeStatus.underReview) {
+        throw const DisputeException(
+          'Start the review before resolving this dispute.',
+        );
+      }
+      tx.update(ref, {
+        'status': DisputeStatus.resolved.value,
+        'decision': decision,
+        'refundAmount': rejected ? null : refundAmount,
+        'adminNote': text,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(
+        _db.collection('notifications').doc('dispute_${dispute.id}_resolved'),
+        _disputeNote(
+          adminId: adminId,
+          dispute: current,
+          title: 'Dispute resolved: $decision',
+          body:
+              'The safety desk decided the problem reported on '
+              '${current.serviceName.isEmpty ? 'a job' : current.serviceName} '
+              '(#${current.bookingRef}).',
+        ),
+      );
+    });
+  }
+
+  Map<String, dynamic> _disputeNote({
+    required String adminId,
+    required Dispute dispute,
+    required String title,
+    required String body,
+  }) => {
+    'recipientId': dispute.providerId,
+    'senderId': adminId,
+    'type': 'dispute',
+    'bookingId': dispute.bookingId,
+    'title': title,
+    'body': body,
+    'read': false,
+    'createdAt': FieldValue.serverTimestamp(),
+  };
 }
