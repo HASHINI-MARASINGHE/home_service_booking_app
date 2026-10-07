@@ -633,4 +633,57 @@ await expectAllowed(
   'the same provider accepts the job once verified',
 );
 
+// ------------------------------------------------------ new booking (create)
+// Replays CustomerBookingService.createBooking: booking set + slot lock set
+// with an "absent" precondition, committed in one transaction.
+const PP = 'provider-priced';
+const PI = 'provider-inspection';
+await seed(`users/${PP}`, {uid: PP, name: 'Priced Pro', email: 'pp@x.test', role: 'provider'});
+await seed(`users/${PI}`, {uid: PI, name: 'Amal Perera', email: 'pi@x.test', role: 'provider'});
+await seed(`professionals/${PP}`, {name: 'Priced Pro', specialty: 'Plumber', pricing: 2500});
+await seed(`professionals/${PI}`, {name: 'Amal Perera', specialty: 'AC technician', pricing: null});
+
+const ND = colomboDate(5);
+const newBooking = (id, {uid = A, pro = PP, price = dbl(2500), start = '10:30', end = '12:00',
+  booking = {}, lockData = {}, absent = true} = {}) => {
+  const lockId = lock(pro, ND, start);
+  return commit(uid, [
+    set(`bookings/${id}`, {
+      reference: 'BK-51693', customerId: uid, customerName: 'A', providerId: pro,
+      providerName: 'Pro', serviceName: 'AC technician', status: 'pending',
+      slotDate: ND, startTime: start, endTime: end,
+      scheduledAt: instant(ND, start), endAt: instant(ND, end), slotLockId: lockId,
+      addressId: 'home', address: 'No. 42 Galle Road, Colombo 03', addressLabel: 'Home',
+      addressArea: '', accessNotes: '', contactPhone: '', jobNotes: '', photoUrls: [],
+      estimatedPrice: price, totalAmount: price, laborCharge: price, serviceFee: 0,
+      paymentStatus: 'unpaid', ...booking,
+    }, ['createdAt', 'updatedAt']),
+    {
+      ...set(`slotLocks/${lockId}`, {providerId: pro, date: ND, startTime: start, endTime: end,
+        bookingId: id, ...lockData}),
+      ...(absent && {currentDocument: {exists: false}}),
+    },
+  ]);
+};
+
+await expectAllowed(newBooking('nb1'), 'customer books a priced provider (booking + slot lock)');
+await expectAllowed(newBooking('nb2', {pro: PI, price: null}), 'customer books an on-inspection provider with no price');
+await expectDenied(newBooking('nb3', {absent: false}), 'second customer double-books the same slot');
+await expectDenied(newBooking('nb3', {uid: B, absent: false}), 'another customer double-books the same slot');
+await expectDenied(newBooking('nb4', {start: '13:30', end: '15:00', booking: {customerId: B}}), 'customer creates a booking for another customer');
+await expectDenied(newBooking('nb5', {start: '13:30', end: '15:00', booking: {paymentStatus: 'paid'}}), 'new booking marked as paid');
+await expectDenied(newBooking('nb6', {start: '13:30', end: '15:00', price: dbl(100)}), 'new booking with a fake lower price');
+await expectDenied(newBooking('nb7', {pro: PI, start: '13:30', end: '15:00', price: dbl(1)}), 'on-inspection booking with an invented price');
+await expectDenied(newBooking('nb8', {start: '13:30', end: '15:00', booking: {status: 'confirmed'}}), 'new booking skips straight to confirmed');
+await expectDenied(newBooking('nb9', {start: '13:30', end: '15:00', booking: {serviceFee: 500}}), 'new booking sets a service fee');
+await expectDenied(newBooking('nb10', {start: '13:30', end: '15:00', lockData: {bookingId: 'b1'}}), 'slot lock points at a different booking');
+await expectDenied(newBooking('nb11', {pro: 'no-such-provider', start: '13:30', end: '15:00', price: null}), 'booking a provider that does not exist');
+await expectDenied(newBooking('nb12', {uid: P, start: '13:30', end: '15:00'}), 'a provider account books a job');
+await expectDenied(newBooking('nb13', {start: '13:30', end: '15:00', booking: {isAdmin: true}}), 'new booking with an extra field');
+await expectDenied(
+  commit(A, [set('bookings/nb14', {customerId: A, providerId: PP, status: 'pending'}, ['createdAt', 'updatedAt'])]),
+  'booking without its slot lock',
+);
+await expectAllowed(get(A, 'bookings/nb1'), 'customer reads the booking they just created');
+
 console.log(`\nAll ${checks} security-rule checks passed.`);
