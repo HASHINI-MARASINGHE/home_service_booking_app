@@ -329,16 +329,70 @@ service cloud.firestore {
         (!captured || existsAfter(/databases/$(database)/documents/refunds/$(bookingId)));
     }
 
+    // New booking (CustomerBookingService.createBooking): a customer books a
+    // listed provider for a slot > 2 h away. The slot lock is created in the
+    // same transaction and must not exist yet, so a slot is never double
+    // booked. Prices must equal the provider's published `pricing`; a
+    // provider without one is priced on inspection, so all prices are null.
+    function bookingFields() {
+      return ['reference', 'customerId', 'customerName', 'providerId',
+        'providerName', 'serviceName', 'status', 'slotDate', 'startTime',
+        'endTime', 'scheduledAt', 'endAt', 'slotLockId', 'addressId', 'address',
+        'addressLabel', 'addressArea', 'accessNotes', 'contactPhone', 'jobNotes',
+        'photoUrls', 'estimatedPrice', 'totalAmount', 'laborCharge',
+        'serviceFee', 'paymentStatus', 'createdAt', 'updatedAt'];
+    }
+
+    function customerCreate(bookingId) {
+      let n = request.resource.data;
+      let pro = /databases/$(database)/documents/professionals/$(n.providerId);
+      let price = get(pro).data.get('pricing', null);
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer' &&
+        n.keys().hasOnly(bookingFields()) && n.keys().hasAll(bookingFields()) &&
+        n.customerId == request.auth.uid &&
+        n.providerId is string && n.providerId != request.auth.uid &&
+        exists(pro) &&
+        n.reference is string && n.reference.matches('^BK-[0-9]{5}$') &&
+        n.customerName is string && n.customerName.size() <= 100 &&
+        n.providerName is string && n.providerName.size() <= 100 &&
+        n.serviceName is string && n.serviceName.size() > 0 && n.serviceName.size() <= 100 &&
+        n.status == 'pending' &&
+        validSlotShape(n) &&
+        n.scheduledAt == slotInstant(n.slotDate, n.startTime) &&
+        n.endAt == slotInstant(n.slotDate, n.endTime) &&
+        n.scheduledAt > request.time + duration.value(2, 'h') &&
+        n.slotLockId == lockIdFor(n.providerId, n.slotDate, n.startTime) &&
+        !exists(lockPath(n.slotLockId)) &&
+        getAfter(lockPath(n.slotLockId)).data.bookingId == bookingId &&
+        optionalString(n, 'addressId', 128) &&
+        n.address is string && n.address.size() > 0 && n.address.size() <= 300 &&
+        optionalString(n, 'addressLabel', 60) &&
+        optionalString(n, 'addressArea', 120) &&
+        optionalString(n, 'accessNotes', 200) &&
+        optionalString(n, 'contactPhone', 20) &&
+        optionalString(n, 'jobNotes', 1000) &&
+        n.photoUrls is list && n.photoUrls.size() <= 5 &&
+        (price == null || price is number) &&
+        n.estimatedPrice == price &&
+        n.totalAmount == price &&
+        n.laborCharge == price &&
+        n.serviceFee == 0 &&
+        n.paymentStatus == 'unpaid' &&
+        n.createdAt == request.time &&
+        n.updatedAt == request.time;
+    }
+
     match /bookings/{bookingId} {
       allow read: if signedIn() &&
         (resource.data.customerId == request.auth.uid ||
          (resource.data.providerId == request.auth.uid && providerSignedIn()));
+      allow create: if customerCreate(bookingId);
       allow update: if providerTransition() ||
         customerEdit() ||
         customerReschedule(bookingId) ||
         customerCancel(bookingId);
-      // Bookings are created by the trusted booking backend in this phase.
-      allow create, delete: if false;
+      allow delete: if false;
     }
 
     // ------------------------------------------------------------ slot locks
