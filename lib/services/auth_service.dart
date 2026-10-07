@@ -242,7 +242,7 @@ class AuthService {
         'network-request-failed' ||
         'unavailable' => 'Check your connection and try again.',
         'unauthorized' =>
-          'A document could not be uploaded. Use a PDF, Word file or photo '
+          'A photo could not be uploaded. Use a JPG, PNG or WebP photo '
               'under 10 MB.',
         'retry-limit-exceeded' ||
         'canceled' => 'The upload was interrupted. Please try again.',

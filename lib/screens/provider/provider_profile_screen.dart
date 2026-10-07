@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
@@ -52,15 +53,30 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     stream: _profile,
     builder: (context, snapshot) {
       if (snapshot.hasError) {
+        final error = snapshot.error!;
+        final denied =
+            error is FirebaseException && error.code == 'permission-denied';
         return Column(
           children: [
             Expanded(
               child: ProviderFailure(
-                error: snapshot.error,
+                error: error,
                 onRetry: () =>
                     setState(() => _profile = widget.service.watchProfile()),
               ),
             ),
+            if (denied)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Access denied: the Firestore security rules do not allow '
+                  'reading providerProfiles yet. Publish the latest '
+                  'firestore.rules (Firebase Console > Firestore > Rules > '
+                  'Publish), then tap Try again.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             LogoutButton(authService: widget.authService),
             const SizedBox(height: 20),
           ],
@@ -114,10 +130,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     providerCode: widget.verification?.providerCode,
                   ),
                 const SizedBox(height: 16),
-                _OverallRating(
-                  stream: _ratingStats,
-                  fallback: profile.rating,
-                ),
+                _OverallRating(stream: _ratingStats, fallback: profile.rating),
               ],
             ),
           ),
@@ -221,8 +234,7 @@ class _OverallRating extends StatelessWidget {
                 style: TextStyle(color: ProviderTheme.muted),
               )
             : Semantics(
-                label:
-                    'Overall rating ${average.toStringAsFixed(1)} out of 5',
+                label: 'Overall rating ${average.toStringAsFixed(1)} out of 5',
                 child: ExcludeSemantics(
                   child: Column(
                     children: [

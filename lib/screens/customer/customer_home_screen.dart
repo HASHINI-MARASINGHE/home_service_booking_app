@@ -194,173 +194,155 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
   }
 
   @override
-  Widget build(BuildContext context) => CustomScrollView(
-    slivers: [
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        sliver: SliverList(
-          delegate: SliverChildListDelegate([
-            SafeArea(
-              bottom: false,
-              child: Row(
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: CustomerHomeTheme.mint,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.verified_outlined,
-                            color: CustomerHomeTheme.primary,
-                            size: 15,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Trusted pros',
-                            style: TextStyle(
-                              color: CustomerHomeTheme.primaryDark,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Hi, ${user.name.split(' ').first}',
-                      textAlign: TextAlign.end,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: CustomerHomeTheme.mutedText,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  CustomerAvatar(photoUrl: user.photoUrl, radius: 18),
-                ],
-              ),
-            ),
-            const SizedBox(height: 28),
-            const Text(
-              'Your Home,\nOur Care',
-              style: TextStyle(
-                color: CustomerHomeTheme.primaryDark,
-                fontSize: 36,
-                height: 1.08,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Book trusted professionals for every home need, all in one place.',
-              style: TextStyle(
-                color: CustomerHomeTheme.mutedText,
-                fontSize: 15,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 22),
-            CustomerSearchBar(
-              onChanged: (text) => setState(() => _query = text),
-            ),
-            const SizedBox(height: 30),
-            const _SectionHeading(title: 'Services for your home'),
-            const SizedBox(height: 14),
-            StreamBuilder<List<Professional>>(
-              stream: _directory,
-              builder: (context, snapshot) {
-                final all = snapshot.data ?? const <Professional>[];
-                final shown = _visible(all);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => RefreshIndicator(
+    onRefresh: () async {
+      _reload();
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+    },
+    child: CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              SafeArea(
+                bottom: false,
+                child: Row(
                   children: [
-                    CategoryRow(
-                      providers: all,
-                      selected: _category,
-                      onSelected: (c) => setState(() => _category = c),
-                    ),
-                    const SizedBox(height: 26),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: _SectionHeading(title: 'Verified providers'),
+                    Expanded(
+                      child: Text(
+                        'Hello, ${user.name.trim().split(' ').first} 👋',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: CustomerHomeTheme.text,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
                         ),
-                        TextButton(
-                          key: const ValueKey('see-all-providers'),
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const Material(child: AllProvidersScreen()),
-                            ),
-                          ),
-                          child: const Text('See all'),
-                        ),
-                        if (snapshot.hasData)
-                          Text(
-                            '${shown.length} ${shown.length == 1 ? 'provider' : 'providers'}',
-                            key: const ValueKey('provider-count'),
-                            style: const TextStyle(
-                              color: CustomerHomeTheme.mutedText,
-                              fontSize: 13,
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 14),
-                    if (snapshot.hasError)
-                      Column(
+                    const SizedBox(width: 12),
+                    CustomerAvatar(photoUrl: user.photoUrl, radius: 22),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Your Home,\nOur Care',
+                style: TextStyle(
+                  color: CustomerHomeTheme.primaryDark,
+                  fontSize: 36,
+                  height: 1.08,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Book trusted professionals for every home need, all in one place.',
+                style: TextStyle(
+                  color: CustomerHomeTheme.mutedText,
+                  fontSize: 16,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 22),
+              CustomerSearchBar(
+                onChanged: (text) => setState(() => _query = text),
+              ),
+              const SizedBox(height: 30),
+              const _SectionHeading(title: 'Services for your home'),
+              const SizedBox(height: 14),
+              StreamBuilder<List<Professional>>(
+                stream: _directory,
+                builder: (context, snapshot) {
+                  final all = snapshot.data ?? const <Professional>[];
+                  final shown = _visible(all);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CategoryRow(
+                        providers: all,
+                        selected: _category,
+                        onSelected: (c) => setState(() => _category = c),
+                      ),
+                      const SizedBox(height: 26),
+                      Row(
                         children: [
-                          const DirectoryMessage(
-                            text: 'Providers could not be loaded right now.',
-                            icon: Icons.cloud_off_outlined,
+                          const Expanded(
+                            child: _SectionHeading(title: 'Verified providers'),
                           ),
                           TextButton(
-                            onPressed: _reload,
-                            child: const Text('Try again'),
+                            key: const ValueKey('see-all-providers'),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const Material(child: AllProvidersScreen()),
+                              ),
+                            ),
+                            child: const Text(
+                              'See all',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
+                          if (snapshot.hasData)
+                            Text(
+                              '${shown.length} ${shown.length == 1 ? 'provider' : 'providers'}',
+                              key: const ValueKey('provider-count'),
+                              style: const TextStyle(
+                                color: CustomerHomeTheme.mutedText,
+                                fontSize: 14,
+                              ),
+                            ),
                         ],
-                      )
-                    else if (!snapshot.hasData)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (shown.isEmpty)
-                      DirectoryMessage(
-                        key: const ValueKey('no-providers'),
-                        icon: Icons.search_off_rounded,
-                        text: all.isEmpty
-                            ? 'No verified providers yet. Providers show up here as soon as our team verifies them.'
-                            : 'No providers match your search. Try another category or clear the search.',
-                      )
-                    else
-                      for (final provider in shown)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: DirectoryProviderCard(provider: provider),
-                        ),
-                  ],
-                );
-              },
-            ),
-          ]),
+                      ),
+                      const SizedBox(height: 14),
+                      if (snapshot.hasError)
+                        Column(
+                          children: [
+                            const DirectoryMessage(
+                              text: 'Providers could not be loaded right now.',
+                              icon: Icons.cloud_off_outlined,
+                            ),
+                            TextButton(
+                              onPressed: _reload,
+                              child: const Text('Try again'),
+                            ),
+                          ],
+                        )
+                      else if (!snapshot.hasData)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (shown.isEmpty)
+                        DirectoryMessage(
+                          key: const ValueKey('no-providers'),
+                          icon: Icons.search_off_rounded,
+                          text: all.isEmpty
+                              ? 'No verified providers yet. Providers show up here as soon as our team verifies them.'
+                              : _query.trim().isNotEmpty
+                              ? "No providers match '${_query.trim()}'. Try another word or clear the search."
+                              : 'No providers in this category yet. Try another category.',
+                        )
+                      else
+                        for (final provider in shown)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: DirectoryProviderCard(provider: provider),
+                          ),
+                    ],
+                  );
+                },
+              ),
+            ]),
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
 
@@ -374,7 +356,7 @@ class _SectionHeading extends StatelessWidget {
     title,
     style: const TextStyle(
       color: CustomerHomeTheme.text,
-      fontSize: 20,
+      fontSize: 21,
       fontWeight: FontWeight.w800,
     ),
   );

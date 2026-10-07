@@ -39,15 +39,13 @@ class VerificationDraft {
 
   static String? phoneError(String? v) {
     if (_blank(v) && !requireEverything) return null;
-    return RegExp(r'^\+?\d{9,15}$').hasMatch(
-          (v ?? '').replaceAll(RegExp(r'[\s-]'), ''),
-        )
+    return RegExp(r'^\+?\d{9,15}$')
+            .hasMatch((v ?? '').replaceAll(RegExp(r'[\s-]'), ''))
         ? null
         : 'Enter a valid phone number.';
   }
 
-  static String? professionError(String? v) =>
-      _blank(v) && requireEverything
+  static String? professionError(String? v) => _blank(v) && requireEverything
       ? 'Tell us what you do (e.g. Plumber).'
       : null;
 
@@ -84,11 +82,8 @@ class VerificationDraft {
   bool get qualificationsDone => cv != null && certificates.isNotEmpty;
 
   /// Document steps finished (of 3): ID, selfie, CV + certificates.
-  int get documentStepsDone => [
-    idDone,
-    selfieDone,
-    qualificationsDone,
-  ].where((done) => done).length;
+  int get documentStepsDone =>
+      [idDone, selfieDone, qualificationsDone].where((done) => done).length;
 
   /// The first thing still missing, in plain words (null when it can be sent).
   String? get firstProblem {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/app_user.dart';
+import '../../models/professional.dart';
 import '../../models/provider_verification.dart';
 import '../../services/admin_service.dart';
 import '../../services/auth_service.dart';
@@ -10,6 +11,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../auth/logout_button.dart';
+import 'admin_ratings_screen.dart';
 import 'admin_verification_screen.dart';
 
 /// Admin dashboard: pending provider verifications and the admin's profile.
@@ -40,14 +42,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     builder: (context, snapshot) {
       final pending = snapshot.data ?? 0;
       return Scaffold(
-        appBar: AppBar(title: Text(_tab == 0 ? 'Providers' : 'Profile')),
+        appBar: AppBar(
+          title: Text(
+            _tab == 0
+                ? 'Providers'
+                : _tab == 1
+                ? 'Ratings'
+                : 'Profile',
+          ),
+        ),
         body: SafeArea(
           child: _tab == 0
               ? AdminProvidersScreen(service: _service)
+              : _tab == 1
+              ? AdminRatingsScreen(service: _service)
               : AdminProfileScreen(
                   user: widget.user,
                   authService: widget.authService,
                   service: _service,
+                  onNavigateToRatings: () => setState(() => _tab = 1),
                 ),
         ),
         bottomNavigationBar: AppBottomNav(
@@ -57,6 +70,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               label: 'Providers',
               badge: pending,
             ),
+            const AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
             const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
           ],
           selectedIndex: _tab,
@@ -78,8 +92,9 @@ class AdminProvidersScreen extends StatefulWidget {
 
 class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
   VerificationStatus _filter = VerificationStatus.pending;
-  late Stream<List<ProviderVerification>> _items = widget.service
-      .watchByStatus(_filter);
+  late Stream<List<ProviderVerification>> _items = widget.service.watchByStatus(
+    _filter,
+  );
 
   void _select(VerificationStatus status) => setState(() {
     _filter = status;
@@ -237,7 +252,11 @@ class _ProviderTile extends StatelessWidget {
               color: AppColors.warning,
             ),
           },
-          const Icon(LucideIcons.chevronRight, size: 18, color: AppColors.muted),
+          const Icon(
+            LucideIcons.chevronRight,
+            size: 18,
+            color: AppColors.muted,
+          ),
         ],
       ),
     );
@@ -251,11 +270,13 @@ class AdminProfileScreen extends StatelessWidget {
     required this.user,
     required this.authService,
     required this.service,
+    this.onNavigateToRatings,
   });
 
   final AppUser user;
   final AuthService authService;
   final AdminService service;
+  final VoidCallback? onNavigateToRatings;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -296,8 +317,150 @@ class AdminProfileScreen extends StatelessWidget {
             ),
         ],
       ),
+      const SizedBox(height: AppSpacing.md),
+      _RatingsMonitorCard(
+        service: service,
+        onTap: () {
+          if (onNavigateToRatings != null) {
+            onNavigateToRatings!();
+          } else {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    AdminRatingsScreen(service: service, standalone: true),
+              ),
+            );
+          }
+        },
+      ),
       const SizedBox(height: AppSpacing.lg),
       LogoutButton(authService: authService),
+    ],
+  );
+}
+
+class _RatingsMonitorCard extends StatelessWidget {
+  const _RatingsMonitorCard({required this.service, required this.onTap});
+  final AdminService service;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => AppCard(
+    onTap: onTap,
+    padding: const EdgeInsets.all(AppSpacing.md),
+    child: StreamBuilder<List<Professional>>(
+      stream: service.watchAllProfessionals(),
+      builder: (context, snapshot) {
+        final professionals = snapshot.data ?? [];
+        final rated = professionals.where((p) => p.rating != null).toList();
+        final avgRating = rated.isEmpty
+            ? null
+            : rated.fold<double>(0, (s, p) => s + p.rating!) / rated.length;
+        final totalReviews = professionals.fold<int>(
+          0,
+          (s, p) => s + p.reviewCount,
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.warningSoft,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: const Icon(
+                    LucideIcons.star,
+                    size: 20,
+                    color: AppColors.star,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ratings & Reviews Monitor',
+                        style: AppTypography.title,
+                      ),
+                      Text(
+                        'Monitor provider ratings by service category',
+                        style: AppTypography.caption,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  LucideIcons.chevronRight,
+                  size: 20,
+                  color: AppColors.muted,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.sm,
+                horizontal: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceLavender,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _Metric(
+                    label: 'Avg Rating',
+                    value: avgRating == null
+                        ? '—'
+                        : '${avgRating.toStringAsFixed(1)} ★',
+                    color: AppColors.star,
+                  ),
+                  Container(width: 1, height: 28, color: AppColors.border),
+                  _Metric(
+                    label: 'Total Reviews',
+                    value: '$totalReviews',
+                    color: AppColors.primary,
+                  ),
+                  Container(width: 1, height: 28, color: AppColors.border),
+                  _Metric(
+                    label: 'Active Providers',
+                    value: '${professionals.length}',
+                    color: AppColors.success,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+class _Metric extends StatelessWidget {
+  const _Metric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Text(
+        value,
+        style: AppTypography.title.copyWith(color: color, fontSize: 15),
+      ),
+      Text(label, style: AppTypography.caption.copyWith(fontSize: 11)),
     ],
   );
 }

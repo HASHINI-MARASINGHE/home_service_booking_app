@@ -257,10 +257,7 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 104,
-          child: Text(label, style: AppTypography.caption),
-        ),
+        SizedBox(width: 104, child: Text(label, style: AppTypography.caption)),
         Expanded(
           child: Text(
             value,
