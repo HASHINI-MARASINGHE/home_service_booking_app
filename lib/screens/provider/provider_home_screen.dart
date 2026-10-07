@@ -15,6 +15,7 @@ import '../../theme/locale_typography.dart';
 import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import 'provider_dashboard_screen.dart';
+import 'provider_dispute_screen.dart';
 import 'provider_earnings_screen.dart';
 import 'provider_job_details_screen.dart';
 import 'provider_jobs_screen.dart';
@@ -124,15 +125,31 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   ? (_notifications
                         ? ProviderNotificationsScreen(
                             service: _notificationService,
-                            onOpen: (item) => setState(() {
-                              if (item.type == AppNotification.reviewType) {
-                                _selectedId = item.bookingId;
-                                _payment = false;
-                              } else {
-                                // e.g. verification news: back to the profile.
-                                _notifications = false;
+                            onOpen: (item) {
+                              if (item.type == AppNotification.disputeType) {
+                                // A dispute about one of this provider's jobs.
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => Theme(
+                                      data: ProviderTheme.data,
+                                      child: ProviderDisputeScreen(
+                                        bookingId: item.bookingId,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                                return;
                               }
-                            }),
+                              setState(() {
+                                if (item.type == AppNotification.reviewType) {
+                                  _selectedId = item.bookingId;
+                                  _payment = false;
+                                } else {
+                                  // e.g. verification news: back to the profile.
+                                  _notifications = false;
+                                }
+                              });
+                            },
                           )
                         : ProviderProfileScreen(
                             user: widget.user,

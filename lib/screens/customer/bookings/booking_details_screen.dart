@@ -14,6 +14,7 @@ import '../../../widgets/common/review_widgets.dart';
 import '../customer_scope.dart';
 import 'booking_cancelled_screen.dart';
 import 'cancel_booking_screen.dart';
+import '../disputes/dispute_screen.dart';
 import 'edit_booking_screen.dart';
 import 'receipt_screen.dart';
 import 'reschedule_booking_screen.dart';
@@ -411,6 +412,15 @@ class _Details extends StatelessWidget {
               icon: Icons.star_outline_rounded,
               onPressed: () => onPush(ReviewScreen(bookingId: b.id)),
             ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // Opens the dispute form, or the existing dispute's status.
+          SecondaryButton(
+            key: const ValueKey('report-problem'),
+            label: 'Report a Problem / Dispute',
+            icon: LucideIcons.triangleAlert,
+            foreground: AppColors.danger,
+            onPressed: () => onPush(DisputeScreen(bookingId: b.id)),
           ),
         ];
       case BookingStatus.cancelled:
