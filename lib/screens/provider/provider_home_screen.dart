@@ -89,12 +89,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   @override
   Widget build(BuildContext context) => Theme(
-    data: ProviderTheme.data,
+    // The style guide theme with the font and line heights of the language.
+    data: LocaleTypography.apply(context, ProviderTheme.data),
     child: Builder(
       builder: (context) {
         final l10n = context.l10n;
-        // Language font only for the app bar, the Leads page and the nav.
-        final localized = LocaleTypography.apply(context, ProviderTheme.data);
         return PopScope(
           canPop: _selectedId == null && !_notifications,
           onPopInvokedWithResult: (didPop, result) {
@@ -102,7 +101,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           },
           child: Scaffold(
             appBar: AppBar(
-              titleTextStyle: localized.appBarTheme.titleTextStyle,
               title: Text(
                 _selectedId != null
                     ? (_payment ? l10n.titleJobPayment : l10n.titleJobDetails)
@@ -196,17 +194,14 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                           );
                         }
                         return switch (_section) {
-                          0 => Theme(
-                            data: localized,
-                            child: ProviderDashboardScreen(
-                              user: widget.user,
-                              bookings: bookings,
-                              onOpen: _open,
-                              onViewJobs: () => setState(() {
-                                _section = 1;
-                                _jobsTab = 0;
-                              }),
-                            ),
+                          0 => ProviderDashboardScreen(
+                            user: widget.user,
+                            bookings: bookings,
+                            onOpen: _open,
+                            onViewJobs: () => setState(() {
+                              _section = 1;
+                              _jobsTab = 0;
+                            }),
                           ),
                           1 => ProviderJobsScreen(
                             bookings: bookings,
@@ -223,18 +218,15 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       },
                     ),
             ),
-            bottomNavigationBar: Theme(
-              data: localized,
-              child: AppBottomNav(
-                items: AppBottomNav.localizedProviderItems(context),
-                selectedIndex: _section,
-                onSelected: (index) => setState(() {
-                  _section = index;
-                  _selectedId = null;
-                  _payment = false;
-                  _notifications = false;
-                }),
-              ),
+            bottomNavigationBar: AppBottomNav(
+              items: AppBottomNav.localizedProviderItems(context),
+              selectedIndex: _section,
+              onSelected: (index) => setState(() {
+                _section = index;
+                _selectedId = null;
+                _payment = false;
+                _notifications = false;
+              }),
             ),
           ),
         );

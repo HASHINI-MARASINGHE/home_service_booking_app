@@ -199,7 +199,7 @@ class ProviderListCard extends StatelessWidget {
                         const Icon(
                           Icons.star_rounded,
                           size: 16,
-                          color: Color(0xFFF5A524),
+                          color: AppColors.accent500,
                         ),
                         const SizedBox(width: 3),
                         Flexible(

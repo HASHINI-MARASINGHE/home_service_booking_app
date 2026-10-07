@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../../models/professional.dart';
 import '../../../l10n/l10n_context.dart';
+import '../../../models/professional.dart';
 import '../../../models/service_category.dart';
 import '../../../theme/app_theme.dart';
-import '../../../theme/customer_home_theme.dart';
-import '../../../widgets/common/app_widgets.dart';
+import '../../../widgets/common/empty_state.dart';
+import '../../../widgets/common/motion_widgets.dart';
+import '../../../widgets/common/provider_card.dart';
+import '../../../widgets/common/service_tile.dart';
 import '../providers/provider_details_screen.dart';
 
 /// "All" plus one tile per category; tapping filters the provider list.
@@ -22,9 +24,32 @@ class CategoryRow extends StatelessWidget {
   final ServiceCategory? selected;
   final ValueChanged<ServiceCategory?> onSelected;
 
+  static const _tileWidth = 112.0;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    Widget tile({
+      required Key key,
+      required String label,
+      required IconData icon,
+      required int count,
+      required bool isSelected,
+      required VoidCallback onTap,
+    }) => Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
+      child: ServiceTile(
+        key: key,
+        icon: icon,
+        label: label,
+        detail: '$count',
+        selected: isSelected,
+        semanticsLabel: l10n.categoryTileSemantics(label, count),
+        width: _tileWidth,
+        onTap: onTap,
+      ),
+    );
+
     // Tiles share one height that grows with the longest label, so longer
     // Sinhala names or larger text never get cut off.
     return SingleChildScrollView(
@@ -34,21 +59,21 @@ class CategoryRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _CategoryTile(
+            tile(
               key: const ValueKey('category-all'),
               label: l10n.categoryAll,
               icon: LucideIcons.layoutGrid,
               count: providers.length,
-              selected: selected == null,
+              isSelected: selected == null,
               onTap: () => onSelected(null),
             ),
             for (final category in ServiceCategory.all)
-              _CategoryTile(
+              tile(
                 key: ValueKey('category-${category.id}'),
                 label: category.localizedLabel(l10n),
                 icon: category.icon,
                 count: category.count(providers),
-                selected: selected?.id == category.id,
+                isSelected: selected?.id == category.id,
                 onTap: () => onSelected(category),
               ),
           ],
@@ -58,69 +83,29 @@ class CategoryRow extends StatelessWidget {
   }
 }
 
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
+/// One verified provider in the list. [index] staggers the fade-in.
+class DirectoryProviderCard extends StatelessWidget {
+  const DirectoryProviderCard({
     super.key,
-    required this.label,
-    required this.icon,
-    required this.count,
-    required this.selected,
-    required this.onTap,
+    required this.provider,
+    this.index = 0,
   });
 
-  final String label;
-  final IconData icon;
-  final int count;
-  final bool selected;
-  final VoidCallback onTap;
+  final Professional provider;
+  final int index;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 12),
-    child: Semantics(
-      button: true,
-      selected: selected,
-      label: context.l10n.categoryTileSemantics(label, count),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: ExcludeSemantics(
-          child: Container(
-            width: 96,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-            decoration: BoxDecoration(
-              color: selected ? CustomerHomeTheme.mint : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: selected
-                    ? CustomerHomeTheme.primary
-                    : CustomerHomeTheme.border,
-                width: selected ? 1.5 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 24, color: CustomerHomeTheme.primary),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: CustomerHomeTheme.text,
-                    fontSize: 14,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$count',
-                  style: const TextStyle(
-                    color: CustomerHomeTheme.mutedText,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+  Widget build(BuildContext context) => FadeSlideIn(
+    index: index,
+    child: ProviderCard(
+      key: ValueKey('provider-card-${provider.id}'),
+      provider: provider,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => Material(
+            child: ProviderDetailsScreen(
+              providerId: provider.id,
+              initial: provider,
             ),
           ),
         ),
@@ -129,123 +114,30 @@ class _CategoryTile extends StatelessWidget {
   );
 }
 
-/// One verified provider in the list.
-class DirectoryProviderCard extends StatelessWidget {
-  const DirectoryProviderCard({super.key, required this.provider});
-  final Professional provider;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = provider;
-    return AppCard(
-      key: ValueKey('provider-card-${p.id}'),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => Material(
-            child: ProviderDetailsScreen(providerId: p.id, initial: p),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          PersonAvatar(
-            name: p.name,
-            photoUrl: p.photoUrl,
-            size: 56,
-            verified: p.verified,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  p.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.title,
-                ),
-                if (p.specialty.isNotEmpty)
-                  Text(
-                    p.specialty,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.body,
-                  ),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (p.rating != null)
-                      StatusPill(
-                        label: p.rating!.toStringAsFixed(1),
-                        icon: Icons.star_rounded,
-                        color: AppColors.navy,
-                        background: AppColors.surfaceSage,
-                      ),
-                    if (p.reviewCount > 0)
-                      Text(
-                        context.l10n.reviewCount(p.reviewCount),
-                        style: AppTypography.caption.copyWith(fontSize: 14),
-                      ),
-                    if (p.providerCode != null)
-                      Text(
-                        context.l10n.providerIdLabel(p.providerCode!),
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.primaryDark,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            LucideIcons.chevronRight,
-            size: 18,
-            color: AppColors.muted,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The three states of the provider list (loading, nothing found, error).
+/// The states of the provider list when there is nothing to show (nothing
+/// found, or an error). An optional button says what to do next.
 class DirectoryMessage extends StatelessWidget {
-  const DirectoryMessage({super.key, required this.text, this.icon});
+  const DirectoryMessage({
+    super.key,
+    required this.title,
+    required this.text,
+    this.icon,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String title;
   final String text;
   final IconData? icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: CustomerHomeTheme.border),
-    ),
-    child: Column(
-      children: [
-        if (icon != null) ...[
-          Icon(icon, color: CustomerHomeTheme.primary, size: 28),
-          const SizedBox(height: AppSpacing.xs),
-        ],
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: CustomerHomeTheme.mutedText,
-            fontSize: 14,
-            height: 1.4,
-          ),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => EmptyState(
+    title: title,
+    message: text,
+    icon: icon ?? Icons.inbox_outlined,
+    actionLabel: actionLabel,
+    onAction: onAction,
   );
 }

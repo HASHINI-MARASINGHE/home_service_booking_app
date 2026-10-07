@@ -814,7 +814,7 @@ class _ReviewCard extends StatelessWidget {
 
   Color _starColor(int rating) => switch (rating) {
     5 => AppColors.success,
-    4 => const Color(0xFF2E7D32),
+    4 => AppColors.infoSolid,
     3 => AppColors.star,
     2 => AppColors.warning,
     _ => AppColors.danger,

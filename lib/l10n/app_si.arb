@@ -67,5 +67,16 @@
   "viewRequest": "ඉල්ලීම බලන්න",
   "viewDetails": "විස්තර බලන්න",
   "notProvided": "සපයා නැත",
-  "notScheduled": "කාලසටහන් කර නැත"
+  "notScheduled": "කාලසටහන් කර නැත",
+  "textSizeLabel": "අකුරු ප්‍රමාණය",
+  "textSizeNormal": "සාමාන්‍ය",
+  "textSizeLarge": "විශාල",
+  "textSizeExtraLarge": "ඉතා විශාල",
+  "searchLabel": "සොයන්න",
+  "verifiedBadge": "තහවුරු කළ",
+  "fromPrice": "{amount} සිට",
+  "ratingSemantics": "5 න් {rating} ක් ඇගයීම",
+  "selectedLabel": "තෝරාගත්",
+  "emptyProvidersTitle": "සේවා සපයන්නන් හමු නොවීය",
+  "loadErrorTitle": "සාර්ථක නොවීය"
 }

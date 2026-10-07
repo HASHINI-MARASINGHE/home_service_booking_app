@@ -379,7 +379,7 @@ class _RatingBadge extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 3),
-        const Icon(Icons.star_rounded, size: 14, color: Color(0xFFF5A524)),
+        const Icon(Icons.star_rounded, size: 14, color: AppColors.accent500),
       ],
     ),
   );
@@ -572,7 +572,7 @@ class _Stars extends StatelessWidget {
               ? Icons.star_half_rounded
               : Icons.star_outline_rounded,
           size: 20,
-          color: const Color(0xFFF5A524),
+          color: AppColors.accent500,
         ),
     ],
   );

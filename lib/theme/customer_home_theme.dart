@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
+import 'app_colors.dart';
 
+/// Older color names used by the customer screens. They now point at the
+/// style guide colors in [AppColors]; new code should use those directly.
 abstract final class CustomerHomeTheme {
-  static const background = Color(0xFFF7FBF8);
-  static const primary = Color(0xFF237A62);
-  static const primaryDark = Color(0xFF174D3F);
-  static const mint = Color(0xFFE5F3EC);
-  static const border = Color(0xFFDCEBE3);
-  static const text = Color(0xFF17382E);
-  static const mutedText = Color(0xFF71847D);
-  static const shadow = Color(0x122C6B58);
+  static const background = AppColors.bg;
+  static const primary = AppColors.brand700;
+  static const primaryDark = AppColors.brand900;
+  static const mint = AppColors.brand100; // soft selected fill (now blue)
+  static const border = AppColors.borderSubtle;
+  static const text = AppColors.ink;
+  static const mutedText = AppColors.ink3;
+  static const shadow = AppColors.shadow;
 }

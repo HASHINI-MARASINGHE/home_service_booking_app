@@ -253,4 +253,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notScheduled => 'Not scheduled';
+
+  @override
+  String get textSizeLabel => 'Text size';
+
+  @override
+  String get textSizeNormal => 'Normal';
+
+  @override
+  String get textSizeLarge => 'Large';
+
+  @override
+  String get textSizeExtraLarge => 'Extra large';
+
+  @override
+  String get searchLabel => 'Search';
+
+  @override
+  String get verifiedBadge => 'Verified';
+
+  @override
+  String fromPrice(String amount) {
+    return 'From $amount';
+  }
+
+  @override
+  String ratingSemantics(String rating) {
+    return 'Rated $rating out of 5';
+  }
+
+  @override
+  String get selectedLabel => 'Selected';
+
+  @override
+  String get emptyProvidersTitle => 'No providers found';
+
+  @override
+  String get loadErrorTitle => 'Did not work';
 }

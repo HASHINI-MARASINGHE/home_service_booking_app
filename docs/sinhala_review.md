@@ -75,3 +75,14 @@ Also confirm the short form for rupees (the app shows `Rs. 2,500` in English).
 | `viewDetails` | View details | විස්තර බලන්න |
 | `notProvided` | Not provided | සපයා නැත |
 | `notScheduled` | Not scheduled | කාලසටහන් කර නැත |
+| `textSizeLabel` | Text size | අකුරු ප්‍රමාණය |
+| `textSizeNormal` | Normal | සාමාන්‍ය |
+| `textSizeLarge` | Large | විශාල |
+| `textSizeExtraLarge` | Extra large | ඉතා විශාල |
+| `searchLabel` | Search | සොයන්න |
+| `verifiedBadge` | Verified | තහවුරු කළ |
+| `fromPrice` | From {amount} | {amount} සිට |
+| `ratingSemantics` | Rated {rating} out of 5 | 5 න් {rating} ක් ඇගයීම |
+| `selectedLabel` | Selected | තෝරාගත් |
+| `emptyProvidersTitle` | No providers found | සේවා සපයන්නන් හමු නොවීය |
+| `loadErrorTitle` | Did not work | සාර්ථක නොවීය |
