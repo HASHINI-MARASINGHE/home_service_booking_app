@@ -205,7 +205,10 @@ void main() {
         expect(find.byType(LoginScreen), findsOneWidget);
         expect(find.byType(OnboardingScreen), findsNothing);
         expect(storage.values[OnboardingPreferences.completedKey], isTrue);
-        await tester.tap(find.text('New here? Create an account'));
+        await tester.ensureVisible(find.text('Create an account'));
+        await tester.tap(find.text('Create an account'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Continue as Customer'));
         await tester.pumpAndSettle();
         expect(find.byType(RegisterScreen), findsOneWidget);
         await tester.tap(find.text('Already have an account? Log in'));
