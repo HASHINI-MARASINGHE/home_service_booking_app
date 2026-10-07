@@ -36,6 +36,31 @@ abstract final class AppColors {
   static const scrim = Color(0x8A64748B);
 }
 
+/// Tokens for the login screen, taken from the Stitch login designs
+/// (design/login/). Kept separate so the rest of the app keeps [AppColors].
+abstract final class AuthColors {
+  static const background = Color(0xFFF8FAFC);
+  static const surface = Color(0xFFFFFFFF);
+  static const primary = Color(0xFF0F766E);
+  static const primaryPressed = Color(0xFF115E59);
+  static const heroStart = Color(0xFF0F766E);
+  static const heroEnd = Color(0xFF14B8A6);
+  static const focusedFill = Color(0xFFECFDF5);
+  static const mintBorder = Color(0xFFA7F3D0);
+  static const heading = Color(0xFF0F172A);
+  static const secondary = Color(0xFF64748B);
+  static const placeholder = Color(0xFF94A3B8);
+  static const fieldBorder = Color(0xFFE2E8F0);
+  static const error = Color(0xFFDC2626);
+  static const errorFill = Color(0xFFFEF2F2);
+  static const errorBorder = Color(0xFFFECACA);
+  static const onPrimary = Color(0xFFFFFFFF);
+
+  static const cardShadow = Color(0x140F172A);
+  static const buttonShadow = Color(0x400F766E);
+  static const focusGlow = Color(0x330F766E);
+}
+
 abstract final class AppSpacing {
   static const xxs = 4.0;
   static const xs = 8.0;
