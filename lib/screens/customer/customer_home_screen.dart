@@ -10,7 +10,10 @@ import '../../services/customer_booking_service.dart';
 import '../../services/location_service.dart';
 import '../../services/receipt_pdf_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/l10n_context.dart';
 import '../../theme/customer_home_theme.dart';
+import '../../theme/locale_typography.dart';
+import '../../widgets/common/language_switch.dart';
 import 'addresses/my_addresses_screen.dart';
 import 'bookings/booking_history_screen.dart';
 import 'customer_profile_screen.dart';
@@ -87,52 +90,63 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => CustomerScope(
-    user: _currentUser,
-    addresses: _addresses,
-    bookings: _bookings,
-    location: _location,
-    receipts: _receipts,
-    selectTab: _selectTab,
-    child: Theme(
-      data: AppTheme.light,
-      child: PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _handleBack();
-        },
-        child: Scaffold(
-          backgroundColor: AppColors.background,
-          body: IndexedStack(
-            index: _selectedIndex,
-            children: [
-              _tab(
-                CustomerTab.home,
-                ColoredBox(
-                  color: CustomerHomeTheme.background,
-                  child: _CustomerHomeContent(user: _currentUser),
+  Widget build(BuildContext context) {
+    // Language font only for the home tab and the bottom navigation.
+    final homeTheme = LocaleTypography.apply(context, AppTheme.light);
+    return CustomerScope(
+      user: _currentUser,
+      addresses: _addresses,
+      bookings: _bookings,
+      location: _location,
+      receipts: _receipts,
+      selectTab: _selectTab,
+      child: Theme(
+        data: AppTheme.light,
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _handleBack();
+          },
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            body: IndexedStack(
+              index: _selectedIndex,
+              children: [
+                _tab(
+                  CustomerTab.home,
+                  ColoredBox(
+                    color: CustomerHomeTheme.background,
+                    child: Theme(
+                      data: homeTheme,
+                      child: _CustomerHomeContent(user: _currentUser),
+                    ),
+                  ),
                 ),
-              ),
-              _tab(CustomerTab.bookings, const BookingHistoryScreen()),
-              _tab(CustomerTab.saved, const MyAddressesScreen()),
-              _tab(
-                CustomerTab.profile,
-                CustomerProfileScreen(
-                  uid: _currentUser.uid,
-                  authService: widget.authService,
-                  onUserUpdated: (user) => setState(() => _currentUser = user),
+                _tab(CustomerTab.bookings, const BookingHistoryScreen()),
+                _tab(CustomerTab.saved, const MyAddressesScreen()),
+                _tab(
+                  CustomerTab.profile,
+                  CustomerProfileScreen(
+                    uid: _currentUser.uid,
+                    authService: widget.authService,
+                    onUserUpdated: (user) =>
+                        setState(() => _currentUser = user),
+                  ),
                 ),
+              ],
+            ),
+            bottomNavigationBar: Theme(
+              data: homeTheme,
+              child: CustomerBottomNavigation(
+                selectedIndex: _selectedIndex,
+                onSelected: _selectTab,
               ),
-            ],
-          ),
-          bottomNavigationBar: CustomerBottomNavigation(
-            selectedIndex: _selectedIndex,
-            onSelected: _selectTab,
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _TabNavigator extends StatelessWidget {
@@ -194,156 +208,173 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
   }
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
-    onRefresh: () async {
-      _reload();
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-    },
-    child: CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              SafeArea(
-                bottom: false,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Hello, ${user.name.trim().split(' ').first} 👋',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: CustomerHomeTheme.text,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    CustomerAvatar(photoUrl: user.photoUrl, radius: 22),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-              const Text(
-                'Your Home,\nOur Care',
-                style: TextStyle(
-                  color: CustomerHomeTheme.primaryDark,
-                  fontSize: 36,
-                  height: 1.08,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Book trusted professionals for every home need, all in one place.',
-                style: TextStyle(
-                  color: CustomerHomeTheme.mutedText,
-                  fontSize: 16,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 22),
-              CustomerSearchBar(
-                onChanged: (text) => setState(() => _query = text),
-              ),
-              const SizedBox(height: 30),
-              const _SectionHeading(title: 'Services for your home'),
-              const SizedBox(height: 14),
-              StreamBuilder<List<Professional>>(
-                stream: _directory,
-                builder: (context, snapshot) {
-                  final all = snapshot.data ?? const <Professional>[];
-                  final shown = _visible(all);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final sinhala = LocaleTypography.isSinhala(Localizations.localeOf(context));
+    return RefreshIndicator(
+      onRefresh: () async {
+        _reload();
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+      },
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                SafeArea(
+                  bottom: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      CategoryRow(
-                        providers: all,
-                        selected: _category,
-                        onSelected: (c) => setState(() => _category = c),
-                      ),
-                      const SizedBox(height: 26),
+                      const LanguageSwitch(),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
-                          const Expanded(
-                            child: _SectionHeading(title: 'Verified providers'),
-                          ),
-                          TextButton(
-                            key: const ValueKey('see-all-providers'),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const Material(child: AllProvidersScreen()),
+                          Expanded(
+                            child: Text(
+                              l10n.customerHomeGreeting(
+                                user.name.trim().split(' ').first,
                               ),
-                            ),
-                            child: const Text(
-                              'See all',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 15,
+                                color: CustomerHomeTheme.text,
+                                fontSize: 18,
+                                height: sinhala ? 1.75 : null,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
-                          if (snapshot.hasData)
-                            Text(
-                              '${shown.length} ${shown.length == 1 ? 'provider' : 'providers'}',
-                              key: const ValueKey('provider-count'),
-                              style: const TextStyle(
-                                color: CustomerHomeTheme.mutedText,
-                                fontSize: 14,
-                              ),
-                            ),
+                          const SizedBox(width: 12),
+                          CustomerAvatar(photoUrl: user.photoUrl, radius: 22),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      if (snapshot.hasError)
-                        Column(
-                          children: [
-                            const DirectoryMessage(
-                              text: 'Providers could not be loaded right now.',
-                              icon: Icons.cloud_off_outlined,
-                            ),
-                            TextButton(
-                              onPressed: _reload,
-                              child: const Text('Try again'),
-                            ),
-                          ],
-                        )
-                      else if (!snapshot.hasData)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else if (shown.isEmpty)
-                        DirectoryMessage(
-                          key: const ValueKey('no-providers'),
-                          icon: Icons.search_off_rounded,
-                          text: all.isEmpty
-                              ? 'No verified providers yet. Providers show up here as soon as our team verifies them.'
-                              : _query.trim().isNotEmpty
-                              ? "No providers match '${_query.trim()}'. Try another word or clear the search."
-                              : 'No providers in this category yet. Try another category.',
-                        )
-                      else
-                        for (final provider in shown)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: DirectoryProviderCard(provider: provider),
-                          ),
                     ],
-                  );
-                },
-              ),
-            ]),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  l10n.customerHomeTitle,
+                  style: TextStyle(
+                    color: CustomerHomeTheme.primaryDark,
+                    fontSize: 36,
+                    height: sinhala ? 1.6 : 1.08,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.customerHomeSubtitle,
+                  style: TextStyle(
+                    color: CustomerHomeTheme.mutedText,
+                    fontSize: 16,
+                    height: sinhala ? 1.75 : 1.45,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                CustomerSearchBar(
+                  onChanged: (text) => setState(() => _query = text),
+                ),
+                const SizedBox(height: 30),
+                _SectionHeading(title: l10n.servicesForYourHome),
+                const SizedBox(height: 14),
+                StreamBuilder<List<Professional>>(
+                  stream: _directory,
+                  builder: (context, snapshot) {
+                    final all = snapshot.data ?? const <Professional>[];
+                    final shown = _visible(all);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CategoryRow(
+                          providers: all,
+                          selected: _category,
+                          onSelected: (c) => setState(() => _category = c),
+                        ),
+                        const SizedBox(height: 26),
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 4,
+                          children: [
+                            _SectionHeading(title: l10n.verifiedProviders),
+                            TextButton(
+                              key: const ValueKey('see-all-providers'),
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const Material(
+                                    child: AllProvidersScreen(),
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                l10n.seeAll,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (snapshot.hasData)
+                              Text(
+                                l10n.providerCount(shown.length),
+                                key: const ValueKey('provider-count'),
+                                style: const TextStyle(
+                                  color: CustomerHomeTheme.mutedText,
+                                  fontSize: 14,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        if (snapshot.hasError)
+                          Column(
+                            children: [
+                              DirectoryMessage(
+                                text: l10n.providersLoadError,
+                                icon: Icons.cloud_off_outlined,
+                              ),
+                              TextButton(
+                                onPressed: _reload,
+                                child: Text(l10n.tryAgain),
+                              ),
+                            ],
+                          )
+                        else if (!snapshot.hasData)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else if (shown.isEmpty)
+                          DirectoryMessage(
+                            key: const ValueKey('no-providers'),
+                            icon: Icons.search_off_rounded,
+                            text: all.isEmpty
+                                ? l10n.noVerifiedProviders
+                                : _query.trim().isNotEmpty
+                                ? l10n.noProvidersMatch(_query.trim())
+                                : l10n.noProvidersInCategory,
+                          )
+                        else
+                          for (final provider in shown)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: DirectoryProviderCard(provider: provider),
+                            ),
+                      ],
+                    );
+                  },
+                ),
+              ]),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _SectionHeading extends StatelessWidget {
@@ -354,9 +385,12 @@ class _SectionHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     title,
-    style: const TextStyle(
+    style: TextStyle(
       color: CustomerHomeTheme.text,
       fontSize: 21,
+      height: LocaleTypography.isSinhala(Localizations.localeOf(context))
+          ? 1.6
+          : null,
       fontWeight: FontWeight.w800,
     ),
   );

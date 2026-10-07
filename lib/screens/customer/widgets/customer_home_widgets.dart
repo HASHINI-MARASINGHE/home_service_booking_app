@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n_context.dart';
 import '../../../theme/customer_home_theme.dart';
 import '../../../widgets/common/app_bottom_nav.dart';
 
@@ -73,7 +74,7 @@ class _CustomerSearchBarState extends State<CustomerSearchBar> {
     textInputAction: TextInputAction.search,
     style: const TextStyle(fontSize: 16),
     decoration: InputDecoration(
-      hintText: 'Search providers or services...',
+      hintText: context.l10n.searchHint,
       hintStyle: const TextStyle(
         color: CustomerHomeTheme.mutedText,
         fontSize: 15,
@@ -83,7 +84,7 @@ class _CustomerSearchBarState extends State<CustomerSearchBar> {
           ? null
           : IconButton(
               key: const ValueKey('clear-search'),
-              tooltip: 'Clear search',
+              tooltip: context.l10n.clearSearch,
               icon: const Icon(Icons.close_rounded),
               onPressed: _clear,
             ),
@@ -114,7 +115,7 @@ class CustomerBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppBottomNav(
-    items: AppBottomNav.customerItems,
+    items: AppBottomNav.localizedCustomerItems(context),
     selectedIndex: selectedIndex,
     onSelected: onSelected,
   );

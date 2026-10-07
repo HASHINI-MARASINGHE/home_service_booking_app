@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../l10n/l10n_context.dart';
 import '../../theme/app_theme.dart';
 
 /// One tab of [AppBottomNav].
@@ -43,6 +44,28 @@ class AppBottomNav extends StatelessWidget {
     AppNavItem(icon: LucideIcons.wallet, label: 'Earnings'),
     AppNavItem(icon: LucideIcons.user, label: 'Profile'),
   ];
+
+  /// [customerItems] with the labels in the current language.
+  static List<AppNavItem> localizedCustomerItems(BuildContext context) {
+    final l10n = context.l10n;
+    return [
+      AppNavItem(icon: LucideIcons.house, label: l10n.navHome),
+      AppNavItem(icon: LucideIcons.clipboard, label: l10n.navBookings),
+      AppNavItem(icon: LucideIcons.bookmark, label: l10n.navSaved),
+      AppNavItem(icon: LucideIcons.user, label: l10n.navProfile),
+    ];
+  }
+
+  /// [providerItems] with the labels in the current language.
+  static List<AppNavItem> localizedProviderItems(BuildContext context) {
+    final l10n = context.l10n;
+    return [
+      AppNavItem(icon: LucideIcons.house, label: l10n.navLeads),
+      AppNavItem(icon: LucideIcons.calendar, label: l10n.navMyJobs),
+      AppNavItem(icon: LucideIcons.wallet, label: l10n.navEarnings),
+      AppNavItem(icon: LucideIcons.user, label: l10n.navProfile),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -128,14 +151,20 @@ class _NavButton extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 item.label,
-                maxLines: 1,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  height: 1.2,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? AppColors.primary : AppColors.muted,
-                ),
+                style:
+                    (Theme.of(context).textTheme.bodyMedium ??
+                            const TextStyle())
+                        .copyWith(
+                          fontSize: 14,
+                          height: 1.2,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: selected ? AppColors.primary : AppColors.muted,
+                        ),
               ),
             ],
           ),

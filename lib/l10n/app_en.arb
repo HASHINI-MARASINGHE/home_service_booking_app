@@ -1,0 +1,126 @@
+{
+  "@@locale": "en",
+  "languageSwitchLabel": "Language",
+  "@languageSwitchLabel": {
+    "description": "Spoken label for the language switch"
+  },
+  "customerHomeGreeting": "Hello, {name} 👋",
+  "@customerHomeGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "customerHomeTitle": "Your Home,\nOur Care",
+  "customerHomeSubtitle": "Book trusted professionals for every home need, all in one place.",
+  "searchHint": "Search providers or services...",
+  "clearSearch": "Clear search",
+  "servicesForYourHome": "Services for your home",
+  "verifiedProviders": "Verified providers",
+  "seeAll": "See all",
+  "providerCount": "{count, plural, =1{{count} provider} other{{count} providers}}",
+  "@providerCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "providersLoadError": "Providers could not be loaded right now.",
+  "tryAgain": "Try again",
+  "noVerifiedProviders": "No verified providers yet. Providers show up here as soon as our team verifies them.",
+  "noProvidersMatch": "No providers match ''{query}''. Try another word or clear the search.",
+  "@noProvidersMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "noProvidersInCategory": "No providers in this category yet. Try another category.",
+  "categoryAll": "All",
+  "categoryPlumbing": "Plumbing",
+  "categoryElectrical": "Electrical",
+  "categoryAc": "AC & Cooling",
+  "categoryCleaning": "Cleaning",
+  "categoryPainting": "Painting",
+  "categoryCarpentry": "Carpentry",
+  "categoryAppliances": "Appliances",
+  "categoryGardening": "Gardening",
+  "categoryTileSemantics": "{label}, {count, plural, =1{{count} provider} other{{count} providers}}",
+  "@categoryTileSemantics": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewCount": "{count, plural, =1{{count} review} other{{count} reviews}}",
+  "@reviewCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "providerIdLabel": "ID {code}",
+  "@providerIdLabel": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "navHome": "Home",
+  "navBookings": "Bookings",
+  "navSaved": "Saved",
+  "navProfile": "Profile",
+  "navLeads": "Leads",
+  "navMyJobs": "My Jobs",
+  "navEarnings": "Earnings",
+  "titleNotifications": "Notifications",
+  "titleJobDetails": "Job details",
+  "titleJobPayment": "Job completion / payment",
+  "jobUnavailableTitle": "Job unavailable",
+  "jobUnavailableMessage": "This job is no longer assigned to you. Go back to view your jobs.",
+  "providerGreeting": "Hello, {name}",
+  "@providerGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "providerTagline": "Your work, all in one place.",
+  "newRequests": "New requests",
+  "todaysJobs": "Today''s jobs",
+  "monthlyEarnings": "Monthly earnings",
+  "upcomingJob": "Upcoming job",
+  "noUpcomingTitle": "No upcoming jobs yet",
+  "noUpcomingMessage": "Accepted jobs scheduled in the future will appear here.",
+  "viewAll": "View all",
+  "noNewRequestsTitle": "No new job requests",
+  "noNewRequestsMessage": "Requests will appear here when a customer books your services.",
+  "retry": "Retry",
+  "errorAccessDenied": "Access was denied. Please contact support.",
+  "errorUnableToConnect": "Unable to connect. Check your connection and retry.",
+  "errorNotAvailableYet": "This data is not available yet. Please contact support.",
+  "errorUnableToSave": "Unable to save or load your data. Please try again.",
+  "errorUnableToLoad": "Unable to load your data. Please try again.",
+  "statusPending": "New request",
+  "statusConfirmed": "Confirmed",
+  "statusOnTheWay": "On the way",
+  "statusInProgress": "In progress",
+  "statusDeclined": "Declined",
+  "statusCompleted": "Completed",
+  "statusCancelled": "Cancelled",
+  "statusUnknown": "Unknown status",
+  "viewRequest": "View request",
+  "viewDetails": "View details",
+  "notProvided": "Not provided",
+  "notScheduled": "Not scheduled"
+}

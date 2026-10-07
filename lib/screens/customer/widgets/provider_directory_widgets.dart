@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../models/professional.dart';
+import '../../../l10n/l10n_context.dart';
 import '../../../models/service_category.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/customer_home_theme.dart';
@@ -22,32 +23,39 @@ class CategoryRow extends StatelessWidget {
   final ValueChanged<ServiceCategory?> onSelected;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 104,
-    child: ListView(
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    // Tiles share one height that grows with the longest label, so longer
+    // Sinhala names or larger text never get cut off.
+    return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       clipBehavior: Clip.none,
-      children: [
-        _CategoryTile(
-          key: const ValueKey('category-all'),
-          label: 'All',
-          icon: LucideIcons.layoutGrid,
-          count: providers.length,
-          selected: selected == null,
-          onTap: () => onSelected(null),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _CategoryTile(
+              key: const ValueKey('category-all'),
+              label: l10n.categoryAll,
+              icon: LucideIcons.layoutGrid,
+              count: providers.length,
+              selected: selected == null,
+              onTap: () => onSelected(null),
+            ),
+            for (final category in ServiceCategory.all)
+              _CategoryTile(
+                key: ValueKey('category-${category.id}'),
+                label: category.localizedLabel(l10n),
+                icon: category.icon,
+                count: category.count(providers),
+                selected: selected?.id == category.id,
+                onTap: () => onSelected(category),
+              ),
+          ],
         ),
-        for (final category in ServiceCategory.all)
-          _CategoryTile(
-            key: ValueKey('category-${category.id}'),
-            label: category.label,
-            icon: category.icon,
-            count: category.count(providers),
-            selected: selected?.id == category.id,
-            onTap: () => onSelected(category),
-          ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _CategoryTile extends StatelessWidget {
@@ -72,13 +80,13 @@ class _CategoryTile extends StatelessWidget {
     child: Semantics(
       button: true,
       selected: selected,
-      label: '$label, $count ${count == 1 ? 'provider' : 'providers'}',
+      label: context.l10n.categoryTileSemantics(label, count),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: ExcludeSemantics(
           child: Container(
-            width: 88,
+            width: 96,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             decoration: BoxDecoration(
               color: selected ? CustomerHomeTheme.mint : Colors.white,
@@ -97,11 +105,10 @@ class _CategoryTile extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: CustomerHomeTheme.text,
-                    fontSize: 12.5,
+                    fontSize: 14,
                     fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),
@@ -110,7 +117,7 @@ class _CategoryTile extends StatelessWidget {
                   '$count',
                   style: const TextStyle(
                     color: CustomerHomeTheme.mutedText,
-                    fontSize: 11.5,
+                    fontSize: 14,
                   ),
                 ),
               ],
@@ -180,14 +187,15 @@ class DirectoryProviderCard extends StatelessWidget {
                       ),
                     if (p.reviewCount > 0)
                       Text(
-                        '${p.reviewCount} ${p.reviewCount == 1 ? 'review' : 'reviews'}',
-                        style: AppTypography.caption,
+                        context.l10n.reviewCount(p.reviewCount),
+                        style: AppTypography.caption.copyWith(fontSize: 14),
                       ),
                     if (p.providerCode != null)
                       Text(
-                        'ID ${p.providerCode}',
+                        context.l10n.providerIdLabel(p.providerCode!),
                         style: AppTypography.caption.copyWith(
                           color: AppColors.primaryDark,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n_context.dart';
 import '../../models/app_user.dart';
 import '../../models/booking.dart';
+import '../../widgets/common/language_switch.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import 'provider_theme.dart';
 
@@ -44,23 +46,26 @@ class ProviderDashboardScreen extends StatelessWidget {
             .toList()
           ..sort((a, b) => a.scheduledAt!.compareTo(b.scheduledAt!));
     final earnings = ProviderEarnings(bookings, now);
+    final l10n = context.l10n;
     return ProviderPage(
       children: [
+        const LanguageSwitch(),
+        const SizedBox(height: 16),
         Text(
-          'Hello, ${user.name}',
+          l10n.providerGreeting(user.name),
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Your work, all in one place.',
-          style: TextStyle(color: ProviderTheme.muted),
+        Text(
+          l10n.providerTagline,
+          style: const TextStyle(color: ProviderTheme.muted),
         ),
         const SizedBox(height: 24),
         Row(
           children: [
             Expanded(
               child: _Stat(
-                label: 'New requests',
+                label: l10n.newRequests,
                 value: '${requests.length}',
                 icon: Icons.notifications_none,
               ),
@@ -68,7 +73,7 @@ class ProviderDashboardScreen extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _Stat(
-                label: "Today's jobs",
+                label: l10n.todaysJobs,
                 value: '$today',
                 icon: Icons.calendar_today_outlined,
               ),
@@ -76,17 +81,17 @@ class ProviderDashboardScreen extends StatelessWidget {
           ],
         ),
         _Stat(
-          label: 'Monthly earnings',
+          label: l10n.monthlyEarnings,
           value: money(earnings.monthlyTotal),
           icon: Icons.account_balance_wallet_outlined,
         ),
         const SizedBox(height: 10),
-        Text('Upcoming job', style: Theme.of(context).textTheme.titleLarge),
+        Text(l10n.upcomingJob, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
         if (upcoming.isEmpty)
-          const ProviderEmpty(
-            title: 'No upcoming jobs yet',
-            message: 'Accepted jobs scheduled in the future will appear here.',
+          ProviderEmpty(
+            title: l10n.noUpcomingTitle,
+            message: l10n.noUpcomingMessage,
             icon: Icons.event_available_outlined,
           )
         else
@@ -94,21 +99,24 @@ class ProviderDashboardScreen extends StatelessWidget {
             booking: upcoming.first,
             onTap: () => onOpen(upcoming.first),
           ),
-        Row(
+        // A Wrap so the title and button stack instead of overflowing when
+        // the text is long (Sinhala) or large.
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
           children: [
-            Expanded(
-              child: Text(
-                'New requests',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+            Text(
+              l10n.newRequests,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            TextButton(onPressed: onViewJobs, child: const Text('View all')),
+            TextButton(onPressed: onViewJobs, child: Text(l10n.viewAll)),
           ],
         ),
         if (requests.isEmpty)
-          const ProviderEmpty(
-            title: 'No new job requests',
-            message: 'Requests will appear here when a customer books your services.',
+          ProviderEmpty(
+            title: l10n.noNewRequestsTitle,
+            message: l10n.noNewRequestsMessage,
           )
         else
           ...requests
