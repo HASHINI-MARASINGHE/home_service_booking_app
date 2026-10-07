@@ -38,7 +38,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Electrical Repair'), findsOneWidget);
-    expect(find.text('From LKR 2,500'), findsNWidgets(2));
+    expect(find.text('From LKR 2,500'), findsNWidgets(3));
 
     await tester.scrollUntilVisible(
       find.text('128 jobs completed'),
@@ -85,24 +85,41 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('4.9 ★ • 128 jobs'), findsOneWidget);
+      await tester.drag(find.byType(ListView).first, const Offset(0, -600));
+      await tester.pumpAndSettle();
       expect(find.text('Rs. 2,500'), findsOneWidget);
       expect(find.text(address().line), findsOneWidget);
-      expect(find.text('9:00 AM'), findsNothing, reason: 'uses real slots');
-      expect(find.text('8:30 AM'), findsOneWidget);
+      expect(
+        find.textContaining('09:00 AM'),
+        findsNothing,
+        reason: 'uses real slots',
+      );
+      expect(find.textContaining('08:30 AM –'), findsOneWidget);
     });
 
     testWidgets('confirm needs a time, then sends the booking', (tester) async {
       final bookings = await pumpBook(tester);
-      await tester.ensureVisible(find.text('Confirm Booking'));
-      await tester.tap(find.text('Confirm Booking'));
+      await tester.ensureVisible(find.textContaining('Confirm Booking'));
+      await tester.tap(find.textContaining('Confirm Booking'));
       await tester.pump();
       expect(find.text('Select a time.'), findsOneWidget);
       expect(bookings.created, isEmpty);
+      // Let the snack bar go away so it does not cover the button.
+      ScaffoldMessenger.of(tester.element(find.byType(BookServiceScreen)))
+          .hideCurrentSnackBar();
+      await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text('1:30 PM'));
-      await tester.tap(find.text('1:30 PM'));
+      await tester.ensureVisible(find.textContaining('01:30 PM –'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('01:30 PM –'));
       await tester.pump();
-      await tester.tap(find.text('Confirm Booking'));
+      await tester.tap(find.textContaining('Confirm Booking'));
+      await tester.pumpAndSettle();
+      expect(find.text('Check your booking'), findsOneWidget);
+      await tester.tap(find.text('Send booking request'));
+      await tester.pumpAndSettle();
+      expect(find.text('Booking request sent'), findsOneWidget);
+      await tester.tap(find.text('View my booking'));
       await tester.pumpAndSettle();
       final request = bookings.created.single;
       expect(request.professional.id, 'pro');
@@ -121,10 +138,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('AC Servicing').last);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('1:30 PM'));
-      await tester.tap(find.text('1:30 PM'));
+      await tester.ensureVisible(find.textContaining('01:30 PM –'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('01:30 PM –'));
       await tester.pump();
-      await tester.tap(find.text('Confirm Booking'));
+      await tester.tap(find.textContaining('Confirm Booking'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Send booking request'));
       await tester.pumpAndSettle();
       expect(bookings.created.single.serviceName, 'AC Servicing');
     });
@@ -141,9 +161,11 @@ void main() {
         ),
         addresses: [],
       );
+      expect(find.text('Plumber'), findsWidgets);
+      await tester.drag(find.byType(ListView).first, const Offset(0, -600));
+      await tester.pumpAndSettle();
       expect(find.text('On inspection'), findsOneWidget);
       expect(find.text('Add a service address'), findsOneWidget);
-      expect(find.text('Plumber'), findsWidgets);
     });
 
     testWidgets('fits a 320 × 640 phone', (tester) async {
@@ -160,10 +182,7 @@ void main() {
       const Material(child: ProviderDetailsScreen(providerId: 'new')),
       bookings: FakeBookingService(professionals: [newcomer]),
     );
-    expect(
-      find.text("This provider hasn't added details yet."),
-      findsOneWidget,
-    );
+    expect(find.text('About'), findsNothing);
     expect(find.text('Services'), findsNothing);
     expect(find.text('No ratings yet'), findsOneWidget);
   });
@@ -209,6 +228,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // The home screen lists the verified providers as cards.
+    await tester.ensureVisible(find.text('Nuwan Fernando'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Nuwan Fernando'));
     await tester.pumpAndSettle();
     expect(find.byType(ProviderDetailsScreen), findsOneWidget);
