@@ -57,7 +57,6 @@ class BookingEdit {
   }
 }
 
-
 class CancellationResult {
   const CancellationResult({
     required this.fee,
@@ -264,7 +263,6 @@ class CustomerBookingService {
     final data = doc.data();
     return data == null ? null : Receipt.fromMap(doc.id, data);
   }
-
 
   // ---------------------------------------------------------------------
   // Rescheduling
@@ -736,38 +734,5 @@ class CustomerBookingService {
       tx.delete(noteRef);
     });
     _professionals.remove(booking.providerId);
-  }
-
-  static const disputeCategories = [
-    'Work quality',
-    'Overcharged',
-    'Damage to property',
-    'Professional conduct',
-    'Other',
-  ];
-
-  Future<String> reportProblem({
-    required Booking booking,
-    required String category,
-    required String description,
-  }) async {
-    if (!disputeCategories.contains(category)) {
-      throw ArgumentError('Choose what went wrong.');
-    }
-    final text = description.trim();
-    if (text.length < 10 || text.length > 1000) {
-      throw ArgumentError('Describe the problem in 10–1000 characters.');
-    }
-    final ref = _db.collection('disputes').doc();
-    await ref.set({
-      'bookingId': booking.id,
-      'customerId': _uid,
-      'providerId': booking.providerId,
-      'category': category,
-      'description': text,
-      'status': 'open',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    return ref.id;
   }
 }

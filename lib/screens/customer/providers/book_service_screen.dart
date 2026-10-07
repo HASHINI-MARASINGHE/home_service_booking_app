@@ -193,6 +193,38 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
       ? 'Add a service location.'
       : null;
 
+  /// Shows a summary first; the booking is only sent after "Send request".
+  Future<void> _review() async {
+    final missing = _missing;
+    if (missing != null) {
+      showAppSnack(context, missing, error: true);
+      return;
+    }
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheet) => _SummarySheet(
+        rows: [
+          ('Service', _service!),
+          ('Provider', _pro.name),
+          ('Date', Formatters.longDate(_date!)),
+          ('Time', Formatters.time12(_slot!.start, padHour: false)),
+          ('Location', _address!.line),
+          (
+            'Estimated total',
+            _pro.pricing == null
+                ? 'On inspection'
+                : Formatters.lkr(_pro.pricing),
+          ),
+          ('Payment', 'Pay after the service'),
+        ],
+      ),
+    );
+    if (ok == true && mounted) await _confirm();
+  }
+
   Future<void> _confirm() async {
     final missing = _missing;
     if (missing != null) {
@@ -211,7 +243,10 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
           customerName: scope.user.name,
         ),
       );
-      if (mounted) await onBookingCreated(context, id);
+      if (!mounted) return;
+      // Stop the button spinner before the success dialog opens.
+      setState(() => _saving = false);
+      await onBookingCreated(context, id);
     } catch (error) {
       if (!mounted) return;
       showAppSnack(context, AppError.message(error), error: true);
@@ -234,7 +269,7 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
           const ScreenHeader(title: 'Book Service'),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
               children: [
                 _ServiceCard(
                   name: _service ?? 'No services listed',
@@ -244,10 +279,20 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
                 const SizedBox(height: 12),
                 _ProviderCard(professional: _pro),
                 const SizedBox(height: 20),
-                const _Label('Select Date'),
+                _LabelRow(
+                  'Select Date',
+                  trailing: Text(
+                    Formatters.monthYear(_date!),
+                    style: const TextStyle(
+                      color: CustomerHomeTheme.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 10),
                 SizedBox(
-                  height: 74,
+                  height: 92,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _days.length,
@@ -258,6 +303,7 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
                       final works = _pro.workingDays.contains(day.weekday);
                       return _DayChip(
                         date: day,
+                        isToday: index == 0,
                         selected: day == _date,
                         enabled: works,
                         onTap: works && !_saving
@@ -267,53 +313,65 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 20),
-                const _Label('Select Time'),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
+                const _Hint('Crossed-out days: the provider is not working.'),
+                const SizedBox(height: 18),
                 FutureBuilder<List<TimeSlot>>(
                   future: _slots,
                   builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return _Hint(
-                        'Could not load times.',
-                        action: TextButton(
-                          onPressed: () => _selectDate(_date!),
-                          child: const Text('Retry'),
-                        ),
-                      );
-                    }
                     final slots = snapshot.data;
-                    if (slots == null) {
-                      return const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    if (!slots.any((s) => s.selectable)) {
-                      return const _Hint(
-                        'No free times on this day. Try another date.',
-                      );
-                    }
-                    return Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
+                    final open = slots?.where((s) => s.selectable).length;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (final slot in slots)
-                          _TimeChip(
-                            label: Formatters.time12(
-                              slot.start,
-                              padHour: false,
+                        _LabelRow(
+                          'Available Time Slots',
+                          trailing: open == null
+                              ? null
+                              : Text(
+                                  '$open slot${open == 1 ? '' : 's'} open',
+                                  style: const TextStyle(
+                                    color: CustomerHomeTheme.mutedText,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (snapshot.hasError)
+                          _Hint(
+                            'Could not load times.',
+                            action: TextButton(
+                              onPressed: () => _selectDate(_date!),
+                              child: const Text('Retry'),
                             ),
-                            selected: slot.start == _slot?.start,
-                            onTap: slot.selectable && !_saving
-                                ? () => setState(() => _slot = slot)
-                                : null,
-                          ),
+                          )
+                        else if (slots == null)
+                          const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else if (open == 0)
+                          const _Hint(
+                            'No free times on this day. Try another date.',
+                          )
+                        else
+                          for (final slot in slots)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _SlotRow(
+                                slot: slot,
+                                proName: _pro.name.split(' ').first,
+                                selected: slot.start == _slot?.start,
+                                onTap: slot.selectable && !_saving
+                                    ? () => setState(() => _slot = slot)
+                                    : null,
+                              ),
+                            ),
                       ],
                     );
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 8),
                 const _Label('Service Location'),
                 const SizedBox(height: 10),
                 _LocationCard(
@@ -323,38 +381,166 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
                 ),
                 const SizedBox(height: 16),
                 _TotalCard(pricing: _pro.pricing),
-                const SizedBox(height: 20),
-                SizedBox(
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _confirm,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: CustomerHomeTheme.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: _saving
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'Confirm Booking',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                  ),
+                const SizedBox(height: 12),
+                const _PaymentCard(),
+                const SizedBox(height: 12),
+                const InfoBanner(
+                  title: 'Free Rescheduling Window',
+                  message:
+                      'You can change or cancel for free up to 2 hours '
+                      'before your slot starts.',
                 ),
+                const SizedBox(height: 12),
+                const _PromiseCard(),
               ],
             ),
+          ),
+          _ConfirmBar(
+            saving: _saving,
+            onPressed: _review,
+            label: _slot == null
+                ? 'Confirm Booking'
+                : 'Confirm Booking — '
+                      '${Formatters.compactDate(_slot!.date)}, '
+                      '${Formatters.time12(_slot!.start, padHour: false)}',
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Always-visible bottom bar so the main action never scrolls away.
+class _ConfirmBar extends StatelessWidget {
+  const _ConfirmBar({
+    required this.saving,
+    required this.onPressed,
+    required this.label,
+  });
+
+  final bool saving;
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      border: Border(top: BorderSide(color: CustomerHomeTheme.border)),
+    ),
+    child: SizedBox(
+      height: 56,
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: saving ? null : onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: CustomerHomeTheme.primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: saving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: Colors.white,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.checkCheck, size: 20),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    ),
+  );
+}
+
+/// "Check your booking" sheet: pops `true` when the customer sends it.
+class _SummarySheet extends StatelessWidget {
+  const _SummarySheet({required this.rows});
+
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SheetHandle(),
+          const SizedBox(height: 4),
+          const Text('Check your booking', style: AppTypography.title),
+          const SizedBox(height: 12),
+          for (final (label, value) in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 112,
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: CustomerHomeTheme.mutedText,
+                        fontSize: 14.5,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: const TextStyle(
+                        color: CustomerHomeTheme.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 54,
+            child: FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: CustomerHomeTheme.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                'Send booking request',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Go back and edit'),
           ),
         ],
       ),
@@ -372,8 +558,55 @@ class _Label extends StatelessWidget {
     text,
     style: const TextStyle(
       color: CustomerHomeTheme.text,
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+    ),
+  );
+}
+
+class _LabelRow extends StatelessWidget {
+  const _LabelRow(this.text, {this.trailing});
+
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(child: _Label(text)),
+      ?trailing,
+    ],
+  );
+}
+
+class _PromiseCard extends StatelessWidget {
+  const _PromiseCard();
+
+  @override
+  Widget build(BuildContext context) => const _Box(
+    child: Row(
+      children: [
+        Icon(
+          LucideIcons.shieldCheck,
+          size: 20,
+          color: CustomerHomeTheme.primary,
+        ),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'HomeCare Service Promise',
+            style: TextStyle(
+              color: CustomerHomeTheme.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          '100% Guaranteed',
+          style: TextStyle(color: CustomerHomeTheme.mutedText, fontSize: 13.5),
+        ),
+      ],
     ),
   );
 }
@@ -392,7 +625,7 @@ class _Hint extends StatelessWidget {
           text,
           style: const TextStyle(
             color: CustomerHomeTheme.mutedText,
-            fontSize: 13,
+            fontSize: 14,
           ),
         ),
       ),
@@ -474,7 +707,7 @@ class _ServiceCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CustomerHomeTheme.mutedText,
-                    fontSize: 12.5,
+                    fontSize: 13.5,
                   ),
                 ),
               ],
@@ -486,7 +719,7 @@ class _ServiceCard extends StatelessWidget {
             'Change',
             style: TextStyle(
               color: CustomerHomeTheme.primary,
-              fontSize: 12.5,
+              fontSize: 13.5,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -526,7 +759,7 @@ class _ProviderCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CustomerHomeTheme.text,
-                    fontSize: 14.5,
+                    fontSize: 15.5,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -537,7 +770,7 @@ class _ProviderCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CustomerHomeTheme.mutedText,
-                    fontSize: 12.5,
+                    fontSize: 13.5,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -548,7 +781,7 @@ class _ProviderCard extends StatelessWidget {
                             '${p.completedJobs} jobs',
                   style: const TextStyle(
                     color: CustomerHomeTheme.primary,
-                    fontSize: 12,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -564,13 +797,14 @@ class _ProviderCard extends StatelessWidget {
 class _DayChip extends StatelessWidget {
   const _DayChip({
     required this.date,
+    required this.isToday,
     required this.selected,
     required this.enabled,
     required this.onTap,
   });
 
   final DateTime date;
-  final bool selected, enabled;
+  final bool isToday, selected, enabled;
   final VoidCallback? onTap;
 
   @override
@@ -580,21 +814,22 @@ class _DayChip extends StatelessWidget {
         : enabled
         ? CustomerHomeTheme.text
         : AppColors.subtle;
-    final weekday = Formatters.weekdayShort(date);
     return Semantics(
       selected: selected,
-      button: onTap != null,
+      enabled: onTap != null,
       label: Formatters.longDate(date),
       child: Material(
         color: selected ? CustomerHomeTheme.primary : Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
+        elevation: selected ? 2 : 0,
+        shadowColor: CustomerHomeTheme.shadow,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            width: 56,
+            width: 66,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: selected
                     ? CustomerHomeTheme.primary
@@ -605,24 +840,49 @@ class _DayChip extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '${weekday[0]}${weekday.substring(1).toLowerCase()}',
+                  Formatters.weekdayShort(date),
                   style: TextStyle(
                     color: selected
                         ? Colors.white
                         : CustomerHomeTheme.mutedText,
-                    fontSize: 12,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   '${date.day}',
                   style: TextStyle(
                     color: fg,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
                     decoration: enabled ? null : TextDecoration.lineThrough,
                   ),
                 ),
+                const SizedBox(height: 2),
+                isToday
+                    ? Text(
+                        'TODAY',
+                        style: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : CustomerHomeTheme.mutedText,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: enabled
+                              ? (selected
+                                    ? Colors.white
+                                    : CustomerHomeTheme.primary)
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
               ],
             ),
           ),
@@ -632,52 +892,138 @@ class _DayChip extends StatelessWidget {
   }
 }
 
-class _TimeChip extends StatelessWidget {
-  const _TimeChip({
-    required this.label,
+/// One time slot as a row: time range, a short note and a status pill.
+class _SlotRow extends StatelessWidget {
+  const _SlotRow({
+    required this.slot,
+    required this.proName,
     required this.selected,
     required this.onTap,
   });
 
-  final String label;
+  final TimeSlot slot;
+  final String proName;
   final bool selected;
   final VoidCallback? onTap;
 
+  int get _hour => int.tryParse(slot.start.split(':').first) ?? 12;
+
+  IconData get _icon {
+    if (_hour < 10) return LucideIcons.sunrise;
+    if (_hour < 15) return LucideIcons.sun;
+    if (_hour < 17) return LucideIcons.sunset;
+    return LucideIcons.moon;
+  }
+
+  String get _subtitle {
+    if (selected) return '$proName is available';
+    return switch (slot.state) {
+      SlotState.current => 'Your current booking',
+      SlotState.booked => 'Fully reserved',
+      SlotState.unavailable => 'Not available',
+      SlotState.available =>
+        _hour < 10
+            ? 'Morning • Earliest slot'
+            : _hour < 12
+            ? 'Late morning'
+            : _hour < 17
+            ? 'Afternoon'
+            : 'Evening',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null || selected;
+    final faded = !slot.selectable && !selected;
+    final struck =
+        slot.state == SlotState.booked || slot.state == SlotState.unavailable;
     return Semantics(
-      selected: selected,
       button: onTap != null,
-      child: Material(
-        color: selected ? CustomerHomeTheme.primary : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: 96,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: selected
-                    ? CustomerHomeTheme.primary
-                    : CustomerHomeTheme.border,
+      selected: selected,
+      label: '${Formatters.timeRange(slot.start, slot.end)}, $_subtitle',
+      child: Opacity(
+        opacity: faded ? 0.6 : 1,
+        child: Material(
+          color: selected ? AppColors.primarySoft : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 64),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: selected
+                      ? CustomerHomeTheme.primary
+                      : CustomerHomeTheme.border,
+                  width: selected ? 1.4 : 1,
+                ),
               ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: selected
-                    ? Colors.white
-                    : enabled
-                    ? CustomerHomeTheme.text
-                    : AppColors.subtle,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-                decoration: enabled ? null : TextDecoration.lineThrough,
+              child: Row(
+                children: [
+                  IconTile(
+                    icon: _icon,
+                    circle: true,
+                    size: 40,
+                    color: selected ? Colors.white : CustomerHomeTheme.primary,
+                    background: selected
+                        ? CustomerHomeTheme.primaryDark
+                        : CustomerHomeTheme.mint,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          Formatters.timeRange(slot.start, slot.end),
+                          style: TextStyle(
+                            color: selected
+                                ? CustomerHomeTheme.primaryDark
+                                : faded
+                                ? AppColors.subtle
+                                : CustomerHomeTheme.text,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
+                            decoration: struck
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _subtitle,
+                          style: const TextStyle(
+                            color: CustomerHomeTheme.mutedText,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (selected)
+                    const IconTile(
+                      icon: LucideIcons.check,
+                      circle: true,
+                      size: 32,
+                      color: Colors.white,
+                      background: CustomerHomeTheme.primaryDark,
+                    )
+                  else
+                    StatusPill(
+                      label: switch (slot.state) {
+                        SlotState.available => 'Select',
+                        SlotState.booked => 'Booked',
+                        SlotState.current => 'Current',
+                        SlotState.unavailable => 'Closed',
+                      },
+                      color: faded ? AppColors.subtle : CustomerHomeTheme.text,
+                      background: CustomerHomeTheme.mint,
+                    ),
+                ],
               ),
             ),
           ),
@@ -728,7 +1074,7 @@ class _LocationCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: CustomerHomeTheme.mutedText,
-                        fontSize: 12,
+                        fontSize: 13.5,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -738,7 +1084,7 @@ class _LocationCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: CustomerHomeTheme.text,
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -772,7 +1118,7 @@ class _TotalCard extends StatelessWidget {
                 'Estimated Total',
                 style: TextStyle(
                   color: CustomerHomeTheme.text,
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -797,7 +1143,45 @@ class _TotalCard extends StatelessWidget {
                     'after inspection.',
           style: const TextStyle(
             color: CustomerHomeTheme.mutedText,
-            fontSize: 11.5,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _PaymentCard extends StatelessWidget {
+  const _PaymentCard();
+
+  @override
+  Widget build(BuildContext context) => const _Box(
+    child: Row(
+      children: [
+        Icon(LucideIcons.banknote, color: CustomerHomeTheme.primary),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Payment',
+                style: TextStyle(
+                  color: CustomerHomeTheme.text,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Pay the provider after the service is done. '
+                'No payment is taken now.',
+                style: TextStyle(
+                  color: CustomerHomeTheme.mutedText,
+                  fontSize: 13.5,
+                ),
+              ),
+            ],
           ),
         ),
       ],

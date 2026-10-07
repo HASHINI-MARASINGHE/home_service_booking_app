@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 
+import 'dispute_service.dart';
 import 'image_upload_service.dart';
 
 /// The chosen slot was taken by another booking between loading and saving.
@@ -51,6 +52,7 @@ abstract final class AppError {
     }
     if (error is BookingChangedException) return error.message;
     if (error is ImageUploadException) return error.message;
+    if (error is DisputeException) return error.message;
     if (error is ArgumentError) {
       return error.message?.toString() ?? 'Please check your input.';
     }

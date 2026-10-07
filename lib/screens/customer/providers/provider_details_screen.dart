@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/professional.dart';
 import '../../../theme/app_theme.dart';
@@ -90,65 +91,196 @@ class _ProviderDetails extends StatelessWidget {
   final Professional provider;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+  Widget build(BuildContext context) => Column(
     children: [
-      _HeaderCard(provider: provider),
-      const SizedBox(height: 24),
-      const _Heading('About'),
-      const SizedBox(height: 8),
-      Text(
-        provider.about.trim().isEmpty
-            ? "This provider hasn't added details yet."
-            : provider.about,
-        style: const TextStyle(
-          color: CustomerHomeTheme.mutedText,
-          fontSize: 14,
-          height: 1.5,
+      Expanded(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            _HeaderCard(provider: provider),
+            const SizedBox(height: 16),
+            _QuickInfo(provider: provider),
+            if (provider.about.trim().isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const _Heading('About'),
+              const SizedBox(height: 8),
+              Text(
+                provider.about,
+                style: const TextStyle(
+                  color: CustomerHomeTheme.mutedText,
+                  fontSize: 15,
+                  height: 1.5,
+                ),
+              ),
+            ],
+            if (provider.services.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              const _Heading('Services'),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 132,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: provider.services.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
+                  itemBuilder: (context, index) => _ServiceTile(
+                    name: provider.services[index],
+                    pricing: provider.pricing,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 28),
+            const _Heading('Reviews & Ratings'),
+            const SizedBox(height: 12),
+            _RatingSummary(provider: provider),
+            // Reviews list: the reviews team plugs their widget in here, e.g.
+            // `ProviderReviewsList(providerId: provider.id)`.
+          ],
         ),
       ),
-      const SizedBox(height: 20),
-      SizedBox(
-        height: 52,
-        child: FilledButton(
-          onPressed: () => openBookingFlow(context, provider),
-          style: FilledButton.styleFrom(
-            backgroundColor: CustomerHomeTheme.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+      // Pinned so the main action is always on screen.
+      Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: CustomerHomeTheme.border)),
+        ),
+        child: SizedBox(
+          height: 56,
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () => openBookingFlow(context, provider),
+            style: FilledButton.styleFrom(
+              backgroundColor: CustomerHomeTheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              'Book Now',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
           ),
-          child: const Text(
-            'Book Now',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
         ),
       ),
-      if (provider.services.isNotEmpty) ...[
-        const SizedBox(height: 28),
-        const _Heading('Services'),
-        const SizedBox(height: 12),
+    ],
+  );
+}
+
+/// Price, working days and a call button: what a customer wants to know
+/// before booking.
+class _QuickInfo extends StatelessWidget {
+  const _QuickInfo({required this.provider});
+
+  final Professional provider;
+
+  static const _names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  Future<void> _call(BuildContext context) async {
+    final uri = Uri(scheme: 'tel', path: provider.phone.trim());
+    try {
+      if (await launchUrl(uri)) return;
+    } catch (_) {}
+    if (context.mounted) {
+      showAppSnack(context, 'Could not open the phone app.', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final days = ([...provider.workingDays]..sort())
+        .where((d) => d >= 1 && d <= 7)
+        .map((d) => _names[d - 1])
+        .join(', ');
+    final hasPhone = provider.phone.trim().isNotEmpty;
+    return _Panel(
+      child: Column(
+        children: [
+          _InfoRow(
+            icon: LucideIcons.banknote,
+            label: 'Price',
+            value: provider.pricing == null
+                ? 'Confirmed after inspection'
+                : 'From ${Formatters.lkr(provider.pricing)}',
+          ),
+          if (days.isNotEmpty)
+            _InfoRow(
+              icon: LucideIcons.calendarDays,
+              label: 'Available',
+              value: days,
+            ),
+          if (hasPhone) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 48,
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _call(context),
+                icon: const Icon(LucideIcons.phone, size: 18),
+                label: const Text('Call provider'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: CustomerHomeTheme.primary,
+                  side: const BorderSide(color: CustomerHomeTheme.primary),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label, value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: CustomerHomeTheme.primary),
+        const SizedBox(width: 10),
         SizedBox(
-          height: 132,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: provider.services.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 12),
-            itemBuilder: (context, index) => _ServiceTile(
-              name: provider.services[index],
-              pricing: provider.pricing,
+          width: 76,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: CustomerHomeTheme.mutedText,
+              fontSize: 14.5,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: CustomerHomeTheme.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
       ],
-      const SizedBox(height: 28),
-      const _Heading('Reviews & Ratings'),
-      const SizedBox(height: 12),
-      _RatingSummary(provider: provider),
-      // Reviews list: the reviews team plugs their widget in here, e.g.
-      // `ProviderReviewsList(providerId: provider.id)`.
-    ],
+    ),
   );
 }
 
@@ -183,7 +315,7 @@ class _HeaderCard extends StatelessWidget {
                         provider.name,
                         style: const TextStyle(
                           color: CustomerHomeTheme.text,
-                          fontSize: 18,
+                          fontSize: 19,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -200,7 +332,7 @@ class _HeaderCard extends StatelessWidget {
                     provider.verified ? 'Licensed $specialty' : specialty,
                     style: const TextStyle(
                       color: CustomerHomeTheme.primary,
-                      fontSize: 13,
+                      fontSize: 14.5,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -273,7 +405,7 @@ class _Meta extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: CustomerHomeTheme.mutedText,
-              fontSize: 12.5,
+              fontSize: 14,
             ),
           ),
         ),
@@ -317,7 +449,7 @@ class _ServiceTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: CustomerHomeTheme.text,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -329,7 +461,7 @@ class _ServiceTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: CustomerHomeTheme.primary,
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -456,7 +588,7 @@ class _Heading extends StatelessWidget {
     text,
     style: const TextStyle(
       color: CustomerHomeTheme.text,
-      fontSize: 17,
+      fontSize: 18,
       fontWeight: FontWeight.w700,
     ),
   );

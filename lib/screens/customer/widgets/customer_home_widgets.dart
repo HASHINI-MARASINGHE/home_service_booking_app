@@ -38,24 +38,55 @@ class CustomerAvatar extends StatelessWidget {
   }
 }
 
-class CustomerSearchBar extends StatelessWidget {
+class CustomerSearchBar extends StatefulWidget {
   const CustomerSearchBar({super.key, this.onChanged});
 
   /// Called with the text as it is typed (filters the provider list).
   final ValueChanged<String>? onChanged;
 
   @override
+  State<CustomerSearchBar> createState() => _CustomerSearchBarState();
+}
+
+class _CustomerSearchBarState extends State<CustomerSearchBar> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _clear() {
+    _controller.clear();
+    widget.onChanged?.call('');
+  }
+
+  @override
   Widget build(BuildContext context) => TextField(
     key: const ValueKey('provider-search'),
-    onChanged: onChanged,
+    controller: _controller,
+    onChanged: (text) {
+      setState(() {});
+      widget.onChanged?.call(text);
+    },
     textInputAction: TextInputAction.search,
+    style: const TextStyle(fontSize: 16),
     decoration: InputDecoration(
       hintText: 'Search providers or services...',
       hintStyle: const TextStyle(
         color: CustomerHomeTheme.mutedText,
-        fontSize: 14,
+        fontSize: 15,
       ),
       prefixIcon: const Icon(Icons.search, color: CustomerHomeTheme.primary),
+      suffixIcon: _controller.text.isEmpty
+          ? null
+          : IconButton(
+              key: const ValueKey('clear-search'),
+              tooltip: 'Clear search',
+              icon: const Icon(Icons.close_rounded),
+              onPressed: _clear,
+            ),
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(vertical: 16),

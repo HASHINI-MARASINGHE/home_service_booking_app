@@ -48,7 +48,9 @@ class _AuthFormState extends State<AuthForm> {
   Future<void> _resetPassword() async {
     final email = _email.text.trim();
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      setState(() => _error = 'Enter your email above, then tap Forgot password.');
+      setState(
+        () => _error = 'Enter your email above, then tap Forgot password.',
+      );
       return;
     }
     setState(() {
@@ -99,9 +101,8 @@ class _AuthFormState extends State<AuthForm> {
 
   void _openProviderRegistration() => Navigator.of(context).push(
     MaterialPageRoute(
-      builder: (_) => ProviderRegistrationScreen(
-        authService: widget.authService,
-      ),
+      builder: (_) =>
+          ProviderRegistrationScreen(authService: widget.authService),
     ),
   );
 
@@ -176,9 +177,10 @@ class _AuthFormState extends State<AuthForm> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer.withValues(alpha: 0.4),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer
+                                .withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Text(
@@ -199,7 +201,9 @@ class _AuthFormState extends State<AuthForm> {
                           TextFormField(
                             controller: _name,
                             enabled: !_busy,
-                            decoration: const InputDecoration(labelText: 'Name'),
+                            decoration: const InputDecoration(
+                              labelText: 'Name',
+                            ),
                             autofillHints: const [AutofillHints.name],
                             textCapitalization: TextCapitalization.words,
                             textInputAction: TextInputAction.next,
