@@ -17,6 +17,7 @@ import 'package:home_service_bookin_app/services/auth_service.dart';
 import 'package:home_service_bookin_app/theme/app_theme.dart';
 import 'package:home_service_bookin_app/theme/locale_typography.dart';
 import 'package:home_service_bookin_app/widgets/common/language_switch.dart';
+import 'package:home_service_bookin_app/widgets/common/text_size_selector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/customer_fakes.dart';
@@ -291,9 +292,13 @@ void main() {
       status: BookingStatus.pending,
     );
 
-    testWidgets('English text and the switch are shown', (tester) async {
+    testWidgets('English text is shown; the controls live in Profile', (
+      tester,
+    ) async {
       await tester.pumpWidget(_app(_dashboard(bookings: [pending])));
-      expect(find.byType(LanguageSwitch), findsOneWidget);
+      // Language and text size moved to Profile > Preferences / Settings.
+      expect(find.byType(LanguageSwitch), findsNothing);
+      expect(find.byType(TextSizeSelector), findsNothing);
       expect(find.text('Hello, Test Provider'), findsOneWidget);
       expect(find.text('New request'), findsOneWidget); // status badge
       expect(find.text('View request'), findsOneWidget);

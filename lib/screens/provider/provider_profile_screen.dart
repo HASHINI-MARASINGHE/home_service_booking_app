@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/locale_controller.dart';
 import '../../models/app_user.dart';
 import '../../models/provider_profile.dart';
 import '../../models/provider_verification.dart';
@@ -8,9 +9,13 @@ import '../../models/rating_stats.dart';
 import '../../services/auth_service.dart';
 import '../../services/provider_notification_service.dart';
 import '../../services/provider_profile_service.dart';
+import '../../theme/text_size_controller.dart';
+import '../../widgets/common/homecare_logo.dart';
 import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import '../auth/logout_button.dart';
+import '../customer/settings/language_settings_screen.dart';
+import '../customer/settings/text_size_settings_screen.dart';
 import 'provider_theme.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
@@ -191,6 +196,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               ],
             ),
           ),
+          const _PreferencesCard(),
           FilledButton.icon(
             onPressed: () => setState(() => _editing = true),
             icon: const Icon(Icons.edit_outlined),
@@ -674,6 +680,120 @@ class _ProfileEditorState extends State<_ProfileEditor> {
       maxLines: lines,
       keyboardType: keyboard,
       validator: validator,
+    ),
+  );
+}
+
+/// Language and text size, with the same layout as the customer's profile.
+/// The two screens they open are shared with the customer app, and both
+/// settings apply to the whole app straight away.
+class _PreferencesCard extends StatelessWidget {
+  const _PreferencesCard();
+
+  void _open(BuildContext context, Widget screen) =>
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          // Keep the HomeCare bar on top, like every other page.
+          builder: (_) =>
+              Theme(data: ProviderTheme.data, child: BrandShell(child: screen)),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([
+      LocaleController.instance,
+      TextSizeController.instance,
+    ]),
+    builder: (context, _) {
+      final code = LocaleController.instance.locale.languageCode;
+      final si = code == 'si';
+      final ta = code == 'ta';
+      final language = ta ? 'தமிழ்' : (si ? 'සිංහල' : 'English');
+      final size = switch (TextSizeController.instance.size) {
+        AppTextSize.normal => ta ? 'இயல்பானது' : (si ? 'සාමාන්‍ය' : 'Normal'),
+        AppTextSize.large => ta ? 'பெரியது' : (si ? 'විශාල' : 'Large'),
+        AppTextSize.extraLarge =>
+          ta ? 'மிகப் பெரியது' : (si ? 'ඉතා විශාල' : 'Extra large'),
+      };
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            child: Text(
+              ta
+                  ? 'விருப்பங்கள் / அமைப்புகள்'
+                  : (si ? 'මනාප සහ සැකසුම්' : 'PREFERENCES / SETTINGS'),
+              style: const TextStyle(
+                color: ProviderTheme.muted,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          ProviderCard(
+            // The rows paint their ink on the nearest Material; the card
+            // around them has a background, so give them a clear one.
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                children: [
+                  _PreferenceRow(
+                    key: const ValueKey('profile-nav-language'),
+                    icon: Icons.translate_rounded,
+                    title: ta ? 'மொழி' : (si ? 'භාෂාව' : 'Language'),
+                    value: language,
+                    onTap: () => _open(context, const LanguageSettingsScreen()),
+                  ),
+                  const Divider(height: 1),
+                  _PreferenceRow(
+                    key: const ValueKey('profile-nav-text-size'),
+                    icon: Icons.format_size_rounded,
+                    title: ta
+                        ? 'எழுத்து அளவு'
+                        : (si ? 'අකුරු ප්‍රමාණය' : 'Text size'),
+                    value: size,
+                    onTap: () =>
+                        _open(context, const TextSizeSettingsScreen()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _PreferenceRow extends StatelessWidget {
+  const _PreferenceRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title, value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    onTap: onTap,
+    leading: CircleAvatar(
+      radius: 20,
+      backgroundColor: ProviderTheme.tealLight,
+      child: Icon(icon, color: ProviderTheme.teal, size: 22),
+    ),
+    title: Text(title, style: Theme.of(context).textTheme.titleMedium),
+    subtitle: Text(value, style: const TextStyle(color: ProviderTheme.muted)),
+    trailing: const Icon(
+      Icons.chevron_right_rounded,
+      color: ProviderTheme.muted,
     ),
   );
 }

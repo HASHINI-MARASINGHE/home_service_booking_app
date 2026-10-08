@@ -4,9 +4,7 @@ import '../../l10n/l10n_context.dart';
 import '../../models/app_user.dart';
 import '../../models/booking.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/common/language_switch.dart';
 import '../../widgets/common/motion_widgets.dart';
-import '../../widgets/common/text_size_selector.dart';
 import '../../widgets/provider/provider_widgets.dart';
 
 class ProviderDashboardScreen extends StatelessWidget {
@@ -51,11 +49,6 @@ class ProviderDashboardScreen extends StatelessWidget {
     final l10n = context.l10n;
     return ProviderPage(
       children: [
-        // Two choices for language, three for text size.
-        const LanguageSwitch(),
-        const SizedBox(height: AppSpacing.sm),
-        const TextSizeSelector(),
-        const SizedBox(height: AppSpacing.md),
         Text(
           l10n.providerGreeting(user.name),
           style: Theme.of(context).textTheme.headlineSmall,

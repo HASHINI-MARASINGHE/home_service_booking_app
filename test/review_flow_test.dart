@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:home_service_bookin_app/screens/customer/settings/language_settings_screen.dart';
+import 'package:home_service_bookin_app/screens/customer/settings/text_size_settings_screen.dart';
 import 'package:home_service_bookin_app/models/app_notification.dart';
 import 'package:home_service_bookin_app/models/app_user.dart';
 import 'package:home_service_bookin_app/models/booking.dart';
@@ -451,6 +453,38 @@ void main() {
         ),
       ),
     );
+
+    testWidgets('profile has language and text size under Preferences', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        profile(
+          _ProfileService(
+            stats: const RatingStats(sum: 52, count: 11),
+            baseline: 4.9,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PREFERENCES / SETTINGS'), findsOneWidget);
+      expect(find.byKey(const ValueKey('profile-nav-language')), findsOneWidget);
+      expect(find.text('English'), findsOneWidget);
+      expect(find.byKey(const ValueKey('profile-nav-text-size')), findsOneWidget);
+      expect(find.text('Normal'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('profile-nav-language')));
+      await tester.pumpAndSettle();
+      expect(find.byType(LanguageSettingsScreen), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('profile-nav-text-size')));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextSizeSettingsScreen), findsOneWidget);
+    });
 
     testWidgets('profile headlines the live average and review count', (
       tester,
