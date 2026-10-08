@@ -22,9 +22,10 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
     required this.amount,
   });
 
-  /// English `size / line` and Sinhala `size / line` per style.
+  /// English, Sinhala, and Tamil `size / line` per style. Indic scripts (Sinhala,
+  /// Tamil) use taller line heights to prevent vowel diacritic clipping.
   factory AppTextStyles.forLocale(Locale locale) {
-    final si = locale.languageCode == 'si';
+    final taller = locale.languageCode == 'si' || locale.languageCode == 'ta';
     TextStyle s(
       double size,
       double line, {
@@ -38,16 +39,16 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
       letterSpacing: 0,
     );
     return AppTextStyles(
-      display: s(34, si ? 54 : 42, bold: true),
-      h1: s(28, si ? 46 : 36, bold: true),
-      h2: s(24, si ? 40 : 32, bold: true),
-      h3: s(20, si ? 34 : 28, bold: true),
-      bodyLarge: s(18, si ? 32 : 28),
-      bodySmall: s(16, si ? 28 : 24, color: AppColors.ink2),
-      caption: s(si ? 15 : 14, si ? 26 : 20, color: AppColors.ink3),
-      button: s(18, si ? 28 : 24, bold: true),
-      label: s(16, si ? 26 : 22, bold: true),
-      amount: s(22, si ? 34 : 28, bold: true),
+      display: s(34, taller ? 54 : 42, bold: true),
+      h1: s(28, taller ? 46 : 36, bold: true),
+      h2: s(24, taller ? 40 : 32, bold: true),
+      h3: s(20, taller ? 34 : 28, bold: true),
+      bodyLarge: s(18, taller ? 32 : 28),
+      bodySmall: s(16, taller ? 28 : 24, color: AppColors.ink2),
+      caption: s(taller ? 15 : 14, taller ? 26 : 20, color: AppColors.ink3),
+      button: s(18, taller ? 28 : 24, bold: true),
+      label: s(16, taller ? 26 : 22, bold: true),
+      amount: s(22, taller ? 34 : 28, bold: true),
     );
   }
 

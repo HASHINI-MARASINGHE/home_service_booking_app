@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:home_service_bookin_app/l10n/locale_controller.dart';
 import 'package:home_service_bookin_app/models/app_user.dart';
 import 'package:home_service_bookin_app/screens/auth/auth_wrapper.dart';
 import 'package:home_service_bookin_app/screens/auth/login_screen.dart';
@@ -76,6 +77,14 @@ Widget app(Widget child, {double textScale = 1}) => MaterialApp(
 );
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  tearDown(() async {
+    await LocaleController.instance.setLocale(const Locale('en'));
+  });
+
   test('completion persists across preference wrapper instances; reset removes only its flag', () async {
     final storage = _Preferences()..values['unrelated_setting'] = 'keep';
     final first = OnboardingPreferences(preferences: storage);
@@ -135,10 +144,10 @@ void main() {
       );
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
-      expect(find.text('Customer'), findsOneWidget);
-      expect(find.text('Service provider'), findsOneWidget);
+      expect(find.text('For Customers'), findsOneWidget);
+      expect(find.text('For Providers'), findsOneWidget);
       expect(find.text('Get Started'), findsOneWidget);
-      expect(find.text('Skip'), findsNothing);
+      expect(find.text('Skip'), findsOneWidget);
       expect(
         tester
             .widget<AnimatedContainer>(
@@ -182,6 +191,51 @@ void main() {
     );
   });
 
+  testWidgets('Language selection allows choosing English and Sinhala, then proceeds', (tester) async {
+    final storage = _Preferences();
+    await tester.pumpWidget(
+      app(
+        OnboardingGate(
+          preferences: OnboardingPreferences(preferences: storage),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Choose your language'), findsOneWidget);
+    expect(find.text('Select your preferred language to continue'), findsOneWidget);
+    expect(find.byKey(const ValueKey('language-option-en')), findsOneWidget);
+    expect(find.byKey(const ValueKey('language-option-si')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('language-option-si')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('language-continue-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(OnboardingScreen), findsOneWidget);
+  });
+
+  testWidgets('Language selection allows choosing Tamil and proceeds with Tamil onboarding', (tester) async {
+    final storage = _Preferences();
+    await tester.pumpWidget(
+      app(
+        OnboardingGate(
+          preferences: OnboardingPreferences(preferences: storage),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('language-option-ta')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('language-option-ta')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('language-continue-button')));
+    await tester.pumpAndSettle();
+    expect(LocaleController.instance.locale.languageCode, 'ta');
+    expect(find.byType(OnboardingScreen), findsOneWidget);
+    expect(find.text('தவிர்'), findsOneWidget);
+  });
+
   for (final page in [0, 1]) {
     testWidgets(
       'Skip on page ${page + 1} opens unchanged Login/Register and persists',
@@ -196,6 +250,10 @@ void main() {
         );
         await tester.pumpWidget(gate());
         await tester.pumpAndSettle();
+        if (find.text('Choose your language').evaluate().isNotEmpty) {
+          await tester.tap(find.text('Continue'));
+          await tester.pumpAndSettle();
+        }
         if (page == 1) {
           await tester.tap(find.text('Next'));
           await tester.pumpAndSettle();
@@ -236,6 +294,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (find.text('Choose your language').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
     for (var index = 0; index < 2; index++) {
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
@@ -290,6 +352,9 @@ void main() {
     storage.failRead = false;
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
+    expect(find.text('Choose your language'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
     expect(find.byType(OnboardingScreen), findsOneWidget);
   });
 
@@ -304,6 +369,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (find.text('Choose your language').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
     expect(find.byType(OnboardingScreen), findsOneWidget);
@@ -335,6 +404,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (find.text('Choose your language').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('Skip'));
     await tester.pump();
     await tester.tap(find.text('Skip'));
@@ -378,8 +451,8 @@ void main() {
             await tester.pumpAndSettle();
           }
         }
-        expect(find.text('Customer'), findsOneWidget);
-        expect(find.text('Service provider'), findsOneWidget);
+        expect(find.text('For Customers'), findsOneWidget);
+        expect(find.text('For Providers'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
