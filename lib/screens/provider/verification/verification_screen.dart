@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../models/app_user.dart';
 import '../../../models/provider_verification.dart';
@@ -35,6 +35,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   bool _busy = false;
   String? _error;
 
+  // Pre-fills form fields if this is a resubmission of an earlier rejected request.
   VerificationDraft _initialDraft() {
     final p = widget.previous;
     final draft = VerificationDraft(
@@ -49,6 +50,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     return draft;
   }
 
+  // Validates both form inputs and document draft completeness before dispatching upload.
   Future<void> _submit() async {
     // The form lives on this page, so it is always built; the draft check
     // covers it too (isComplete includes the details).

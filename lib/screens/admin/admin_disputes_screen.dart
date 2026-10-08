@@ -6,6 +6,7 @@ import '../../services/admin_service.dart';
 import '../../services/app_error.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/common/app_search_bar.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../customer/disputes/dispute_widgets.dart';
 
@@ -19,13 +20,49 @@ class AdminDisputesScreen extends StatefulWidget {
 }
 
 class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
+  // Segmented filtering - listens to stream of disputes matching current tab (Pending / Under Review / Resolved).
   DisputeStatus _filter = DisputeStatus.pending;
+  final _search = TextEditingController();
+  String _selectedReason = 'All';
+
   late Stream<List<Dispute>> _items = widget.service.watchDisputes(_filter);
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   void _select(DisputeStatus status) => setState(() {
     _filter = status;
     _items = widget.service.watchDisputes(status);
   });
+
+  List<Dispute> _filterList(List<Dispute> list) {
+    final query = _search.text.trim().toLowerCase();
+    return list.where((d) {
+      if (_selectedReason != 'All' &&
+          d.reason.toLowerCase() != _selectedReason.toLowerCase()) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      if (d.bookingRef.toLowerCase().contains(query)) return true;
+      if (d.customerName.toLowerCase().contains(query)) return true;
+      if (d.providerName.toLowerCase().contains(query)) return true;
+      if (d.serviceName.toLowerCase().contains(query)) return true;
+      if (d.reason.toLowerCase().contains(query)) return true;
+      if (d.description.toLowerCase().contains(query)) return true;
+      return false;
+    }).toList();
+  }
+
+  List<String> _extractReasons(List<Dispute> list) {
+    final set = <String>{'All'};
+    for (final d in list) {
+      if (d.reason.isNotEmpty) set.add(d.reason);
+    }
+    return set.toList();
+  }
 
   @override
   Widget build(BuildContext context) => Column(
@@ -35,7 +72,7 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
           AppSpacing.screen,
           AppSpacing.xs,
           AppSpacing.screen,
-          AppSpacing.sm,
+          AppSpacing.xs,
         ),
         child: SizedBox(
           width: double.infinity,
@@ -51,6 +88,20 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
           ),
         ),
       ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screen,
+          AppSpacing.xs,
+          AppSpacing.screen,
+          AppSpacing.xs,
+        ),
+        child: AppSearchBar(
+          controller: _search,
+          hintText: 'Search ref (#1024), customer, provider…',
+          onChanged: (_) => setState(() {}),
+          onClear: () => setState(() {}),
+        ),
+      ),
       Expanded(
         child: StreamBuilder<List<Dispute>>(
           stream: _items,
@@ -62,8 +113,11 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
               );
             }
             if (!snapshot.hasData) return const LoadingState();
-            final items = snapshot.data!;
-            if (items.isEmpty) {
+            final allItems = snapshot.data!;
+            final reasons = _extractReasons(allItems);
+            final filteredItems = _filterList(allItems);
+
+            if (allItems.isEmpty) {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.xl),
@@ -81,26 +135,75 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
                 ),
               );
             }
-            return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screen,
-                0,
-                AppSpacing.screen,
-                AppSpacing.xl,
-              ),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-              itemBuilder: (context, i) => _DisputeTile(
-                dispute: items[i],
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => AdminDisputeScreen(
-                      service: widget.service,
-                      disputeId: items[i].id,
-                    ),
+
+            return Column(
+              children: [
+                if (reasons.length > 2) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  AppFilterChipBar<String>(
+                    items: [
+                      for (final r in reasons)
+                        FilterItem(
+                          value: r,
+                          label: r,
+                          count: r == 'All'
+                              ? allItems.length
+                              : allItems
+                                  .where((i) => i.reason.toLowerCase() == r.toLowerCase())
+                                  .length,
+                        ),
+                    ],
+                    selected: _selectedReason,
+                    onSelected: (r) => setState(() => _selectedReason = r),
                   ),
+                  const SizedBox(height: AppSpacing.xs),
+                ],
+                Expanded(
+                  child: filteredItems.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.xl),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  LucideIcons.searchX,
+                                  size: 40,
+                                  color: AppColors.muted,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'No disputes match your search or filter.',
+                                  style: AppTypography.body,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.screen,
+                            AppSpacing.xs,
+                            AppSpacing.screen,
+                            AppSpacing.xl,
+                          ),
+                          itemCount: filteredItems.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+                          itemBuilder: (context, i) => _DisputeTile(
+                            dispute: filteredItems[i],
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => AdminDisputeScreen(
+                                  service: widget.service,
+                                  disputeId: filteredItems[i].id,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                 ),
-              ),
+              ],
             );
           },
         ),
@@ -114,16 +217,19 @@ StatusPill _statusPill(DisputeStatus status) => switch (status) {
     label: status.label,
     background: AppColors.warningSoft,
     color: AppColors.warning,
+    icon: LucideIcons.clock,
   ),
   DisputeStatus.underReview => StatusPill(
     label: status.label,
     background: AppColors.primaryTint,
     color: AppColors.primaryDark,
+    icon: LucideIcons.search,
   ),
   DisputeStatus.resolved => StatusPill(
     label: status.label,
     background: AppColors.successSoft,
     color: AppColors.success,
+    icon: LucideIcons.circleCheck,
   ),
 };
 
@@ -166,8 +272,10 @@ class _DisputeTile extends StatelessWidget {
                 ),
                 Text(
                   [
+                    if (d.bookingRef.isNotEmpty) '#${d.bookingRef}',
                     if (d.customerName.isNotEmpty) d.customerName,
                     if (d.amount != null) Formatters.lkr(d.amount),
+                    if (d.photoCount > 0) '${d.photoCount} photos',
                     if (d.createdAt != null)
                       Formatters.shortDate(d.createdAt!.toLocal()),
                   ].join(' · '),
@@ -323,6 +431,7 @@ class _DisputeBodyState extends State<_DisputeBody> {
     }
   }
 
+  // Admin begins investigation - transitions state to 'underReview', locking customer from edits.
   Future<void> _startReview() async {
     if (!await _confirm(
       'Start the review?',
@@ -338,6 +447,8 @@ class _DisputeBodyState extends State<_DisputeBody> {
     );
   }
 
+  // Admin concludes dispute - applies decision (Full/Partial Refund, Rejected),
+  // records optional refund amount and note, and alerts both parties.
   Future<void> _resolve() async {
     final decision = _decision!;
     if (!await _confirm(

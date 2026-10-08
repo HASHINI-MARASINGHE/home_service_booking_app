@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -31,6 +31,8 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
 
   ProviderVerification get s => widget.submission;
 
+  // Admin approval action - confirms verification, invokes AdminService.verify to generate Provider ID,
+  // creates the public professional listing, and sends notification.
   Future<void> _verify() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -68,6 +70,8 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
     }
   }
 
+  // Admin rejection action - opens dialog to collect mandatory reason note,
+  // updates status to rejected, and notifies provider to correct issues.
   Future<void> _reject() async {
     final reason = await showDialog<String>(
       context: context,

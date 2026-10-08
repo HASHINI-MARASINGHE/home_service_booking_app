@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -61,6 +61,7 @@ class _ProviderDisputeScreenState extends State<ProviderDisputeScreen> {
     _photos = _service.watchPhotos(widget.bookingId);
   });
 
+  // Submits the provider's statement or resolution offer to the safety desk.
   Future<void> _send(Dispute dispute) async {
     setState(() => _busy = true);
     try {
@@ -80,6 +81,7 @@ class _ProviderDisputeScreenState extends State<ProviderDisputeScreen> {
   ).showSnackBar(SnackBar(content: Text(message)));
 
   /// "Respond within 21 hours 5 minutes" / "Response window closed".
+  // Dynamic countdown calculation for the provider's 24-hour response window.
   String _deadlineLabel(Dispute dispute) {
     final deadline = dispute.respondDeadline;
     if (deadline == null) return '';

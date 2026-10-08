@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -575,6 +575,10 @@ class CustomerBookingService {
   /// Saves the review, adds it to the provider's overall rating and notifies
   /// the provider, all in one transaction. Security rules check that the three
   /// writes agree (the rating total grows by exactly this review's stars).
+  // Review Submission - executes as a single atomic Firestore Transaction:
+  // 1. Validates rating (1-5 stars) and comment length.
+  // 2. Increments provider's aggregate ratingStats (sum += rating, count += 1) for fast O(1) average computation.
+  // 3. Creates the review document and dispatches an in-app notification to the provider.
   Future<void> submitReview({
     required Booking booking,
     required int rating,
@@ -646,6 +650,8 @@ class CustomerBookingService {
   /// Changes the customer's own review. The provider's overall rating is
   /// recalculated in the same transaction (old stars out, new stars in) and
   /// the provider is notified again.
+  // Rating Recalculation - adjusts running rating sum incrementally: (sum - oldRating + newRating).
+  // Avoids having to re-fetch and loop through all reviews for the provider.
   Future<void> updateReview({
     required Booking booking,
     required int rating,
@@ -709,6 +715,7 @@ class CustomerBookingService {
 
   /// Deletes the customer's own review. Its stars leave the provider's
   /// overall rating in the same transaction and the notification is removed.
+  // Review Rollback - removes review doc and subtracts stars/count from aggregate ratingStats.
   Future<void> deleteReview(Booking booking) async {
     final uid = _uid;
     final reviewRef = _db.collection('reviews').doc(booking.id);
