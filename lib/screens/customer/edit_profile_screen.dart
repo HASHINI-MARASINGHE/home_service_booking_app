@@ -26,6 +26,7 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _newEmailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _picker = ImagePicker();
@@ -42,6 +43,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   bool get _hasChanges =>
       _nameController.text.trim() != widget.user.name.trim() ||
+      _phoneController.text.trim() != (widget.user.phone ?? '').trim() ||
       _pickedImageBytes != null ||
       _emailChanged;
 
@@ -49,8 +51,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     _nameController.text = widget.user.name;
+    _phoneController.text = widget.user.phone ?? '';
     _newEmailController.text = widget.user.email;
     _nameController.addListener(_onFieldChanged);
+    _phoneController.addListener(_onFieldChanged);
     _newEmailController.addListener(_onFieldChanged);
     _passwordController.addListener(_onFieldChanged);
   }
@@ -58,6 +62,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     _newEmailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -129,6 +134,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _error = 'Enter a name between 1 and 80 characters.');
       return;
     }
+    final phone = _phoneController.text.trim();
+    if (phone.isNotEmpty &&
+        !RegExp(r'^\+?[0-9\s\-()]{7,20}$').hasMatch(phone)) {
+      setState(() => _error = 'Enter a valid phone number (e.g. +94 77 123 4567).');
+      return;
+    }
     if (_emailChanged &&
         !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
             .hasMatch(_newEmailController.text.trim())) {
@@ -163,6 +174,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         uid: widget.user.uid,
         name: name,
         photoUrl: photoUrl,
+        phone: phone,
       );
       final updated = await widget.authService.getUserProfile(widget.user.uid);
       if (!mounted) return;
@@ -253,6 +265,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 decoration: InputDecoration(
                   labelText: 'Full name',
                   prefixIcon: const Icon(Icons.badge_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _phoneController,
+                enabled: !_saving,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: 'Phone number',
+                  hintText: '+94 77 123 4567',
+                  prefixIcon: const Icon(Icons.phone_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

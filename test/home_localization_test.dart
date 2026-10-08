@@ -145,14 +145,18 @@ void main() {
     }
 
     testWidgets(
-      'English uses Atkinson Hyperlegible, Sinhala Noto Sans Sinhala',
+      'English uses Atkinson Hyperlegible, Sinhala Noto Sans Sinhala, Tamil Noto Sans Tamil',
       (tester) async {
         final en = (await themeFor(tester, _en)).textTheme.bodyMedium!;
         final si = (await themeFor(tester, _si)).textTheme.bodyMedium!;
+        final ta = (await themeFor(tester, const ui.Locale('ta'))).textTheme.bodyMedium!;
         expect(en.fontFamily, contains('AtkinsonHyperlegible'));
-        expect(en.fontFamilyFallback!.single, contains('NotoSansSinhala'));
+        expect(en.fontFamilyFallback!.any((f) => f.contains('NotoSansSinhala')), isTrue);
+        expect(en.fontFamilyFallback!.any((f) => f.contains('NotoSansTamil')), isTrue);
         expect(si.fontFamily, contains('NotoSansSinhala'));
-        expect(si.fontFamilyFallback!.single, contains('AtkinsonHyperlegible'));
+        expect(si.fontFamilyFallback!.any((f) => f.contains('AtkinsonHyperlegible')), isTrue);
+        expect(ta.fontFamily, contains('NotoSansTamil'));
+        expect(ta.fontFamilyFallback!.any((f) => f.contains('AtkinsonHyperlegible')), isTrue);
       },
     );
 
@@ -228,13 +232,13 @@ void main() {
   });
 
   group('Customer Home', () {
-    testWidgets('English text and the switch are shown', (tester) async {
+    testWidgets('English text is shown without header switch', (tester) async {
       tester.view.physicalSize = const Size(390, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(_app(_customerHome()));
       await tester.pumpAndSettle();
-      expect(find.byType(LanguageSwitch), findsOneWidget);
+      expect(find.byType(LanguageSwitch), findsNothing);
       expect(find.text('Hello, Dilshan 👋'), findsOneWidget);
       expect(find.text('Verified providers'), findsOneWidget);
       expect(find.text('Plumbing'), findsOneWidget);

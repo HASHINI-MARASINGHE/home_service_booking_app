@@ -3,21 +3,35 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Holds the app language (English or Sinhala), remembers it between runs and
+/// Holds the app language (English, Sinhala, or Tamil), remembers it between runs and
 /// tells listeners at once when it changes, so no restart is needed.
 class LocaleController extends ChangeNotifier {
   LocaleController._();
 
   static final instance = LocaleController._();
 
-  static const supported = [ui.Locale('en'), ui.Locale('si')];
+  static const supported = [
+    ui.Locale('en'),
+    ui.Locale('si'),
+    ui.Locale('ta'),
+  ];
   static const _key = 'app_language';
 
   ui.Locale _locale = const ui.Locale('en');
   ui.Locale get locale => _locale;
 
+  /// Checks if a language preference was explicitly saved previously.
+  Future<bool> hasSavedLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_key) != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Reads the saved language. With nothing saved, follows the phone language
-  /// and falls back to English when that is not Sinhala or English.
+  /// and falls back to English when that is not one of the supported languages.
   Future<void> load() async {
     String? saved;
     try {

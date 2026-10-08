@@ -11,6 +11,7 @@ class AppUser {
     required this.email,
     required this.role,
     this.photoUrl,
+    this.phone,
   });
 
   final String uid;
@@ -18,16 +19,19 @@ class AppUser {
   final String email;
   final String role;
   final String? photoUrl;
+  final String? phone;
 
   factory AppUser.fromMap(String uid, Map<String, dynamic> data) {
     final name = data['name'];
     final email = data['email'];
     final role = data['role'];
     final photoUrl = data['photoUrl'];
+    final phone = data['phone'];
     if (name is! String ||
         email is! String ||
         (role != customerRole && role != providerRole && role != adminRole) ||
-        (photoUrl != null && photoUrl is! String)) {
+        (photoUrl != null && photoUrl is! String) ||
+        (phone != null && phone is! String)) {
       throw const FormatException('The user profile is invalid.');
     }
     return AppUser(
@@ -36,6 +40,7 @@ class AppUser {
       email: email,
       role: role as String,
       photoUrl: photoUrl as String?,
+      phone: phone as String?,
     );
   }
 
@@ -45,5 +50,6 @@ class AppUser {
     'email': email,
     'role': role,
     'photoUrl': photoUrl,
+    if (phone != null) 'phone': phone,
   };
 }

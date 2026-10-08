@@ -18,20 +18,41 @@ abstract final class AppTheme {
   /// known (and in tests, where no font can be downloaded).
   static ThemeData get light => build(const Locale('en'));
 
-  /// The theme for [locale] with Atkinson Hyperlegible (English) or Noto
-  /// Sans Sinhala (Sinhala), and the other font as fallback for mixed text.
+  /// The theme for [locale] with Atkinson Hyperlegible (English), Noto
+  /// Sans Sinhala (Sinhala), or Noto Sans Tamil (Tamil), with the others as fallback.
   static ThemeData forLocale(Locale locale) {
-    final sinhala = locale.languageCode == 'si';
-    final primary = sinhala
-        ? GoogleFonts.notoSansSinhala()
-        : GoogleFonts.atkinsonHyperlegible();
-    final other = sinhala
-        ? GoogleFonts.atkinsonHyperlegible()
-        : GoogleFonts.notoSansSinhala();
+    final code = locale.languageCode;
+    final TextStyle primary;
+    final List<String> fallback = [];
+
+    if (code == 'ta') {
+      primary = GoogleFonts.notoSansTamil();
+      if (GoogleFonts.atkinsonHyperlegible().fontFamily != null) {
+        fallback.add(GoogleFonts.atkinsonHyperlegible().fontFamily!);
+      }
+      if (GoogleFonts.notoSansSinhala().fontFamily != null) {
+        fallback.add(GoogleFonts.notoSansSinhala().fontFamily!);
+      }
+    } else if (code == 'si') {
+      primary = GoogleFonts.notoSansSinhala();
+      if (GoogleFonts.atkinsonHyperlegible().fontFamily != null) {
+        fallback.add(GoogleFonts.atkinsonHyperlegible().fontFamily!);
+      }
+      if (GoogleFonts.notoSansTamil().fontFamily != null) {
+        fallback.add(GoogleFonts.notoSansTamil().fontFamily!);
+      }
+    } else {
+      primary = GoogleFonts.atkinsonHyperlegible();
+      final siFont = GoogleFonts.notoSansSinhala().fontFamily;
+      if (siFont != null) fallback.add(siFont);
+      final taFont = GoogleFonts.notoSansTamil().fontFamily;
+      if (taFont != null) fallback.add(taFont);
+    }
+
     return build(
       locale,
       fontFamily: primary.fontFamily,
-      fontFallback: [if (other.fontFamily != null) other.fontFamily!],
+      fontFallback: fallback,
     );
   }
 

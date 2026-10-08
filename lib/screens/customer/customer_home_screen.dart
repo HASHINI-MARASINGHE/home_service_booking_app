@@ -12,8 +12,6 @@ import '../../services/location_service.dart';
 import '../../services/receipt_pdf_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/locale_typography.dart';
-import '../../widgets/common/language_switch.dart';
-import '../../widgets/common/text_size_selector.dart';
 import 'addresses/my_addresses_screen.dart';
 import 'bookings/booking_history_screen.dart';
 import 'customer_profile_screen.dart';
@@ -224,30 +222,20 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
               delegate: SliverChildListDelegate([
                 SafeArea(
                   bottom: false,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Row(
                     children: [
-                      // Two choices for language, three for text size.
-                      const LanguageSwitch(),
-                      const SizedBox(height: AppSpacing.sm),
-                      const TextSizeSelector(),
-                      const SizedBox(height: AppSpacing.md),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              l10n.customerHomeGreeting(
-                                user.name.trim().split(' ').first,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: styles.h3,
-                            ),
+                      Expanded(
+                        child: Text(
+                          l10n.customerHomeGreeting(
+                            user.name.trim().split(' ').first,
                           ),
-                          const SizedBox(width: AppSpacing.sm),
-                          CustomerAvatar(photoUrl: user.photoUrl, radius: 24),
-                        ],
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: styles.h3,
+                        ),
                       ),
+                      const SizedBox(width: AppSpacing.sm),
+                      CustomerAvatar(photoUrl: user.photoUrl, radius: 24),
                     ],
                   ),
                 ),
