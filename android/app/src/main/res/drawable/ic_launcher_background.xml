@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The blue of the HomeCare logo, top left to bottom right. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:startColor="#2E6AD0"
+        android:endColor="#0E2E6E"
+        android:type="linear" />
+</shape>

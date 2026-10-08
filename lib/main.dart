@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
       TextSizeController.instance,
     ]),
     builder: (context, _) => MaterialApp(
-      title: 'Home Services',
+      title: 'HomeCare',
       theme: AppTheme.forLocale(LocaleController.instance.locale),
       locale: LocaleController.instance.locale,
       supportedLocales: AppLocalizations.supportedLocales,

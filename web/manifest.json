@@ -1,6 +1,6 @@
 {
-    "name": "home_service_bookin_app",
-    "short_name": "home_service_bookin_app",
+    "name": "HomeCare",
+    "short_name": "HomeCare",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
