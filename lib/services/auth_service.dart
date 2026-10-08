@@ -162,6 +162,7 @@ class AuthService {
     required String uid,
     required String name,
     String? photoUrl,
+    String? phone,
   }) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty || trimmedName.length > 80) {
@@ -169,6 +170,7 @@ class AuthService {
     }
     final updates = <String, Object>{'name': trimmedName};
     if (photoUrl != null) updates['photoUrl'] = photoUrl;
+    if (phone != null) updates['phone'] = phone.trim();
     await _firestore.collection('users').doc(uid).update(updates);
     final updated = await getUserProfile(uid);
     if (updated == null) throw StateError('The user profile was not found.');
@@ -215,6 +217,60 @@ class AuthService {
     await user.verifyBeforeUpdateEmail(email);
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    final currentEmail = user?.email;
+    if (user == null || currentEmail == null) {
+      throw StateError('No signed-in user was found.');
+    }
+    final trimmedPassword = newPassword.trim();
+    if (trimmedPassword.length < 6) {
+      throw ArgumentError('Choose a stronger password (at least 6 characters).');
+    }
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: currentEmail,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+    } on FirebaseAuthException catch (error) {
+      if (error.code == 'wrong-password' ||
+          error.code == 'invalid-credential') {
+        throw const IncorrectPasswordException();
+      }
+      rethrow;
+    }
+    await user.updatePassword(trimmedPassword);
+  }
+
+  Future<void> deleteAccount({required String password}) async {
+    final user = _auth.currentUser;
+    final currentEmail = user?.email;
+    if (user == null || currentEmail == null) {
+      throw StateError('No signed-in user was found.');
+    }
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: currentEmail,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+    } on FirebaseAuthException catch (error) {
+      if (error.code == 'wrong-password' ||
+          error.code == 'invalid-credential') {
+        throw const IncorrectPasswordException();
+      }
+      rethrow;
+    }
+    try {
+      await _firestore.collection('users').doc(user.uid).delete();
+    } catch (_) {}
+    await user.delete();
+  }
+
   static String errorMessage(Object error) {
     if (error is IncorrectPasswordException) return 'Incorrect password.';
     if (error is ImageUploadException) return error.message;
@@ -226,8 +282,9 @@ class AuthService {
       return "This account's profile is incomplete. Check the name, email and "
           'role fields in its users record.';
     }
-    if (error is ArgumentError)
+    if (error is ArgumentError) {
       return error.message?.toString() ?? 'Invalid input.';
+    }
     if (error is FirebaseException) {
       return switch (error.code) {
         'invalid-email' => 'Enter a valid email address.',
