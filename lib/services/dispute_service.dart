@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/booking.dart';
@@ -90,6 +90,8 @@ class DisputeService {
   // ---------------------------------------------------------------- checks
   /// Throws a [DisputeException] with a plain message when the form is not
   /// valid yet. Used by the screen and again before saving.
+  // Input validation - enforces allowed reasons, 10-1000 character description,
+  // max 5 photos, and 700 KB size limit per photo (Base64 Firestore document limit).
   static void validate({
     required String reason,
     required String description,
@@ -125,6 +127,8 @@ class DisputeService {
   /// Files a new dispute (with its photos) and tells the provider, in one
   /// transaction. Allowed only for the customer's own completed booking,
   /// inside the 3-day warranty, and only once per booking.
+  // Dispute creation - checks 3-day warranty period and customer authorization.
+  // Executes transaction to create dispute, save photo docs, and set a 24-hour provider response deadline.
   Future<void> submit({
     required Booking booking,
     required String reason,
@@ -196,6 +200,8 @@ class DisputeService {
   // ---------------------------------------------------------------- update
   /// Changes a pending dispute. [photos] is the complete list that should be
   /// kept afterwards (old and new ones); removed photos are deleted.
+  // Dispute update - only allowed while status is 'pending' (before review starts).
+  // Uses Firestore WriteBatch to atomically update dispute info and replace photo slots.
   Future<void> update({
     required Dispute dispute,
     required String reason,
@@ -239,6 +245,8 @@ class DisputeService {
   // ---------------------------------------------------------------- delete
   /// Withdraws a pending dispute: removes it, its photos and the notice the
   /// provider received. The booking itself was never touched.
+  // Customer withdrawal - allows customer to cancel dispute only while 'pending'.
+  // Atomically deletes photos, provider notification, and dispute record via WriteBatch.
   Future<void> withdraw(Dispute dispute) async {
     if (dispute.customerId != _uid) {
       throw const DisputeException('You can only withdraw your own dispute.');
@@ -270,6 +278,7 @@ class DisputeService {
   // --------------------------------------------------------------- respond
   /// The provider's answer to a dispute, allowed until the 24-hour deadline
   /// and while the dispute is not yet decided. It can be edited until then.
+  // Provider response - saves provider's side of the story within the 24h window.
   Future<void> respond({
     required Dispute dispute,
     required String response,

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
@@ -79,6 +79,9 @@ class _ProviderGateState extends State<ProviderGate> {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
       final verification = snapshot.data;
+      // Role/Access Gate - Real-time gatekeeping.
+      // If verified (status == 'verified'), grants full access to jobs via ProviderHomeScreen.
+      // If unverified/pending/rejected, restricts access to UnverifiedProviderShell (documents & profile only).
       if (verification?.isVerified == true) {
         return ProviderHomeScreen(
           user: widget.user,

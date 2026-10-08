@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../models/booking.dart';
@@ -79,6 +79,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   'account.',
                 ),
               );
+            // Access guard - only allows reviews once the booking status is 'completed'.
+            // If a review already exists, switches UI mode to show existing review with edit option.
             } else if (booking.status != BookingStatus.completed &&
                 review == null) {
               body = ErrorState(
@@ -140,6 +142,8 @@ class _ReviewBodyState extends State<_ReviewBody> {
     super.dispose();
   }
 
+  // Handles both initial submission and editing mode.
+  // Gathers star rating (1-5), ordered tags, feedback comment, and recommendation toggle.
   Future<void> _submit() async {
     setState(() {
       _busy = true;

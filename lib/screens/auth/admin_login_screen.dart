@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/common/app_widgets.dart';
 
 /// Sign-in for HomeCare admins (username + password). Anyone whose account is
 /// not an admin is refused, whatever the password.
@@ -17,6 +20,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
+  bool _obscure = true;
   String? _error;
 
   @override
@@ -26,6 +30,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     super.dispose();
   }
 
+  // Admin authentication - authenticates credentials and ensures the user account has role == 'admin'.
   Future<void> _submit() async {
     if (_busy || !_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
@@ -55,79 +60,133 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Admin sign in')),
+    appBar: AppBar(title: const Text('Admin Portal')),
     body: SafeArea(
       child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.screen),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(Icons.admin_panel_settings_outlined, size: 56),
-                  const SizedBox(height: 12),
-                  Text(
-                    'HomeCare administration',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'For HomeCare staff only.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  TextFormField(
-                    key: const ValueKey('admin-username'),
-                    controller: _username,
-                    enabled: !_busy,
-                    decoration: const InputDecoration(labelText: 'Username'),
-                    autocorrect: false,
-                    textInputAction: TextInputAction.next,
-                    validator: (value) => (value ?? '').trim().isEmpty
-                        ? 'Enter your admin username.'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    key: const ValueKey('admin-password'),
-                    controller: _password,
-                    enabled: !_busy,
-                    decoration: const InputDecoration(labelText: 'Password'),
-                    obscureText: true,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    onFieldSubmitted: (_) => _submit(),
-                    validator: (value) =>
-                        (value ?? '').isEmpty ? 'Enter your password.' : null,
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _error!,
-                      key: const ValueKey('admin-error'),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+            child: AppCard(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.brand50,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.brand100, width: 2),
+                        ),
+                        child: const Icon(
+                          LucideIcons.shieldCheck,
+                          size: 28,
+                          color: AppColors.brand700,
+                        ),
                       ),
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'HomeCare administration',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.headline.copyWith(
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Authorized staff and safety desk access only.',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.body.copyWith(
+                        color: AppColors.ink3,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    TextFormField(
+                      key: const ValueKey('admin-username'),
+                      controller: _username,
+                      enabled: !_busy,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        prefixIcon: Icon(LucideIcons.user, size: 18),
+                      ),
+                      autocorrect: false,
+                      textInputAction: TextInputAction.next,
+                      validator: (value) => (value ?? '').trim().isEmpty
+                          ? 'Enter your admin username.'
+                          : null,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      key: const ValueKey('admin-password'),
+                      controller: _password,
+                      enabled: !_busy,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: const Icon(LucideIcons.lock, size: 18),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscure ? LucideIcons.eyeOff : LucideIcons.eye,
+                            size: 18,
+                            color: AppColors.ink3,
+                          ),
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      obscureText: _obscure,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      onFieldSubmitted: (_) => _submit(),
+                      validator: (value) =>
+                          (value ?? '').isEmpty ? 'Enter your password.' : null,
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.dangerSoft,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(color: AppColors.danger),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              LucideIcons.alertTriangle,
+                              size: 16,
+                              color: AppColors.danger,
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            Expanded(
+                              child: Text(
+                                _error!,
+                                key: const ValueKey('admin-error'),
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.danger,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.md),
+                    PrimaryButton(
+                      key: const ValueKey('admin-signin'),
+                      label: 'Sign in to Dashboard',
+                      icon: LucideIcons.logIn,
+                      busy: _busy,
+                      onPressed: _submit,
+                    ),
                   ],
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    key: const ValueKey('admin-signin'),
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Sign in as admin'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

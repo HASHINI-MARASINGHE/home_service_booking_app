@@ -8,6 +8,7 @@ import '../../models/service_category.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/common/app_search_bar.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../../widgets/common/review_widgets.dart';
 
@@ -28,10 +29,12 @@ class AdminRatingsScreen extends StatefulWidget {
 class _AdminRatingsScreenState extends State<AdminRatingsScreen>
     with SingleTickerProviderStateMixin {
   final _search = TextEditingController();
+  String _ratingFilter = 'All';
   late final TabController _tabs = TabController(
     length: ServiceCategory.all.length + 2,
     vsync: this,
   );
+  // Live stream of verified professionals sorted by highest rating first.
   late final Stream<List<Professional>> _professionals = widget.service
       .watchAllProfessionals();
 
@@ -42,10 +45,17 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
     super.dispose();
   }
 
+  // Real-time multi-field search and rating tier filtering.
   List<Professional> _filter(List<Professional> list) {
     final query = _search.text.trim().toLowerCase();
-    if (query.isEmpty) return list;
     return list.where((p) {
+      final r = p.rating ?? 0.0;
+      if (_ratingFilter == '⭐ 4.5+' && (p.rating == null || r < 4.5)) return false;
+      if (_ratingFilter == '⭐ 4.0 - 4.4' && (p.rating == null || r < 4.0 || r >= 4.5)) return false;
+      if (_ratingFilter == '⚠️ Under 4.0' && (p.rating == null || r >= 4.0)) return false;
+      if (_ratingFilter == 'Unrated' && (p.rating != null && (p.reviewCount) > 0)) return false;
+
+      if (query.isEmpty) return true;
       if (p.name.toLowerCase().contains(query)) return true;
       if (p.specialty.toLowerCase().contains(query)) return true;
       if (p.providerCode?.toLowerCase().contains(query) ?? false) return true;
@@ -79,25 +89,41 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
               AppSpacing.screen,
               AppSpacing.xs,
             ),
-            child: TextField(
+            child: AppSearchBar(
               controller: _search,
-              textInputAction: TextInputAction.search,
+              hintText: 'Search provider, code, or service…',
               onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: 'Search provider, code, or service…',
-                prefixIcon: const Icon(LucideIcons.search, size: 18),
-                suffixIcon: _search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(LucideIcons.x, size: 16),
-                        tooltip: 'Clear search',
-                        onPressed: () => setState(_search.clear),
-                      ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
+              onClear: () => setState(() {}),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: AppFilterChipBar<String>(
+              items: [
+                FilterItem(value: 'All', label: 'All Ratings', count: all.length),
+                FilterItem(
+                  value: '⭐ 4.5+',
+                  label: '⭐ 4.5+',
+                  count: all.where((p) => (p.rating ?? 0) >= 4.5).length,
                 ),
-              ),
+                FilterItem(
+                  value: '⭐ 4.0 - 4.4',
+                  label: '⭐ 4.0 - 4.4',
+                  count: all.where((p) => (p.rating ?? 0) >= 4.0 && (p.rating ?? 0) < 4.5).length,
+                ),
+                FilterItem(
+                  value: '⚠️ Under 4.0',
+                  label: '⚠️ Under 4.0',
+                  count: all.where((p) => p.rating != null && p.rating! < 4.0).length,
+                ),
+                FilterItem(
+                  value: 'Unrated',
+                  label: 'Unrated',
+                  count: all.where((p) => p.rating == null || p.reviewCount == 0).length,
+                ),
+              ],
+              selected: _ratingFilter,
+              onSelected: (tier) => setState(() => _ratingFilter = tier),
             ),
           ),
           Container(

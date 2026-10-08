@@ -226,8 +226,9 @@ class AuthService {
       return "This account's profile is incomplete. Check the name, email and "
           'role fields in its users record.';
     }
-    if (error is ArgumentError)
+    if (error is ArgumentError) {
       return error.message?.toString() ?? 'Invalid input.';
+    }
     if (error is FirebaseException) {
       return switch (error.code) {
         'invalid-email' => 'Enter a valid email address.',
