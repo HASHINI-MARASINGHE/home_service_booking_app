@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_theme.dart';
+import '../common/homecare_logo.dart';
 
-/// Teal header of the auth screens. Collapses to a 72px bar with only the
+/// Blue header of the auth screens. Collapses to a 72px bar with only the
 /// logo while the keyboard is open.
 class LoginHero extends StatelessWidget {
   const LoginHero({
@@ -105,10 +106,11 @@ class LoginHero extends StatelessWidget {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(compact ? 8 : 10),
                     ),
-                    child: Icon(
-                      LucideIcons.house,
+                    alignment: Alignment.center,
+                    child: HomeCareBrandMark(
+                      size: logoSize * 0.72,
                       color: AuthColors.primary,
-                      size: logoSize * 0.55,
+                      showCard: false,
                     ),
                   ),
                   const SizedBox(width: 10),

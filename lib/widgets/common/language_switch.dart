@@ -20,6 +20,11 @@ class LanguageSwitch extends StatelessWidget {
       label: 'සිංහල',
       key: ValueKey('language-සිංහල'),
     ),
+    ChoiceOption(
+      value: Locale('ta'),
+      label: 'தமிழ்',
+      key: ValueKey('language-தமிழ்'),
+    ),
   ];
 
   @override
