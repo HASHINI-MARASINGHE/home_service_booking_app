@@ -459,7 +459,7 @@ class _RatingBadge extends StatelessWidget {
           ),
           Text(
             '$count ${count == 1 ? 'review' : 'reviews'}',
-            style: AppTypography.caption.copyWith(fontSize: 10.5),
+            style: AppTypography.caption.copyWith(fontSize: 14),
           ),
         ],
       ),
@@ -484,7 +484,7 @@ class _ServiceChip extends StatelessWidget {
       style: AppTypography.caption.copyWith(
         color: faded ? AppColors.muted : AppColors.primaryDark,
         fontWeight: FontWeight.w600,
-        fontSize: 11,
+        fontSize: 14,
       ),
     ),
   );
@@ -814,7 +814,7 @@ class _ReviewCard extends StatelessWidget {
 
   Color _starColor(int rating) => switch (rating) {
     5 => AppColors.success,
-    4 => const Color(0xFF2E7D32),
+    4 => AppColors.infoSolid,
     3 => AppColors.star,
     2 => AppColors.warning,
     _ => AppColors.danger,
@@ -869,7 +869,7 @@ class _ReviewCard extends StatelessWidget {
                       '${r.rating}',
                       style: TextStyle(
                         color: _starColor(r.rating),
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -908,7 +908,7 @@ class _ReviewCard extends StatelessWidget {
                       style: AppTypography.caption.copyWith(
                         color: AppColors.primaryDark,
                         fontWeight: FontWeight.w600,
-                        fontSize: 11,
+                        fontSize: 14,
                       ),
                     ),
                   ),

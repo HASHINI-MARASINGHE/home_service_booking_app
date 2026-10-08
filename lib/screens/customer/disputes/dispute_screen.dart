@@ -24,12 +24,17 @@ class DisputeScreen extends StatefulWidget {
   /// Injected by tests; the real service is used otherwise.
   final DisputeService? service;
 
+  /// Builds the real service. Tests replace it so screens opened from other
+  /// screens do not need Firebase.
+  static DisputeService Function() serviceFactory = DisputeService.new;
+
   @override
   State<DisputeScreen> createState() => _DisputeScreenState();
 }
 
 class _DisputeScreenState extends State<DisputeScreen> {
-  late final DisputeService _service = widget.service ?? DisputeService();
+  late final DisputeService _service =
+      widget.service ?? DisputeScreen.serviceFactory();
   Stream<Booking?>? _booking;
   Stream<Dispute?>? _dispute;
   Stream<List<DisputePhoto>>? _photos;

@@ -273,6 +273,52 @@ service cloud.firestore {
         n.endTime > n.startTime;
     }
 
+    // A customer books a verified provider (CustomerBookingService.createBooking).
+    // The booking and its slot lock are written in one transaction, so two
+    // bookings can never take the same slot (the lock cannot be overwritten),
+    // and the price is the provider's own published price, never the client's.
+    function validNewBooking(bookingId) {
+      let n = request.resource.data;
+      let pro = get(/databases/$(database)/documents/professionals/$(n.providerId)).data;
+      return n.keys().hasOnly(['reference', 'customerId', 'customerName',
+          'providerId', 'providerName', 'serviceName', 'status', 'slotDate',
+          'startTime', 'endTime', 'scheduledAt', 'endAt', 'slotLockId',
+          'addressId', 'address', 'addressLabel', 'addressArea', 'accessNotes',
+          'contactPhone', 'jobNotes', 'photoUrls', 'estimatedPrice',
+          'totalAmount', 'laborCharge', 'serviceFee', 'paymentStatus',
+          'createdAt', 'updatedAt']) &&
+        n.customerId == request.auth.uid &&
+        n.providerId is string &&
+        n.providerId != request.auth.uid &&
+        exists(/databases/$(database)/documents/professionals/$(n.providerId)) &&
+        pro.get('verified', false) == true &&
+        n.status == 'pending' &&
+        n.paymentStatus == 'unpaid' &&
+        n.serviceName is string && n.serviceName.size() > 0 && n.serviceName.size() <= 120 &&
+        n.customerName is string && n.customerName.size() <= 80 &&
+        n.get('providerName', '') is string && n.get('providerName', '').size() <= 80 &&
+        n.get('reference', '') is string && n.get('reference', '').size() <= 20 &&
+        n.address is string && n.address.size() > 0 && n.address.size() <= 300 &&
+        optionalString(n, 'addressLabel', 60) &&
+        optionalString(n, 'addressArea', 120) &&
+        optionalString(n, 'accessNotes', 500) &&
+        validSlotShape(n) &&
+        n.scheduledAt == slotInstant(n.slotDate, n.startTime) &&
+        n.endAt == slotInstant(n.slotDate, n.endTime) &&
+        n.scheduledAt > request.time + duration.value(2, 'h') &&
+        n.slotLockId == lockIdFor(n.providerId, n.slotDate, n.startTime) &&
+        getAfter(lockPath(n.slotLockId)).data.bookingId == bookingId &&
+        n.get('estimatedPrice', null) == pro.get('pricing', null) &&
+        n.get('totalAmount', null) == pro.get('pricing', null) &&
+        n.get('laborCharge', null) == pro.get('pricing', null) &&
+        n.serviceFee == 0 &&
+        n.photoUrls == [] &&
+        n.get('contactPhone', '') == '' &&
+        n.get('jobNotes', '') == '' &&
+        n.createdAt == request.time &&
+        n.updatedAt == request.time;
+    }
+
     // Reschedule: the new slot's lock must be created in the same
     // transaction (locks can never be overwritten → no double booking) and
     // the old lock released. Both slots must be > 2 h away.
@@ -330,69 +376,17 @@ service cloud.firestore {
         (!captured || existsAfter(/databases/$(database)/documents/refunds/$(bookingId)));
     }
 
-    // New booking (CustomerBookingService.createBooking): a customer books a
-    // listed provider for a slot > 2 h away. The slot lock is created in the
-    // same transaction and must not exist yet, so a slot is never double
-    // booked. Prices must equal the provider's published `pricing`; a
-    // provider without one is priced on inspection, so all prices are null.
-    function bookingFields() {
-      return ['reference', 'customerId', 'customerName', 'providerId',
-        'providerName', 'serviceName', 'status', 'slotDate', 'startTime',
-        'endTime', 'scheduledAt', 'endAt', 'slotLockId', 'addressId', 'address',
-        'addressLabel', 'addressArea', 'accessNotes', 'contactPhone', 'jobNotes',
-        'photoUrls', 'estimatedPrice', 'totalAmount', 'laborCharge',
-        'serviceFee', 'paymentStatus', 'createdAt', 'updatedAt'];
-    }
-
-    function customerCreate(bookingId) {
-      let n = request.resource.data;
-      let pro = /databases/$(database)/documents/professionals/$(n.providerId);
-      let price = get(pro).data.get('pricing', null);
-      return signedIn() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer' &&
-        n.keys().hasOnly(bookingFields()) && n.keys().hasAll(bookingFields()) &&
-        n.customerId == request.auth.uid &&
-        n.providerId is string && n.providerId != request.auth.uid &&
-        exists(pro) &&
-        n.reference is string && n.reference.matches('^BK-[0-9]{5}$') &&
-        n.customerName is string && n.customerName.size() <= 100 &&
-        n.providerName is string && n.providerName.size() <= 100 &&
-        n.serviceName is string && n.serviceName.size() > 0 && n.serviceName.size() <= 100 &&
-        n.status == 'pending' &&
-        validSlotShape(n) &&
-        n.scheduledAt == slotInstant(n.slotDate, n.startTime) &&
-        n.endAt == slotInstant(n.slotDate, n.endTime) &&
-        n.scheduledAt > request.time + duration.value(2, 'h') &&
-        n.slotLockId == lockIdFor(n.providerId, n.slotDate, n.startTime) &&
-        !exists(lockPath(n.slotLockId)) &&
-        getAfter(lockPath(n.slotLockId)).data.bookingId == bookingId &&
-        optionalString(n, 'addressId', 128) &&
-        n.address is string && n.address.size() > 0 && n.address.size() <= 300 &&
-        optionalString(n, 'addressLabel', 60) &&
-        optionalString(n, 'addressArea', 120) &&
-        optionalString(n, 'accessNotes', 200) &&
-        optionalString(n, 'contactPhone', 20) &&
-        optionalString(n, 'jobNotes', 1000) &&
-        n.photoUrls is list && n.photoUrls.size() <= 5 &&
-        (price == null || price is number) &&
-        n.estimatedPrice == price &&
-        n.totalAmount == price &&
-        n.laborCharge == price &&
-        n.serviceFee == 0 &&
-        n.paymentStatus == 'unpaid' &&
-        n.createdAt == request.time &&
-        n.updatedAt == request.time;
-    }
-
     match /bookings/{bookingId} {
       allow read: if signedIn() &&
         (resource.data.customerId == request.auth.uid ||
          (resource.data.providerId == request.auth.uid && providerSignedIn()));
-      allow create: if customerCreate(bookingId);
       allow update: if providerTransition() ||
         customerEdit() ||
         customerReschedule(bookingId) ||
         customerCancel(bookingId);
+      // Customers create their own pending bookings (price and slot are
+      // checked above); bookings are never deleted.
+      allow create: if signedIn() && validNewBooking(bookingId);
       allow delete: if false;
     }
 
@@ -656,6 +650,23 @@ service cloud.firestore {
         request.resource.data.body.size() <= 300 &&
         request.resource.data.read == false &&
         request.resource.data.createdAt == request.time;
+      // The safety desk tells the provider a dispute moved on.
+      allow create: if isAdmin() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'read', 'createdAt']) &&
+        request.resource.data.type == 'dispute' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.bookingId is string &&
+        notificationId in ['dispute_' + request.resource.data.bookingId + '_review',
+          'dispute_' + request.resource.data.bookingId + '_resolved'] &&
+        request.resource.data.recipientId ==
+          get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.providerId &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 300 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
       // An admin tells a provider the outcome of their verification.
       allow create: if isAdmin() &&
         request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
@@ -794,12 +805,20 @@ service cloud.firestore {
 
     // Warranty claims. One per booking (the document ID is the booking ID),
     // filed within 3 days of the job being completed. The customer can edit
-    // or withdraw it only while it is pending; the safety desk (admin) moves
-    // it on and records the decision. Photos live in a subcollection as
-    // Base64 text, one document each (a document is limited to 1 MB).
+    // or withdraw it only while it is pending. The safety desk (admin) moves
+    // it Pending -> Under Review -> Resolved and records the decision; the
+    // provider can answer until the 24-hour deadline. Photos live in a
+    // subcollection as Base64 text, one document each (a document is limited
+    // to 1 MB).
     match /disputes/{disputeId} {
       function disputedBooking() {
         return get(bookingPath(request.resource.data.bookingId)).data;
+      }
+
+      // Same as the app (Booking.chargeTotal): totalAmount, else estimatedPrice,
+      // else 0. A booking priced on site has null prices (key present).
+      function bookingTotal(booking) {
+        return chargeTotal(booking);
       }
 
       function validDisputeContent(data) {
@@ -816,14 +835,21 @@ service cloud.firestore {
           data.photoCount <= 5;
       }
 
+      // Customer, the provider of the job and the safety desk can read it.
+      // The screen looks the dispute up before one exists, so a missing
+      // document must be readable (it simply comes back empty).
       allow get: if signedIn() &&
-        (resource.data.customerId == request.auth.uid || isAdmin());
+        (resource == null ||
+         resource.data.customerId == request.auth.uid ||
+         resource.data.providerId == request.auth.uid ||
+         isAdmin());
       allow list: if isAdmin();
 
       allow create: if signedIn() &&
         request.resource.data.keys().hasOnly(['bookingId', 'customerId',
           'providerId', 'reason', 'tag', 'description', 'status',
-          'photoCount', 'createdAt', 'respondDeadline', 'adminNote',
+          'photoCount', 'serviceName', 'customerName', 'providerName',
+          'bookingRef', 'amount', 'createdAt', 'respondDeadline', 'adminNote',
           'decision', 'refundAmount', 'providerResponse']) &&
         request.resource.data.bookingId is string &&
         disputeId == request.resource.data.bookingId &&
@@ -833,6 +859,13 @@ service cloud.firestore {
         disputedBooking().status == 'completed' &&
         disputedBooking().completedAt is timestamp &&
         request.time < disputedBooking().completedAt + duration.value(3, 'd') &&
+        // Copied from the booking so the safety desk cannot be misled.
+        request.resource.data.serviceName == disputedBooking().serviceName &&
+        request.resource.data.customerName == disputedBooking().customerName &&
+        request.resource.data.providerName == disputedBooking().get('providerName', '') &&
+        request.resource.data.bookingRef is string &&
+        request.resource.data.bookingRef.size() <= 40 &&
+        request.resource.data.amount == bookingTotal(disputedBooking()) &&
         validDisputeContent(request.resource.data) &&
         request.resource.data.status == 'pending' &&
         request.resource.data.createdAt == request.time &&
@@ -852,12 +885,47 @@ service cloud.firestore {
            .hasOnly(['reason', 'tag', 'description', 'photoCount', 'updatedAt']) &&
          validDisputeContent(request.resource.data) &&
          request.resource.data.updatedAt == request.time) ||
-        // The safety desk reviews it and records the decision.
-        (isAdmin() &&
+        // The provider answers before the deadline, until it is decided.
+        (resource.data.providerId == request.auth.uid &&
+         resource.data.status in ['pending', 'under_review'] &&
+         request.time <= resource.data.respondDeadline &&
          request.resource.data.diff(resource.data).affectedKeys()
-           .hasOnly(['status', 'adminNote', 'decision', 'refundAmount',
-                     'providerResponse', 'updatedAt']) &&
-         request.resource.data.status in ['pending', 'under_review', 'resolved'])
+           .hasOnly(['providerResponse', 'providerRespondedAt', 'updatedAt']) &&
+         request.resource.data.providerResponse is string &&
+         request.resource.data.providerResponse.size() >= 10 &&
+         request.resource.data.providerResponse.size() <= 1000 &&
+         request.resource.data.providerRespondedAt == request.time &&
+         request.resource.data.updatedAt == request.time) ||
+        // The safety desk starts the review (Pending -> Under Review).
+        (isAdmin() &&
+         resource.data.status == 'pending' &&
+         request.resource.data.status == 'under_review' &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'updatedAt']) &&
+         request.resource.data.updatedAt == request.time) ||
+        // ...and decides it (Under Review -> Resolved).
+        (isAdmin() &&
+         resource.data.status == 'under_review' &&
+         request.resource.data.status == 'resolved' &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'decision', 'refundAmount', 'adminNote',
+                     'updatedAt']) &&
+         request.resource.data.decision in ['Full refund approved',
+           'Partial refund approved', 'Claim rejected'] &&
+         request.resource.data.adminNote is string &&
+         request.resource.data.adminNote.size() >= 5 &&
+         request.resource.data.adminNote.size() <= 500 &&
+         ((request.resource.data.decision == 'Claim rejected' &&
+           request.resource.data.get('refundAmount', null) == null) ||
+          (request.resource.data.decision != 'Claim rejected' &&
+           request.resource.data.refundAmount is number &&
+           request.resource.data.refundAmount > 0 &&
+           request.resource.data.refundAmount <=
+             bookingTotal(get(bookingPath(resource.data.bookingId)).data) &&
+           (request.resource.data.decision != 'Full refund approved' ||
+            request.resource.data.refundAmount ==
+              bookingTotal(get(bookingPath(resource.data.bookingId)).data)))) &&
+         request.resource.data.updatedAt == request.time)
       );
 
       // Withdrawing is only possible while the dispute is pending.
@@ -870,8 +938,12 @@ service cloud.firestore {
           return /databases/$(database)/documents/disputes/$(disputeId);
         }
 
+        // No dispute yet means no photos yet: reading comes back empty.
         allow get, list: if signedIn() &&
-          (get(parentPath()).data.customerId == request.auth.uid || isAdmin());
+          (!exists(parentPath()) ||
+           get(parentPath()).data.customerId == request.auth.uid ||
+           get(parentPath()).data.providerId == request.auth.uid ||
+           isAdmin());
         // Five fixed slots, only for the customer's own pending dispute.
         allow create, update: if signedIn() &&
           photoId in ['p0', 'p1', 'p2', 'p3', 'p4'] &&

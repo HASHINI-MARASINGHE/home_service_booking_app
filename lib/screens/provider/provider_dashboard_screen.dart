@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n_context.dart';
 import '../../models/app_user.dart';
 import '../../models/booking.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/common/language_switch.dart';
+import '../../widgets/common/motion_widgets.dart';
+import '../../widgets/common/text_size_selector.dart';
 import '../../widgets/provider/provider_widgets.dart';
-import 'provider_theme.dart';
 
 class ProviderDashboardScreen extends StatelessWidget {
   const ProviderDashboardScreen({
@@ -44,31 +48,34 @@ class ProviderDashboardScreen extends StatelessWidget {
             .toList()
           ..sort((a, b) => a.scheduledAt!.compareTo(b.scheduledAt!));
     final earnings = ProviderEarnings(bookings, now);
+    final l10n = context.l10n;
     return ProviderPage(
       children: [
+        // Two choices for language, three for text size.
+        const LanguageSwitch(),
+        const SizedBox(height: AppSpacing.sm),
+        const TextSizeSelector(),
+        const SizedBox(height: AppSpacing.md),
         Text(
-          'Hello, ${user.name}',
+          l10n.providerGreeting(user.name),
           style: Theme.of(context).textTheme.headlineSmall,
         ),
-        const SizedBox(height: 6),
-        const Text(
-          'Your work, all in one place.',
-          style: TextStyle(color: ProviderTheme.muted),
-        ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.space1),
+        Text(l10n.providerTagline, style: context.textStyles.bodySmall),
+        const SizedBox(height: AppSpacing.xl),
         Row(
           children: [
             Expanded(
               child: _Stat(
-                label: 'New requests',
+                label: l10n.newRequests,
                 value: '${requests.length}',
                 icon: Icons.notifications_none,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: _Stat(
-                label: "Today's jobs",
+                label: l10n.todaysJobs,
                 value: '$today',
                 icon: Icons.calendar_today_outlined,
               ),
@@ -76,44 +83,55 @@ class ProviderDashboardScreen extends StatelessWidget {
           ],
         ),
         _Stat(
-          label: 'Monthly earnings',
+          label: l10n.monthlyEarnings,
           value: money(earnings.monthlyTotal),
           icon: Icons.account_balance_wallet_outlined,
         ),
         const SizedBox(height: 10),
-        Text('Upcoming job', style: Theme.of(context).textTheme.titleLarge),
+        Text(l10n.upcomingJob, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
         if (upcoming.isEmpty)
-          const ProviderEmpty(
-            title: 'No upcoming jobs yet',
-            message: 'Accepted jobs scheduled in the future will appear here.',
+          ProviderEmpty(
+            title: l10n.noUpcomingTitle,
+            message: l10n.noUpcomingMessage,
             icon: Icons.event_available_outlined,
           )
         else
-          BookingTile(
-            booking: upcoming.first,
-            onTap: () => onOpen(upcoming.first),
-          ),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'New requests',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+          FadeSlideIn(
+            child: BookingTile(
+              booking: upcoming.first,
+              onTap: () => onOpen(upcoming.first),
             ),
-            TextButton(onPressed: onViewJobs, child: const Text('View all')),
+          ),
+        // A Wrap so the title and button stack instead of overflowing when
+        // the text is long (Sinhala) or large.
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          children: [
+            Text(
+              l10n.newRequests,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            TextButton(onPressed: onViewJobs, child: Text(l10n.viewAll)),
           ],
         ),
         if (requests.isEmpty)
-          const ProviderEmpty(
-            title: 'No new job requests',
-            message: 'Requests will appear here when a customer books your services.',
+          ProviderEmpty(
+            title: l10n.noNewRequestsTitle,
+            message: l10n.noNewRequestsMessage,
           )
         else
           ...requests
               .take(3)
-              .map((b) => BookingTile(booking: b, onTap: () => onOpen(b))),
+              .indexed
+              .map(
+                (r) => FadeSlideIn(
+                  index: r.$1,
+                  child: BookingTile(booking: r.$2, onTap: () => onOpen(r.$2)),
+                ),
+              ),
       ],
     );
   }
@@ -129,11 +147,11 @@ class _Stat extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: ProviderTheme.teal),
-        const SizedBox(height: 12),
+        Icon(icon, color: AppColors.brand700, size: AppSizes.iconNav),
+        const SizedBox(height: AppSpacing.sm),
         Text(value, style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: ProviderTheme.muted)),
+        const SizedBox(height: AppSpacing.space1),
+        Text(label, style: context.textStyles.bodySmall),
       ],
     ),
   );

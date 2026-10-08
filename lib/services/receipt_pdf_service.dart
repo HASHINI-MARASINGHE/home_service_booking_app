@@ -10,10 +10,10 @@ import '../utils/formatters.dart';
 /// Renders a [Receipt] as an A4 PDF and hands it to the platform's
 /// save/print or share sheet.
 class ReceiptPdfService {
-  static const _teal = PdfColor.fromInt(0xFF0B7C72);
-  static const _navy = PdfColor.fromInt(0xFF0F172A);
-  static const _muted = PdfColor.fromInt(0xFF64748B);
-  static const _tint = PdfColor.fromInt(0xFFE8F3EF);
+  static const _teal = PdfColor.fromInt(0xFF134A96);
+  static const _navy = PdfColor.fromInt(0xFF101B2B);
+  static const _muted = PdfColor.fromInt(0xFF3F4D5E);
+  static const _tint = PdfColor.fromInt(0xFFEEF4FB);
 
   String fileName(Receipt receipt) =>
       'HomeCare-${receipt.receiptNumber.isEmpty ? receipt.bookingId : receipt.receiptNumber}.pdf';

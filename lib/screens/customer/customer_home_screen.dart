@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n_context.dart';
+import '../../models/app_user.dart';
 import '../../models/professional.dart';
 import '../../models/service_category.dart';
-import '../../models/app_user.dart';
 import '../../services/address_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/customer_booking_service.dart';
 import '../../services/location_service.dart';
 import '../../services/receipt_pdf_service.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/customer_home_theme.dart';
+import '../../theme/locale_typography.dart';
+import '../../widgets/common/language_switch.dart';
+import '../../widgets/common/text_size_selector.dart';
 import 'addresses/my_addresses_screen.dart';
 import 'bookings/booking_history_screen.dart';
 import 'customer_profile_screen.dart';
 import 'customer_scope.dart';
-import 'widgets/customer_home_widgets.dart';
 import 'providers/all_providers_screen.dart';
+import 'widgets/customer_home_widgets.dart';
 import 'widgets/provider_directory_widgets.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -87,52 +90,57 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => CustomerScope(
-    user: _currentUser,
-    addresses: _addresses,
-    bookings: _bookings,
-    location: _location,
-    receipts: _receipts,
-    selectTab: _selectTab,
-    child: Theme(
-      data: AppTheme.light,
-      child: PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _handleBack();
-        },
-        child: Scaffold(
-          backgroundColor: AppColors.background,
-          body: IndexedStack(
-            index: _selectedIndex,
-            children: [
-              _tab(
-                CustomerTab.home,
-                ColoredBox(
-                  color: CustomerHomeTheme.background,
-                  child: _CustomerHomeContent(user: _currentUser),
+  Widget build(BuildContext context) {
+    // The style guide theme with the font and line heights of the language.
+    final theme = LocaleTypography.apply(context, AppTheme.light);
+    return CustomerScope(
+      user: _currentUser,
+      addresses: _addresses,
+      bookings: _bookings,
+      location: _location,
+      receipts: _receipts,
+      selectTab: _selectTab,
+      child: Theme(
+        data: theme,
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _handleBack();
+          },
+          child: Scaffold(
+            backgroundColor: AppColors.bg,
+            body: IndexedStack(
+              index: _selectedIndex,
+              children: [
+                _tab(
+                  CustomerTab.home,
+                  ColoredBox(
+                    color: AppColors.bg,
+                    child: _CustomerHomeContent(user: _currentUser),
+                  ),
                 ),
-              ),
-              _tab(CustomerTab.bookings, const BookingHistoryScreen()),
-              _tab(CustomerTab.saved, const MyAddressesScreen()),
-              _tab(
-                CustomerTab.profile,
-                CustomerProfileScreen(
-                  uid: _currentUser.uid,
-                  authService: widget.authService,
-                  onUserUpdated: (user) => setState(() => _currentUser = user),
+                _tab(CustomerTab.bookings, const BookingHistoryScreen()),
+                _tab(CustomerTab.saved, const MyAddressesScreen()),
+                _tab(
+                  CustomerTab.profile,
+                  CustomerProfileScreen(
+                    uid: _currentUser.uid,
+                    authService: widget.authService,
+                    onUserUpdated: (user) =>
+                        setState(() => _currentUser = user),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          bottomNavigationBar: CustomerBottomNavigation(
-            selectedIndex: _selectedIndex,
-            onSelected: _selectTab,
+              ],
+            ),
+            bottomNavigationBar: CustomerBottomNavigation(
+              selectedIndex: _selectedIndex,
+              onSelected: _selectTab,
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _TabNavigator extends StatelessWidget {
@@ -148,7 +156,7 @@ class _TabNavigator extends StatelessWidget {
       settings: settings,
       // Home/Profile were written as Scaffold bodies; give them a Material
       // ancestor for text styles and ink now that they live in a route.
-      builder: (_) => Material(color: AppColors.background, child: root),
+      builder: (_) => Material(color: AppColors.bg, child: root),
     ),
   );
 }
@@ -194,156 +202,226 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
   }
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
-    onRefresh: () async {
-      _reload();
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-    },
-    child: CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              SafeArea(
-                bottom: false,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Hello, ${user.name.trim().split(' ').first} 👋',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: CustomerHomeTheme.text,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    CustomerAvatar(photoUrl: user.photoUrl, radius: 22),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-              const Text(
-                'Your Home,\nOur Care',
-                style: TextStyle(
-                  color: CustomerHomeTheme.primaryDark,
-                  fontSize: 36,
-                  height: 1.08,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Book trusted professionals for every home need, all in one place.',
-                style: TextStyle(
-                  color: CustomerHomeTheme.mutedText,
-                  fontSize: 16,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 22),
-              CustomerSearchBar(
-                onChanged: (text) => setState(() => _query = text),
-              ),
-              const SizedBox(height: 30),
-              const _SectionHeading(title: 'Services for your home'),
-              const SizedBox(height: 14),
-              StreamBuilder<List<Professional>>(
-                stream: _directory,
-                builder: (context, snapshot) {
-                  final all = snapshot.data ?? const <Professional>[];
-                  final shown = _visible(all);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final styles = context.textStyles;
+    return RefreshIndicator(
+      onRefresh: () async {
+        _reload();
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+      },
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screen,
+              AppSpacing.screen,
+              AppSpacing.screen,
+              AppSpacing.xxl,
+            ),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                SafeArea(
+                  bottom: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      CategoryRow(
-                        providers: all,
-                        selected: _category,
-                        onSelected: (c) => setState(() => _category = c),
-                      ),
-                      const SizedBox(height: 26),
+                      // Two choices for language, three for text size.
+                      const LanguageSwitch(),
+                      const SizedBox(height: AppSpacing.sm),
+                      const TextSizeSelector(),
+                      const SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
-                          const Expanded(
-                            child: _SectionHeading(title: 'Verified providers'),
-                          ),
-                          TextButton(
-                            key: const ValueKey('see-all-providers'),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const Material(child: AllProvidersScreen()),
+                          Expanded(
+                            child: Text(
+                              l10n.customerHomeGreeting(
+                                user.name.trim().split(' ').first,
                               ),
-                            ),
-                            child: const Text(
-                              'See all',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: styles.h3,
                             ),
                           ),
-                          if (snapshot.hasData)
-                            Text(
-                              '${shown.length} ${shown.length == 1 ? 'provider' : 'providers'}',
-                              key: const ValueKey('provider-count'),
-                              style: const TextStyle(
-                                color: CustomerHomeTheme.mutedText,
-                                fontSize: 14,
-                              ),
-                            ),
+                          const SizedBox(width: AppSpacing.sm),
+                          CustomerAvatar(photoUrl: user.photoUrl, radius: 24),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      if (snapshot.hasError)
-                        Column(
-                          children: [
-                            const DirectoryMessage(
-                              text: 'Providers could not be loaded right now.',
-                              icon: Icons.cloud_off_outlined,
-                            ),
-                            TextButton(
-                              onPressed: _reload,
-                              child: const Text('Try again'),
-                            ),
-                          ],
-                        )
-                      else if (!snapshot.hasData)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else if (shown.isEmpty)
-                        DirectoryMessage(
-                          key: const ValueKey('no-providers'),
-                          icon: Icons.search_off_rounded,
-                          text: all.isEmpty
-                              ? 'No verified providers yet. Providers show up here as soon as our team verifies them.'
-                              : _query.trim().isNotEmpty
-                              ? "No providers match '${_query.trim()}'. Try another word or clear the search."
-                              : 'No providers in this category yet. Try another category.',
-                        )
-                      else
-                        for (final provider in shown)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: DirectoryProviderCard(provider: provider),
-                          ),
                     ],
-                  );
-                },
-              ),
-            ]),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                _HomeBanner(
+                  title: l10n.customerHomeTitle,
+                  subtitle: l10n.customerHomeSubtitle,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                CustomerSearchBar(
+                  onChanged: (text) => setState(() => _query = text),
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+                _SectionHeading(title: l10n.servicesForYourHome),
+                const SizedBox(height: AppSpacing.md),
+                StreamBuilder<List<Professional>>(
+                  stream: _directory,
+                  builder: (context, snapshot) {
+                    final all = snapshot.data ?? const <Professional>[];
+                    final shown = _visible(all);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CategoryRow(
+                          providers: all,
+                          selected: _category,
+                          onSelected: (c) => setState(() => _category = c),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.space1,
+                          children: [
+                            _SectionHeading(title: l10n.verifiedProviders),
+                            TextButton(
+                              key: const ValueKey('see-all-providers'),
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const Material(
+                                    child: AllProvidersScreen(),
+                                  ),
+                                ),
+                              ),
+                              child: Text(l10n.seeAll),
+                            ),
+                            if (snapshot.hasData)
+                              Text(
+                                l10n.providerCount(shown.length),
+                                key: const ValueKey('provider-count'),
+                                style: styles.caption,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        if (snapshot.hasError)
+                          DirectoryMessage(
+                            title: l10n.loadErrorTitle,
+                            text: l10n.providersLoadError,
+                            icon: Icons.cloud_off_outlined,
+                            actionLabel: l10n.tryAgain,
+                            onAction: _reload,
+                          )
+                        else if (!snapshot.hasData)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: AppSpacing.xl,
+                            ),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else if (shown.isEmpty)
+                          DirectoryMessage(
+                            key: const ValueKey('no-providers'),
+                            title: l10n.emptyProvidersTitle,
+                            icon: Icons.search_off_rounded,
+                            text: all.isEmpty
+                                ? l10n.noVerifiedProviders
+                                : _query.trim().isNotEmpty
+                                ? l10n.noProvidersMatch(_query.trim())
+                                : l10n.noProvidersInCategory,
+                          )
+                        else
+                          for (var i = 0; i < shown.length; i++)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.sm,
+                              ),
+                              child: DirectoryProviderCard(
+                                provider: shown[i],
+                                index: i,
+                              ),
+                            ),
+                      ],
+                    );
+                  },
+                ),
+              ]),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
+}
+
+/// Welcome card: a photo of a provider at work under a deep blue fade, so
+/// the white text keeps its contrast however the photo is cropped.
+class _HomeBanner extends StatelessWidget {
+  const _HomeBanner({required this.title, required this.subtitle});
+
+  static const photo = 'assets/images/onboarding_home.jpg';
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final styles = context.textStyles;
+    return ClipRRect(
+      borderRadius: AppRadius.card,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ExcludeSemantics(
+              child: Image.asset(
+                photo,
+                fit: BoxFit.cover,
+                alignment: const Alignment(0.6, -0.4),
+              ),
+            ),
+          ),
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xF20B2A5B), // brand 900 at 95%
+                    Color(0xD90B2A5B), // brand 900 at 85%
+                    Color(0x400B2A5B), // brand 900 at 25%
+                  ],
+                  stops: [0, 0.55, 1],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.space6,
+              AppSpacing.space6,
+              AppSpacing.space12,
+              AppSpacing.space6,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: styles.h1.copyWith(color: AppColors.surface),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  subtitle,
+                  style: styles.bodySmall.copyWith(color: AppColors.surface),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SectionHeading extends StatelessWidget {
@@ -352,12 +430,6 @@ class _SectionHeading extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) => Text(
-    title,
-    style: const TextStyle(
-      color: CustomerHomeTheme.text,
-      fontSize: 21,
-      fontWeight: FontWeight.w800,
-    ),
-  );
+  Widget build(BuildContext context) =>
+      Text(title, style: context.textStyles.h2);
 }

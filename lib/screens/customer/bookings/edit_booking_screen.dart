@@ -380,7 +380,7 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.caption.copyWith(
                                 color: AppColors.primary,
-                                fontSize: 11.5,
+                                fontSize: 14,
                               ),
                             ),
                           ),
@@ -628,7 +628,7 @@ class _BoxedTextAreaState extends State<_BoxedTextArea> {
             ),
             Text(
               '${widget.controller.text.length}/${widget.maxLength}',
-              style: AppTypography.caption.copyWith(fontSize: 11.5),
+              style: AppTypography.caption.copyWith(fontSize: 14),
             ),
           ],
         ),
@@ -683,7 +683,7 @@ class _PhotoGrid extends StatelessWidget {
                         width: 26,
                         height: 26,
                         decoration: const BoxDecoration(
-                          color: Color(0xCC334155),
+                          color: Color(0xCC344255), // ink 2 at 80%
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -723,9 +723,13 @@ class _PhotoGrid extends StatelessWidget {
               'new photo ${i + 1}',
             ),
           if (canAdd)
-            SizedBox(
-              width: size,
-              height: size,
+            // At least as tall as a photo, but it grows with large text.
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: size,
+                maxWidth: size,
+                minHeight: size,
+              ),
               child: Material(
                 color: AppColors.surfaceSage,
                 borderRadius: BorderRadius.circular(AppRadius.md),
@@ -734,6 +738,7 @@ class _PhotoGrid extends StatelessWidget {
                   onTap: onAdd,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const IconTile(
                         icon: LucideIcons.imagePlus,

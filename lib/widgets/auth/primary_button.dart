@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
-/// Full-width 52px teal button. While [loading] it shows a spinner and
+/// Full-width 56px blue button. While [loading] it shows a spinner and
 /// [loadingLabel] and ignores taps, so a request cannot be sent twice.
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
@@ -21,12 +21,12 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(Size.fromHeight(52)),
+      minimumSize: const WidgetStatePropertyAll(Size.fromHeight(AppSizes.buttonHeight)),
       elevation: const WidgetStatePropertyAll(0),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.controlRadius)),
       ),
-      // Loading keeps the full teal; only a truly disabled button fades.
+      // Loading keeps the full blue; only a truly disabled button fades.
       backgroundColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.pressed)
             ? AuthColors.primaryPressed
@@ -37,12 +37,12 @@ class PrimaryButton extends StatelessWidget {
       foregroundColor: const WidgetStatePropertyAll(AuthColors.onPrimary),
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       textStyle: const WidgetStatePropertyAll(
-        TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
       ),
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.controlRadius),
         boxShadow: const [
           BoxShadow(
             color: AuthColors.buttonShadow,

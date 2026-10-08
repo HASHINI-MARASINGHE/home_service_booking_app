@@ -538,7 +538,8 @@ const dispute = (id, who, extra = {}) =>
   set(`disputes/${id}`, {bookingId: id, customerId: who, providerId: P,
     reason: 'Poor work quality', tag: 'Defective repair', description: 'Breaker keeps tripping after the repair.',
     status: 'pending', photoCount: 2, respondDeadline: new Date(Date.now() + 24 * 3600000),
-    adminNote: null, decision: null, refundAmount: null, providerResponse: null, ...extra}, ['createdAt']);
+    serviceName: 'AC Deep Clean', customerName: who === A ? 'A' : 'B', providerName: '', bookingRef: 'BK-' + id.toUpperCase(),
+    amount: 5500, adminNote: null, decision: null, refundAmount: null, providerResponse: null, ...extra}, ['createdAt']);
 const disputePhoto = (id, slot, extra = {}) =>
   set(`disputes/${id}/photos/${slot}`, {base64: 'aGVsbG8=', mimeType: 'image/jpeg', sizeBytes: 5, ...extra}, ['createdAt']);
 const disputeNote = (id, extra = {}) =>
@@ -557,6 +558,8 @@ await expectDenied(commit(B, [dispute('fresh2', B, {reason: 'Because I said so'}
 await expectDenied(commit(B, [dispute('fresh2', B, {description: 'short'})]), 'dispute with a too-short description');
 await expectDenied(commit(B, [dispute('fresh2', B, {status: 'resolved'})]), 'dispute created already resolved');
 await expectDenied(commit(B, [dispute('fresh2', B, {decision: 'refund', refundAmount: 5000})]), 'dispute created with its own refund decision');
+await expectDenied(commit(B, [dispute('fresh2', B, {amount: 99999})]), 'dispute with a forged job amount');
+await expectDenied(commit(B, [dispute('fresh2', B, {serviceName: 'Roof repair'})]), 'dispute with a forged service name');
 await expectDenied(commit(B, [dispute('fresh2', B, {respondDeadline: new Date(Date.now() + 10 * DAY)})]), 'dispute with a far-off respond deadline');
 await expectDenied(commit(B, [dispute('fresh2', B, {photoCount: 6})]), 'dispute claiming six photos');
 await expectDenied(commit(B, [dispute('fresh2', B), disputePhoto('fresh2', 'p5')]), 'sixth photo slot');
@@ -564,6 +567,10 @@ await expectDenied(commit(B, [dispute('fresh2', B), disputePhoto('fresh2', 'p0',
 await expectDenied(commit(B, [dispute('fresh2', B), disputePhoto('fresh2', 'p0', {mimeType: 'application/pdf'})]), 'photo that is not an image');
 await expectDenied(commit(B, [dispute('fresh2', B), disputeNote('fresh2', {senderId: B, recipientId: B})]), 'dispute notice sent to the wrong person');
 await expectDenied(commit(B, [disputeNote('fresh2', {senderId: B})]), 'dispute notice without a dispute');
+// The screen reads the dispute (and its photos) before one exists.
+await expectReadableMissing(get(A, 'disputes/stale'), 'customer opens the dispute screen before any dispute exists');
+await expectAllowed(get(A, 'disputes/stale/photos'), 'customer lists the photos of a dispute that does not exist yet');
+await expectReadableMissing(get(P, 'disputes/stale'), 'provider looks up a dispute that does not exist');
 await expectAllowed(get(A, 'disputes/fresh'), 'customer reads own dispute');
 await expectDenied(get(B, 'disputes/fresh'), "customer reads another's dispute");
 await expectDenied(get(A, 'disputes'), 'customer lists all disputes');
@@ -576,9 +583,48 @@ await expectAllowed(
 await expectDenied(commit(A, [patch('disputes/fresh', {status: 'resolved'}, ['updatedAt'])]), 'customer resolves own dispute');
 await expectDenied(commit(A, [patch('disputes/fresh', {refundAmount: 5500}, ['updatedAt'])]), 'customer sets own refund amount');
 await expectDenied(commit(B, [patch('disputes/fresh', {description: 'Not my dispute but editing it.'}, ['updatedAt'])]), "customer edits another's dispute");
+// The provider can see the dispute and its photos, but not list all disputes.
+await expectAllowed(get(P, 'disputes/fresh'), 'provider reads the dispute about their job');
+await expectAllowed(get(P, 'disputes/fresh/photos/p0'), 'provider reads the dispute photos');
+await expectDenied(get(P, 'disputes'), 'provider lists all disputes');
+// Answering: before the deadline, only the response fields.
+const respond = (id, text, extra = {}) =>
+  patch(`disputes/${id}`, {providerResponse: text, ...extra}, ['providerRespondedAt', 'updatedAt']);
+await expectDenied(commit(P, [respond('fresh', 'short')]), 'provider response that is too short');
+await expectDenied(commit(P, [patch('disputes/fresh', {providerResponse: 'I did the job properly.', status: 'resolved'}, ['providerRespondedAt', 'updatedAt'])]), 'provider resolves the dispute while answering');
+await expectDenied(commit(A, [respond('fresh', 'The customer answering as the provider.')]), 'customer writes the provider response');
 await expectAllowed(
-  commit(ADM, [patch('disputes/fresh', {status: 'under_review'}, ['updatedAt'])]),
-  'safety desk moves the dispute to under review',
+  commit(P, [respond('fresh', 'The breaker was already faulty before our visit.')]),
+  'provider answers the dispute before the deadline',
+);
+await seed('disputes/late', {bookingId: 'late', customerId: A, providerId: P, reason: 'Other',
+  description: 'Deadline already passed here.', status: 'pending', photoCount: 0,
+  respondDeadline: new Date(Date.now() - 3600000)});
+await expectDenied(commit(P, [respond('late', 'Answering after the deadline passed.')]), 'provider answers after the 24-hour deadline');
+// The safety desk: Pending -> Under Review -> Resolved, telling the provider each time.
+const adminNote = (id, kind, extra = {}) =>
+  set(`notifications/dispute_${id}_${kind}`, {recipientId: P, senderId: ADM, type: 'dispute', bookingId: id,
+    title: kind === 'review' ? 'Dispute under review' : 'Dispute resolved: Partial refund approved',
+    body: 'The safety desk looked at the problem reported on AC Deep Clean.', read: false, ...extra}, ['createdAt']);
+await expectAllowed(get(ADM, 'disputes'), 'admin lists disputes');
+await expectDenied(commit(A, [patch('disputes/fresh', {status: 'under_review'}, ['updatedAt'])]), 'customer starts the review of own dispute');
+await expectDenied(commit(P, [patch('disputes/fresh', {status: 'under_review'}, ['updatedAt'])]), 'provider starts the review');
+await expectDenied(
+  commit(ADM, [patch('disputes/fresh', {status: 'resolved', decision: 'Claim rejected', adminNote: 'Not covered.'}, ['updatedAt'])]),
+  'admin resolves a dispute without starting the review',
+);
+await expectDenied(
+  commit(ADM, [patch('disputes/fresh', {status: 'under_review'}, ['updatedAt']), adminNote('fresh', 'review', {recipientId: B})]),
+  'review notice sent to someone other than the provider',
+);
+await expectAllowed(
+  commit(ADM, [patch('disputes/fresh', {status: 'under_review'}, ['updatedAt']), adminNote('fresh', 'review')]),
+  'safety desk moves the dispute to under review and notifies the provider',
+);
+await expectDenied(commit(ADM, [patch('disputes/fresh', {status: 'under_review'}, ['updatedAt'])]), 'starting the review twice');
+await expectAllowed(
+  commit(P, [respond('fresh', 'Updated: we also tested the breaker on site.')]),
+  'provider can still update the answer while under review',
 );
 await expectDenied(
   commit(A, [patch('disputes/fresh', {description: 'Changing it after review began.'}, ['updatedAt'])]),
@@ -589,9 +635,44 @@ await expectDenied(
   commit(A, [del('disputes/fresh/photos/p0'), del('notifications/dispute_fresh'), del('disputes/fresh')]),
   'customer withdraws a dispute that is under review',
 );
+const resolve = (data) => patch('disputes/fresh', {status: 'resolved', ...data}, ['updatedAt']);
+await expectDenied(commit(ADM, [resolve({decision: 'Partial refund approved', refundAmount: 2500, adminNote: 'ok'})]), 'resolve with a one-word note');
+await expectDenied(commit(ADM, [resolve({decision: 'Because I said so', refundAmount: 2500, adminNote: 'Part refund.'})]), 'resolve with a made-up decision');
+await expectDenied(commit(ADM, [resolve({decision: 'Partial refund approved', refundAmount: 9000, adminNote: 'Part refund.'})]), 'refund bigger than the job total');
+await expectDenied(commit(ADM, [resolve({decision: 'Partial refund approved', adminNote: 'Part refund.'})]), 'refund decision without an amount');
+await expectDenied(commit(ADM, [resolve({decision: 'Full refund approved', refundAmount: 2500, adminNote: 'Full refund.'})]), 'full refund that is not the whole total');
+await expectDenied(commit(ADM, [resolve({decision: 'Claim rejected', refundAmount: 2500, adminNote: 'Not covered.'})]), 'rejection that still pays a refund');
+await expectDenied(commit(A, [resolve({decision: 'Full refund approved', refundAmount: 5500, adminNote: 'Self approved.'})]), 'customer approves own refund');
+await expectDenied(commit(P, [resolve({decision: 'Claim rejected', adminNote: 'Provider closing it.'})]), 'provider closes the dispute');
 await expectAllowed(
-  commit(ADM, [patch('disputes/fresh', {status: 'resolved', decision: 'Refund approved', refundAmount: 2500, adminNote: 'Part refund.'}, ['updatedAt'])]),
-  'safety desk resolves the dispute with a refund decision',
+  commit(ADM, [resolve({decision: 'Partial refund approved', refundAmount: 2500, adminNote: 'Part refund for the repeat visit.'}), adminNote('fresh', 'resolved')]),
+  'safety desk resolves the dispute with a partial refund and notifies the provider',
+);
+await expectDenied(commit(ADM, [resolve({decision: 'Claim rejected', adminNote: 'Changing my mind later.'})]), 'resolving a dispute twice');
+await expectDenied(commit(P, [respond('fresh', 'Answering after it was decided.')]), 'provider answers a resolved dispute');
+await expectDenied(commit(A, [del('disputes/fresh')]), 'customer withdraws a resolved dispute');
+await expectAllowed(get(A, 'disputes/fresh'), 'customer reads the decision');
+// A booking made with Book Now for a provider who prices on site has null
+// prices (key present, value null); a dispute on it must still be possible.
+await seed('bookings/fresh4', {...base, providerName: 'yash', status: 'completed', paymentStatus: 'unpaid', totalAmount: null,
+  estimatedPrice: null, laborCharge: null, serviceFee: 0, completedAt: new Date(Date.now() - DAY)});
+await expectAllowed(
+  commit(A, [dispute('fresh4', A, {amount: 0, providerName: 'yash', photoCount: 0}), disputeNote('fresh4')]),
+  'dispute on a booking whose price is null (priced on site)',
+);
+// The app writes money as doubles (5500.0); the rules must accept those too.
+await seed('bookings/fresh3', {...base, status: 'completed', paymentStatus: 'paid', totalAmount: dbl(5500), completedAt: new Date(Date.now() - DAY)});
+await expectAllowed(
+  commit(A, [dispute('fresh3', A, {amount: dbl(5500), photoCount: 0}), disputeNote('fresh3')]),
+  'dispute with a double amount on a double-priced booking',
+);
+await expectAllowed(
+  commit(ADM, [patch('disputes/fresh3', {status: 'under_review'}, ['updatedAt']), adminNote('fresh3', 'review')]),
+  'admin starts the review of the double-amount dispute',
+);
+await expectAllowed(
+  commit(ADM, [patch('disputes/fresh3', {status: 'resolved', decision: 'Full refund approved', refundAmount: dbl(5500), adminNote: 'Full refund.'}, ['updatedAt']), adminNote('fresh3', 'resolved')]),
+  'full refund of 5500.0 equals the booking total of 5500.0',
 );
 // Withdrawing: B files, then withdraws while it is still pending.
 await expectAllowed(
@@ -599,6 +680,10 @@ await expectAllowed(
   'second customer files a dispute',
 );
 await expectDenied(commit(A, [del('disputes/fresh2')]), "customer withdraws another's dispute");
+await expectDenied(
+  commit(ADM, [patch('disputes/fresh2', {status: 'resolved', decision: 'Claim rejected', adminNote: 'Skipping the review.'}, ['updatedAt'])]),
+  'admin resolves a pending dispute without reviewing it',
+);
 await expectAllowed(
   commit(B, [del('disputes/fresh2/photos/p0'), del('notifications/dispute_fresh2'), del('disputes/fresh2')]),
   'customer withdraws a pending dispute (photos and provider notice removed)',
@@ -703,57 +788,76 @@ await expectAllowed(
   'the same provider accepts the job once verified',
 );
 
-// ------------------------------------------------------ new booking (create)
-// Replays CustomerBookingService.createBooking: booking set + slot lock set
-// with an "absent" precondition, committed in one transaction.
-const PP = 'provider-priced';
-const PI = 'provider-inspection';
-await seed(`users/${PP}`, {uid: PP, name: 'Priced Pro', email: 'pp@x.test', role: 'provider'});
-await seed(`users/${PI}`, {uid: PI, name: 'Amal Perera', email: 'pi@x.test', role: 'provider'});
-await seed(`professionals/${PP}`, {name: 'Priced Pro', specialty: 'Plumber', pricing: 2500});
-await seed(`professionals/${PI}`, {name: 'Amal Perera', specialty: 'AC technician', pricing: null});
 
-const ND = colomboDate(5);
-const newBooking = (id, {uid = A, pro = PP, price = dbl(2500), start = '10:30', end = '12:00',
-  booking = {}, lockData = {}, absent = true} = {}) => {
-  const lockId = lock(pro, ND, start);
-  return commit(uid, [
-    set(`bookings/${id}`, {
-      reference: 'BK-51693', customerId: uid, customerName: 'A', providerId: pro,
-      providerName: 'Pro', serviceName: 'AC technician', status: 'pending',
-      slotDate: ND, startTime: start, endTime: end,
-      scheduledAt: instant(ND, start), endAt: instant(ND, end), slotLockId: lockId,
-      addressId: 'home', address: 'No. 42 Galle Road, Colombo 03', addressLabel: 'Home',
-      addressArea: '', accessNotes: '', contactPhone: '', jobNotes: '', photoUrls: [],
-      estimatedPrice: price, totalAmount: price, laborCharge: price, serviceFee: 0,
-      paymentStatus: 'unpaid', ...booking,
-    }, ['createdAt', 'updatedAt']),
-    {
-      ...set(`slotLocks/${lockId}`, {providerId: pro, date: ND, startTime: start, endTime: end,
-        bookingId: id, ...lockData}),
-      ...(absent && {currentDocument: {exists: false}}),
-    },
-  ]);
-};
-
-await expectAllowed(newBooking('nb1'), 'customer books a priced provider (booking + slot lock)');
-await expectAllowed(newBooking('nb2', {pro: PI, price: null}), 'customer books an on-inspection provider with no price');
-await expectDenied(newBooking('nb3', {absent: false}), 'second customer double-books the same slot');
-await expectDenied(newBooking('nb3', {uid: B, absent: false}), 'another customer double-books the same slot');
-await expectDenied(newBooking('nb4', {start: '13:30', end: '15:00', booking: {customerId: B}}), 'customer creates a booking for another customer');
-await expectDenied(newBooking('nb5', {start: '13:30', end: '15:00', booking: {paymentStatus: 'paid'}}), 'new booking marked as paid');
-await expectDenied(newBooking('nb6', {start: '13:30', end: '15:00', price: dbl(100)}), 'new booking with a fake lower price');
-await expectDenied(newBooking('nb7', {pro: PI, start: '13:30', end: '15:00', price: dbl(1)}), 'on-inspection booking with an invented price');
-await expectDenied(newBooking('nb8', {start: '13:30', end: '15:00', booking: {status: 'confirmed'}}), 'new booking skips straight to confirmed');
-await expectDenied(newBooking('nb9', {start: '13:30', end: '15:00', booking: {serviceFee: 500}}), 'new booking sets a service fee');
-await expectDenied(newBooking('nb10', {start: '13:30', end: '15:00', lockData: {bookingId: 'b1'}}), 'slot lock points at a different booking');
-await expectDenied(newBooking('nb11', {pro: 'no-such-provider', start: '13:30', end: '15:00', price: null}), 'booking a provider that does not exist');
-await expectDenied(newBooking('nb12', {uid: P, start: '13:30', end: '15:00'}), 'a provider account books a job');
-await expectDenied(newBooking('nb13', {start: '13:30', end: '15:00', booking: {isAdmin: true}}), 'new booking with an extra field');
-await expectDenied(
-  commit(A, [set('bookings/nb14', {customerId: A, providerId: PP, status: 'pending'}, ['createdAt', 'updatedAt'])]),
-  'booking without its slot lock',
+// ------------------------------------------- booking creation (Book Now)
+// The exact writes CustomerBookingService.createBooking makes: the booking
+// and its slot lock together.
+await seed(`professionals/${P}`, {name: 'Nuwan', specialty: 'AC', verified: true, pricing: 4500});
+await seed('professionals/unverified-pro', {name: 'New', specialty: 'AC', verified: false, pricing: 1000});
+const BD = colomboDate(5);
+const bookingData = (extra = {}) => ({
+  reference: 'BK-12345', customerId: A, customerName: 'A', providerId: P, providerName: 'Nuwan',
+  serviceName: 'AC Deep Clean', status: 'pending', slotDate: BD, startTime: '09:00', endTime: '10:30',
+  scheduledAt: instant(BD, '09:00'), endAt: instant(BD, '10:30'), slotLockId: lock(P, BD, '09:00'),
+  addressId: 'home', address: 'No. 42 Galle Road, Colombo 03', addressLabel: 'Home',
+  addressArea: 'Western Province', accessNotes: '', contactPhone: '', jobNotes: '', photoUrls: [],
+  estimatedPrice: dbl(4500), totalAmount: dbl(4500), laborCharge: dbl(4500), serviceFee: 0,
+  paymentStatus: 'unpaid', ...extra,
+});
+const newBooking = (id, extra = {}, stamps = ['createdAt', 'updatedAt']) =>
+  set(`bookings/${id}`, bookingData(extra), stamps);
+const newLock = (id, extra = {}) =>
+  set(`slotLocks/${extra.lockId ?? lock(P, BD, '09:00')}`, {providerId: P, date: BD, startTime: '09:00',
+    endTime: '10:30', bookingId: id, ...extra.data});
+await expectAllowed(
+  commit(A, [newBooking('nb1'), newLock('nb1')]),
+  'customer books a verified provider (booking and slot lock together)',
 );
-await expectAllowed(get(A, 'bookings/nb1'), 'customer reads the booking they just created');
+await expectDenied(
+  commit(B, [newBooking('nb2', {customerId: B, customerName: 'B'}), newLock('nb2')]),
+  'a second customer takes the same slot (double booking)',
+);
+await expectDenied(commit(A, [newBooking('nb3')]), 'booking without its slot lock');
+await expectDenied(
+  commit(B, [newBooking('nb4', {customerId: A}), newLock('nb4')]),
+  'booking made in another customer\'s name',
+);
+await expectDenied(
+  commit(A, [newBooking('nb5', {estimatedPrice: dbl(1), totalAmount: dbl(1), laborCharge: dbl(1)}), newLock('nb5')]),
+  'booking with a price lower than the provider\'s published price',
+);
+await expectDenied(
+  commit(A, [newBooking('nb6', {providerId: 'unverified-pro', slotLockId: lock('unverified-pro', BD, '09:00'), estimatedPrice: dbl(1000), totalAmount: dbl(1000), laborCharge: dbl(1000)}),
+    set(`slotLocks/${lock('unverified-pro', BD, '09:00')}`, {providerId: 'unverified-pro', date: BD, startTime: '09:00', endTime: '10:30', bookingId: 'nb6'})]),
+  'booking an unverified provider',
+);
+const BD2 = colomboDate(6);
+await expectDenied(
+  commit(A, [newBooking('nb7', {status: 'confirmed', slotDate: BD2, scheduledAt: instant(BD2, '09:00'), endAt: instant(BD2, '10:30'), slotLockId: lock(P, BD2, '09:00')}),
+    set(`slotLocks/${lock(P, BD2, '09:00')}`, {providerId: P, date: BD2, startTime: '09:00', endTime: '10:30', bookingId: 'nb7'})]),
+  'booking created already confirmed',
+);
+await expectDenied(
+  commit(A, [newBooking('nb8', {paymentStatus: 'paid', slotDate: BD2, scheduledAt: instant(BD2, '09:00'), endAt: instant(BD2, '10:30'), slotLockId: lock(P, BD2, '09:00')}),
+    set(`slotLocks/${lock(P, BD2, '09:00')}`, {providerId: P, date: BD2, startTime: '09:00', endTime: '10:30', bookingId: 'nb8'})]),
+  'booking created already paid',
+);
+await expectDenied(
+  commit(A, [newBooking('nb9', {refundAmount: 5000, slotDate: BD2, scheduledAt: instant(BD2, '09:00'), endAt: instant(BD2, '10:30'), slotLockId: lock(P, BD2, '09:00')}),
+    set(`slotLocks/${lock(P, BD2, '09:00')}`, {providerId: P, date: BD2, startTime: '09:00', endTime: '10:30', bookingId: 'nb9'})]),
+  'booking with a field the app never sends',
+);
+const tooSoon = new Date(Date.now() + 3600000);
+const SD = colomboDate(0);
+await expectDenied(
+  commit(A, [newBooking('nb10', {slotDate: SD, startTime: '00:10', endTime: '00:40', scheduledAt: tooSoon, endAt: tooSoon, slotLockId: lock(P, SD, '00:10')}),
+    set(`slotLocks/${lock(P, SD, '00:10')}`, {providerId: P, date: SD, startTime: '00:10', endTime: '00:40', bookingId: 'nb10'})]),
+  'booking a slot less than 2 hours away',
+);
+await expectDenied(
+  commit(A, [newBooking('nb11', {providerId: A, slotLockId: lock(A, BD2, '09:00'), slotDate: BD2, scheduledAt: instant(BD2, '09:00'), endAt: instant(BD2, '10:30')})]),
+  'a customer books themselves',
+);
+await expectDenied(commit(A, [del('bookings/nb1')]), 'deleting a booking');
 
 console.log(`\nAll ${checks} security-rule checks passed.`);

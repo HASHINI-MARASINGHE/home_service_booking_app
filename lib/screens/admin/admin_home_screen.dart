@@ -11,6 +11,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../auth/logout_button.dart';
+import 'admin_disputes_screen.dart';
 import 'admin_ratings_screen.dart';
 import 'admin_verification_screen.dart';
 
@@ -34,50 +35,64 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   late final AdminService _service = widget.service ?? AdminService();
   late final Stream<int> _pending = _service.watchPendingCount();
+  late final Stream<int> _disputes = _service.watchPendingDisputeCount();
   int _tab = 0;
 
   @override
   Widget build(BuildContext context) => StreamBuilder<int>(
     stream: _pending,
-    builder: (context, snapshot) {
-      final pending = snapshot.data ?? 0;
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _tab == 0
-                ? 'Providers'
-                : _tab == 1
-                ? 'Ratings'
-                : 'Profile',
-          ),
-        ),
-        body: SafeArea(
-          child: _tab == 0
-              ? AdminProvidersScreen(service: _service)
-              : _tab == 1
-              ? AdminRatingsScreen(service: _service)
-              : AdminProfileScreen(
-                  user: widget.user,
-                  authService: widget.authService,
-                  service: _service,
-                  onNavigateToRatings: () => setState(() => _tab = 1),
-                ),
-        ),
-        bottomNavigationBar: AppBottomNav(
-          items: [
-            AppNavItem(
-              icon: LucideIcons.shieldCheck,
-              label: 'Providers',
-              badge: pending,
+    builder: (context, snapshot) => StreamBuilder<int>(
+      stream: _disputes,
+      builder: (context, disputeSnapshot) {
+        final pending = snapshot.data ?? 0;
+        final disputes = disputeSnapshot.data ?? 0;
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              _tab == 0
+                  ? 'Providers'
+                  : _tab == 1
+                  ? 'Ratings'
+                  : _tab == 2
+                  ? 'Disputes'
+                  : 'Profile',
             ),
-            const AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
-            const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
-          ],
-          selectedIndex: _tab,
-          onSelected: (index) => setState(() => _tab = index),
-        ),
-      );
-    },
+          ),
+          body: SafeArea(
+            child: _tab == 0
+                ? AdminProvidersScreen(service: _service)
+                : _tab == 1
+                ? AdminRatingsScreen(service: _service)
+                : _tab == 2
+                ? AdminDisputesScreen(service: _service)
+                : AdminProfileScreen(
+                    user: widget.user,
+                    authService: widget.authService,
+                    service: _service,
+                    onNavigateToRatings: () => setState(() => _tab = 1),
+                  ),
+          ),
+          bottomNavigationBar: AppBottomNav(
+            items: [
+              AppNavItem(
+                icon: LucideIcons.shieldCheck,
+                label: 'Providers',
+                badge: pending,
+              ),
+              const AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
+              AppNavItem(
+                icon: LucideIcons.triangleAlert,
+                label: 'Disputes',
+                badge: disputes,
+              ),
+              const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
+            ],
+            selectedIndex: _tab,
+            onSelected: (index) => setState(() => _tab = index),
+          ),
+        );
+      },
+    ),
   );
 }
 
@@ -460,7 +475,7 @@ class _Metric extends StatelessWidget {
         value,
         style: AppTypography.title.copyWith(color: color, fontSize: 15),
       ),
-      Text(label, style: AppTypography.caption.copyWith(fontSize: 11)),
+      Text(label, style: AppTypography.caption.copyWith(fontSize: 14)),
     ],
   );
 }

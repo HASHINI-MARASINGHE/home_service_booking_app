@@ -1,8 +1,15 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+import '../../l10n/app_localizations_en.dart';
+import '../../l10n/l10n_context.dart';
 import '../../models/booking.dart';
 import '../../screens/provider/provider_theme.dart';
+import '../../theme/app_theme.dart';
+import '../common/app_buttons.dart';
+import '../common/empty_state.dart';
+import '../common/status_chip.dart';
 
 String money(double? value) {
   if (value == null) return 'Not provided';
@@ -17,25 +24,26 @@ String money(double? value) {
 }
 
 String dateLabel(BuildContext context, DateTime? date) {
-  if (date == null) return 'Not scheduled';
+  if (date == null) return context.l10n.notScheduled;
   final local = date.toLocal();
   final locale = MaterialLocalizations.of(context);
   return '${locale.formatMediumDate(local)}, ${locale.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
 }
 
-String providerError(Object? error) {
+/// A calm message for [error]. Pass [l10n] to show it in the app language;
+/// without it the message is English.
+String providerError(Object? error, {AppLocalizations? l10n}) {
+  final t = l10n ?? AppLocalizationsEn();
   if (error is StateError) return error.message;
   if (error is FirebaseException) {
     return switch (error.code) {
-      'permission-denied' => 'Access was denied. Please contact support.',
-      'unavailable' || 'network-request-failed' =>
-        'Unable to connect. Check your connection and retry.',
-      'failed-precondition' =>
-        'This data is not available yet. Please contact support.',
-      _ => 'Unable to save or load your data. Please try again.',
+      'permission-denied' => t.errorAccessDenied,
+      'unavailable' || 'network-request-failed' => t.errorUnableToConnect,
+      'failed-precondition' => t.errorNotAvailableYet,
+      _ => t.errorUnableToSave,
     };
   }
-  return 'Unable to load your data. Please try again.';
+  return t.errorUnableToLoad;
 }
 
 class ProviderCard extends StatelessWidget {
@@ -50,19 +58,16 @@ class ProviderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 14),
-    padding: const EdgeInsets.all(16),
+    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+    padding: const EdgeInsets.all(AppSpacing.md),
     decoration: BoxDecoration(
       color: color,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: ProviderTheme.border),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x060F172A),
-          blurRadius: 12,
-          offset: Offset(0, 4),
-        ),
-      ],
+      borderRadius: AppRadius.card,
+      border: Border.all(
+        color: ProviderTheme.border,
+        width: AppSizes.borderControl,
+      ),
+      boxShadow: AppShadows.soft,
     ),
     child: child,
   );
@@ -79,24 +84,9 @@ class ProviderEmpty extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => ProviderCard(
-    child: Column(
-      children: [
-        Icon(icon, size: 36, color: ProviderTheme.teal),
-        const SizedBox(height: 12),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: ProviderTheme.muted),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+    child: EmptyState(title: title, message: message, icon: icon),
   );
 }
 
@@ -122,43 +112,40 @@ class ProviderFailure extends StatelessWidget {
             color: ProviderTheme.muted,
           ),
           const SizedBox(height: 12),
-          Text(providerError(error), textAlign: TextAlign.center),
+          Text(
+            providerError(error, l10n: context.l10n),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+          AppPrimaryButton(
+            label: context.l10n.retry,
+            onPressed: onRetry,
+            expand: false,
+          ),
         ],
       ),
     ),
   );
 }
 
+/// A booking status as a [StatusChip]: icon shape, word and color together.
 class BookingBadge extends StatelessWidget {
   const BookingBadge({super.key, required this.status});
   final BookingStatus status;
 
   @override
-  Widget build(BuildContext context) {
-    final color = switch (status) {
-      BookingStatus.pending => ProviderTheme.teal,
-      BookingStatus.confirmed || BookingStatus.completed => ProviderTheme.green,
-      BookingStatus.declined => ProviderTheme.red,
-      _ => ProviderTheme.grey,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Text(
-        status.label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => StatusChip(
+    type: switch (status) {
+      BookingStatus.pending => StatusType.warning,
+      BookingStatus.confirmed ||
+      BookingStatus.onTheWay ||
+      BookingStatus.inProgress => StatusType.info,
+      BookingStatus.completed => StatusType.success,
+      BookingStatus.declined => StatusType.error,
+      BookingStatus.cancelled || BookingStatus.unknown => StatusType.neutral,
+    },
+    label: status.localizedLabel(context.l10n),
+  );
 }
 
 class DetailRow extends StatelessWidget {
@@ -234,7 +221,9 @@ class BookingTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            BookingBadge(status: booking.status),
+            // Flexible so a long label wraps instead of overflowing at large
+            // text sizes.
+            Flexible(child: BookingBadge(status: booking.status)),
           ],
         ),
         const SizedBox(height: 10),
@@ -256,7 +245,10 @@ class BookingTile extends StatelessWidget {
           spacing: 16,
           children: [
             Text(
-              money(booking.totalAmount ?? booking.estimatedPrice),
+              switch (booking.totalAmount ?? booking.estimatedPrice) {
+                final amount? => money(amount),
+                null => context.l10n.notProvided,
+              },
               style: const TextStyle(
                 color: ProviderTheme.teal,
                 fontWeight: FontWeight.w700,
@@ -266,8 +258,8 @@ class BookingTile extends StatelessWidget {
               onPressed: onTap,
               child: Text(
                 booking.status == BookingStatus.pending
-                    ? 'View request'
-                    : 'View details',
+                    ? context.l10n.viewRequest
+                    : context.l10n.viewDetails,
               ),
             ),
           ],
