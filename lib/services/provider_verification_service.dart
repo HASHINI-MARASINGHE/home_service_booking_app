@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/provider_verification.dart';
@@ -28,6 +28,8 @@ class ProviderVerificationService {
   }
 
   /// The provider's submission (null until they submit one).
+  // Real-time stream of the current provider's verification doc.
+  // Drives UI states: unsubmitted -> pending -> verified / rejected.
   Stream<ProviderVerification?> watch() {
     final uid = _uid;
     return _db
@@ -44,6 +46,8 @@ class ProviderVerificationService {
   /// Uploads every document, saves the provider profile and finally writes the
   /// submission as `pending`. Used with the new account's uid while
   /// registering, so nothing is half saved when it fails.
+  // Submission pipeline - validates all required documents and enforces
+  // a 3-minute global timeout to prevent silent hangs on poor network connections.
   Future<void> submitFor(String uid, VerificationDraft draft) async {
     final problem = draft.firstProblem;
     if (problem != null) throw ArgumentError(problem);
@@ -57,6 +61,8 @@ class ProviderVerificationService {
   static const _stuckMessage =
       'Uploading is taking too long. Check your connection and try again.';
 
+  // Document upload & submission - uploads verification files (ID cards, selfie, CV, certificates)
+  // to Firebase Storage/Cloudinary, saves draft profile, and writes 'pending' verification record.
   Future<void> _submit(String uid, VerificationDraft draft) async {
     final years = int.tryParse(draft.experienceYears.trim()) ?? 0;
     final profession = draft.profession.trim().isEmpty
@@ -110,6 +116,7 @@ class ProviderVerificationService {
 
   /// Creates the provider profile (or refreshes its basic details when one
   /// exists) from what was entered for verification.
+  // Syncs basic provider details to 'providerProfiles' collection so info is ready once approved.
   Future<void> _saveProfile(
     String uid,
     VerificationDraft draft,

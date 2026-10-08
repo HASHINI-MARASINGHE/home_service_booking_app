@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/dispute.dart';
@@ -28,6 +28,7 @@ class AdminService {
   }
 
   /// Submissions with [status], newest first.
+  // Real-time stream of provider submissions filtered by verification status (pending, verified, rejected).
   Stream<List<ProviderVerification>> watchByStatus(VerificationStatus status) =>
       _db
           .collection('providerVerifications')
@@ -52,6 +53,11 @@ class AdminService {
   /// Verifies a provider: generates their Provider ID, publishes the public
   /// profile customers see and notifies them, all in one transaction.
   /// Returns the new Provider ID.
+  // Atomic Firestore Transaction - guarantees all 4 steps succeed or fail together:
+  // 1. Validates status is still 'pending' (avoids double review)
+  // 2. Increments atomic counter to assign sequential ID (e.g. HCP-1001)
+  // 3. Publishes provider to public 'professionals' collection
+  // 4. Sends in-app push notification to the provider
   Future<String> verify(ProviderVerification submission) async {
     final adminId = _uid;
     final verificationRef = _db
@@ -109,6 +115,8 @@ class AdminService {
   }
 
   /// Sends the submission back with a reason; the provider can fix and resubmit.
+  // Admin rejection flow - validates reason length, marks status as 'rejected',
+  // saves the feedback message, and notifies the provider so they can re-upload corrections.
   Future<void> reject(ProviderVerification submission, String reason) async {
     final adminId = _uid;
     final text = reason.trim();
@@ -246,6 +254,8 @@ class AdminService {
       );
 
   /// Pending -> Under Review, and tells the provider.
+  // Dispute state transition - changes status from 'pending' to 'underReview'.
+  // Notifies the provider that safety desk has initiated an official investigation.
   Future<void> startDisputeReview(Dispute dispute) async {
     final adminId = _uid;
     final ref = _db.collection('disputes').doc(dispute.id);
@@ -279,6 +289,8 @@ class AdminService {
   /// Under Review -> Resolved with the decision (and refund), and tells the
   /// provider. The refund itself is paid outside the app for now; the amount
   /// is recorded here and shown to the customer.
+  // Dispute resolution - validates refund bounds against job total,
+  // updates status to 'resolved', attaches admin verdict/notes, and notifies provider.
   Future<void> resolveDispute({
     required Dispute dispute,
     required String decision,

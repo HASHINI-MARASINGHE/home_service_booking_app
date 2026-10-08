@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_bottom_nav.dart';
+import '../../widgets/common/app_search_bar.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../auth/logout_button.dart';
 import 'admin_disputes_screen.dart';
@@ -34,6 +35,8 @@ class AdminHomeScreen extends StatefulWidget {
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   late final AdminService _service = widget.service ?? AdminService();
+  // Live streams for unread badge counts on bottom navigation tabs:
+  // _pending watches unreviewed provider KYC submissions; _disputes watches pending disputes.
   late final Stream<int> _pending = _service.watchPendingCount();
   late final Stream<int> _disputes = _service.watchPendingDisputeCount();
   int _tab = 0;
@@ -107,14 +110,49 @@ class AdminProvidersScreen extends StatefulWidget {
 
 class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
   VerificationStatus _filter = VerificationStatus.pending;
+  final _search = TextEditingController();
+  String _selectedProfession = 'All';
+
   late Stream<List<ProviderVerification>> _items = widget.service.watchByStatus(
     _filter,
   );
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   void _select(VerificationStatus status) => setState(() {
     _filter = status;
     _items = widget.service.watchByStatus(status);
   });
+
+  List<ProviderVerification> _filterList(List<ProviderVerification> list) {
+    final query = _search.text.trim().toLowerCase();
+    return list.where((item) {
+      if (_selectedProfession != 'All' &&
+          item.profession.toLowerCase() != _selectedProfession.toLowerCase()) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      if (item.fullName.toLowerCase().contains(query)) return true;
+      if (item.profession.toLowerCase().contains(query)) return true;
+      if (item.phone.toLowerCase().contains(query)) return true;
+      if (item.idNumber.toLowerCase().contains(query)) return true;
+      if (item.providerCode?.toLowerCase().contains(query) ?? false) return true;
+      return false;
+    }).toList();
+  }
+
+  List<String> _extractProfessions(List<ProviderVerification> list) {
+    final set = <String>{'All'};
+    for (final item in list) {
+      final prof = item.profession.trim();
+      if (prof.isNotEmpty) set.add(prof);
+    }
+    return set.toList();
+  }
 
   @override
   Widget build(BuildContext context) => Column(
@@ -124,7 +162,7 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
           AppSpacing.screen,
           AppSpacing.xs,
           AppSpacing.screen,
-          AppSpacing.sm,
+          AppSpacing.xs,
         ),
         child: SizedBox(
           width: double.infinity,
@@ -149,6 +187,20 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
           ),
         ),
       ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screen,
+          AppSpacing.xs,
+          AppSpacing.screen,
+          AppSpacing.xs,
+        ),
+        child: AppSearchBar(
+          controller: _search,
+          hintText: 'Search provider, NIC, phone, or code…',
+          onChanged: (_) => setState(() {}),
+          onClear: () => setState(() {}),
+        ),
+      ),
       Expanded(
         child: StreamBuilder<List<ProviderVerification>>(
           stream: _items,
@@ -160,8 +212,11 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
               );
             }
             if (!snapshot.hasData) return const LoadingState();
-            final items = snapshot.data!;
-            if (items.isEmpty) {
+            final allItems = snapshot.data!;
+            final professions = _extractProfessions(allItems);
+            final filteredItems = _filterList(allItems);
+
+            if (allItems.isEmpty) {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.xl),
@@ -180,26 +235,75 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                 ),
               );
             }
-            return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screen,
-                0,
-                AppSpacing.screen,
-                AppSpacing.xl,
-              ),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-              itemBuilder: (context, i) => _ProviderTile(
-                submission: items[i],
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => AdminVerificationScreen(
-                      service: widget.service,
-                      submission: items[i],
-                    ),
+
+            return Column(
+              children: [
+                if (professions.length > 2) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  AppFilterChipBar<String>(
+                    items: [
+                      for (final p in professions)
+                        FilterItem(
+                          value: p,
+                          label: p,
+                          count: p == 'All'
+                              ? allItems.length
+                              : allItems
+                                  .where((i) => i.profession.toLowerCase() == p.toLowerCase())
+                                  .length,
+                        ),
+                    ],
+                    selected: _selectedProfession,
+                    onSelected: (p) => setState(() => _selectedProfession = p),
                   ),
+                  const SizedBox(height: AppSpacing.xs),
+                ],
+                Expanded(
+                  child: filteredItems.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.xl),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  LucideIcons.searchX,
+                                  size: 40,
+                                  color: AppColors.muted,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'No providers match your search or filter.',
+                                  style: AppTypography.body,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.screen,
+                            AppSpacing.xs,
+                            AppSpacing.screen,
+                            AppSpacing.xl,
+                          ),
+                          itemCount: filteredItems.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+                          itemBuilder: (context, i) => _ProviderTile(
+                            submission: filteredItems[i],
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => AdminVerificationScreen(
+                                  service: widget.service,
+                                  submission: filteredItems[i],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                 ),
-              ),
+              ],
             );
           },
         ),
@@ -216,62 +320,127 @@ class _ProviderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = submission;
+    final docCount = (s.idFront != null ? 1 : 0) +
+        (s.idBack != null ? 1 : 0) +
+        (s.selfie != null ? 1 : 0) +
+        (s.cv != null ? 1 : 0) +
+        s.certificates.length;
+
     return AppCard(
       key: ValueKey('provider-tile-${s.uid}'),
       onTap: onTap,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PersonAvatar(name: s.fullName, size: 48),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              PersonAvatar(name: s.fullName, size: 48),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      s.fullName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.title,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${s.profession.isEmpty ? 'Provider' : s.profession} · '
+                      '${s.experienceYears} yr${s.experienceYears == 1 ? '' : 's'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.body,
+                    ),
+                    Text(
+                      s.submittedAt == null
+                          ? 'Submitted'
+                          : 'Submitted ${Formatters.shortDate(s.submittedAt!)}',
+                      style: AppTypography.caption,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              switch (s.status) {
+                VerificationStatus.verified => StatusPill(
+                  label: s.providerCode ?? 'Verified',
+                  background: AppColors.successSoft,
+                  color: AppColors.success,
+                  icon: LucideIcons.badgeCheck,
+                ),
+                VerificationStatus.rejected => const StatusPill(
+                  label: 'Rejected',
+                  background: AppColors.dangerSoft,
+                  color: AppColors.danger,
+                  icon: LucideIcons.circleAlert,
+                ),
+                _ => const StatusPill(
+                  label: 'Review',
+                  background: AppColors.warningSoft,
+                  color: AppColors.warning,
+                  icon: LucideIcons.clock,
+                ),
+              },
+              const Icon(
+                LucideIcons.chevronRight,
+                size: 18,
+                color: AppColors.muted,
+              ),
+            ],
+          ),
+          if (s.phone.isNotEmpty || docCount > 0) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
               children: [
-                Text(
-                  s.fullName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.title,
-                ),
-                Text(
-                  '${s.profession.isEmpty ? 'Provider' : s.profession} · '
-                  '${s.experienceYears} yr${s.experienceYears == 1 ? '' : 's'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.body,
-                ),
-                Text(
-                  s.submittedAt == null
-                      ? 'Submitted'
-                      : 'Submitted ${Formatters.shortDate(s.submittedAt!)}',
-                  style: AppTypography.caption,
+                if (s.phone.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.phone, size: 11, color: AppColors.ink3),
+                        const SizedBox(width: 4),
+                        Text(
+                          s.phone,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.ink2,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(LucideIcons.fileText, size: 11, color: AppColors.ink3),
+                      const SizedBox(width: 4),
+                      Text(
+                        docCount == 0 ? 'No docs' : '$docCount doc${docCount == 1 ? '' : 's'}',
+                        style: AppTypography.caption.copyWith(color: AppColors.ink2),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          switch (s.status) {
-            VerificationStatus.verified => StatusPill(
-              label: s.providerCode ?? 'Verified',
-              background: AppColors.successSoft,
-              color: AppColors.success,
-            ),
-            VerificationStatus.rejected => const StatusPill(
-              label: 'Rejected',
-              background: AppColors.dangerSoft,
-              color: AppColors.danger,
-            ),
-            _ => const StatusPill(
-              label: 'Review',
-              background: AppColors.warningSoft,
-              color: AppColors.warning,
-            ),
-          },
-          const Icon(
-            LucideIcons.chevronRight,
-            size: 18,
-            color: AppColors.muted,
-          ),
+          ],
         ],
       ),
     );

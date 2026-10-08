@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -79,9 +79,11 @@ class _DisputeFormState extends State<DisputeForm> {
     super.dispose();
   }
 
+  // 3-day warranty check - disputes can only be filed within 72 hours of completion.
   bool get _warrantyOpen => DisputeWarranty.isOpen(widget.booking, _now);
 
   /// Reason chosen and a long enough description, inside the warranty.
+  // Submit gatekeeper - ensures reason is chosen, description >= 10 chars, warranty is active, and not busy.
   bool get _canSubmit =>
       _reason != null &&
       _description.text.trim().length >= DisputeService.minDescription &&
@@ -108,6 +110,7 @@ class _DisputeFormState extends State<DisputeForm> {
     }
   }
 
+  // Handles create vs update dispatch for the customer dispute.
   Future<void> _submit() async {
     setState(() => _busy = true);
     try {
