@@ -21,6 +21,7 @@ import 'customer_scope.dart';
 import 'providers/all_providers_screen.dart';
 import 'widgets/customer_home_widgets.dart';
 import 'widgets/provider_directory_widgets.dart';
+import '../../widgets/common/homecare_logo.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({
@@ -121,37 +122,39 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) _handleBack();
           },
-          child: Scaffold(
-            backgroundColor: AppColors.bg,
-            body: IndexedStack(
-              index: _selectedIndex,
-              children: [
-                _tab(
-                  CustomerTab.home,
-                  ColoredBox(
-                    color: AppColors.bg,
-                    child: _CustomerHomeContent(
-                      user: _currentUser,
-                      notifications: _notifications,
+          child: BrandShell(
+            child: Scaffold(
+              backgroundColor: AppColors.bg,
+              body: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                  _tab(
+                    CustomerTab.home,
+                    ColoredBox(
+                      color: AppColors.bg,
+                      child: _CustomerHomeContent(
+                        user: _currentUser,
+                        notifications: _notifications,
+                      ),
                     ),
                   ),
-                ),
-                _tab(CustomerTab.bookings, const BookingHistoryScreen()),
-                _tab(CustomerTab.saved, const MyAddressesScreen()),
-                _tab(
-                  CustomerTab.profile,
-                  CustomerProfileScreen(
-                    uid: _currentUser.uid,
-                    authService: widget.authService,
-                    onUserUpdated: (user) =>
-                        setState(() => _currentUser = user),
+                  _tab(CustomerTab.bookings, const BookingHistoryScreen()),
+                  _tab(CustomerTab.saved, const MyAddressesScreen()),
+                  _tab(
+                    CustomerTab.profile,
+                    CustomerProfileScreen(
+                      uid: _currentUser.uid,
+                      authService: widget.authService,
+                      onUserUpdated: (user) =>
+                          setState(() => _currentUser = user),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            bottomNavigationBar: CustomerBottomNavigation(
-              selectedIndex: _selectedIndex,
-              onSelected: _selectTab,
+                ],
+              ),
+              bottomNavigationBar: CustomerBottomNavigation(
+                selectedIndex: _selectedIndex,
+                onSelected: _selectTab,
+              ),
             ),
           ),
         ),

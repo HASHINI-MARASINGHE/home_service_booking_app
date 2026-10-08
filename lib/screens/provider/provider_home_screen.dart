@@ -23,6 +23,7 @@ import 'provider_notifications_screen.dart';
 import 'provider_payment_screen.dart';
 import 'provider_profile_screen.dart';
 import 'provider_theme.dart';
+import '../../widgets/common/homecare_logo.dart';
 
 // Provider-only shell; future mode switching can wrap this without changing it.
 class ProviderHomeScreen extends StatefulWidget {
@@ -100,151 +101,153 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           onPopInvokedWithResult: (didPop, result) {
             if (!didPop) _back();
           },
-          child: Scaffold(
-            appBar: AppBar(
-              title: Text(
-                _selectedId != null
-                    ? (_payment ? l10n.titleJobPayment : l10n.titleJobDetails)
-                    : _notifications
-                    ? l10n.titleNotifications
-                    : [
-                        l10n.navLeads,
-                        l10n.navMyJobs,
-                        l10n.navEarnings,
-                        l10n.navProfile,
-                      ][_section],
+          child: BrandShell(
+            child: Scaffold(
+              appBar: AppBar(
+                title: Text(
+                  _selectedId != null
+                      ? (_payment ? l10n.titleJobPayment : l10n.titleJobDetails)
+                      : _notifications
+                      ? l10n.titleNotifications
+                      : [
+                          l10n.navLeads,
+                          l10n.navMyJobs,
+                          l10n.navEarnings,
+                          l10n.navProfile,
+                        ][_section],
+                ),
+                leading: _selectedId == null && !_notifications
+                    ? null
+                    : BackButton(onPressed: _back),
               ),
-              leading: _selectedId == null && !_notifications
-                  ? null
-                  : BackButton(onPressed: _back),
-            ),
-            body: SafeArea(
-              child: _section == 3 && _selectedId == null
-                  ? (_notifications
-                        ? ProviderNotificationsScreen(
-                            service: _notificationService,
-                            onOpen: (item) {
-                              if (item.type == AppNotification.disputeType) {
-                                // A dispute about one of this provider's jobs.
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => Theme(
-                                      data: ProviderTheme.data,
-                                      child: ProviderDisputeScreen(
-                                        bookingId: item.bookingId,
+              body: SafeArea(
+                child: _section == 3 && _selectedId == null
+                    ? (_notifications
+                          ? ProviderNotificationsScreen(
+                              service: _notificationService,
+                              onOpen: (item) {
+                                if (item.type == AppNotification.disputeType) {
+                                  // A dispute about one of this provider's jobs.
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => Theme(
+                                        data: ProviderTheme.data,
+                                        child: ProviderDisputeScreen(
+                                          bookingId: item.bookingId,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                                return;
-                              }
-                              setState(() {
-                                if (item.type == AppNotification.reviewType ||
-                                    item.type == AppNotification.quoteType) {
-                                  _selectedId = item.bookingId;
-                                  _payment = false;
-                                } else {
-                                  // e.g. verification news: back to the profile.
-                                  _notifications = false;
+                                  );
+                                  return;
                                 }
-                              });
-                            },
-                          )
-                        : ProviderProfileScreen(
-                            user: widget.user,
-                            authService: widget.authService,
-                            service: _profileService,
-                            notifications: _notificationService,
-                            verificationStatus: VerificationStatus.verified,
-                            verification: widget.verification,
-                            onOpenNotifications: () =>
-                                setState(() => _notifications = true),
-                          ))
-                  : StreamBuilder<List<Booking>>(
-                      stream: _bookings,
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return ProviderFailure(
-                            error: snapshot.error,
-                            onRetry: () => setState(
-                              () =>
-                                  _bookings = _bookingsService.watchBookings(),
-                            ),
-                          );
-                        }
-                        if (snapshot.connectionState ==
-                                ConnectionState.waiting ||
-                            !snapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final bookings = snapshot.data!;
-                        if (_selectedId != null) {
-                          final matches = bookings.where(
-                            (b) => b.id == _selectedId,
-                          );
-                          if (matches.isEmpty) {
-                            return ProviderPage(
-                              children: [
-                                ProviderEmpty(
-                                  title: l10n.jobUnavailableTitle,
-                                  message: l10n.jobUnavailableMessage,
-                                ),
-                              ],
+                                setState(() {
+                                  if (item.type == AppNotification.reviewType ||
+                                      item.type == AppNotification.quoteType) {
+                                    _selectedId = item.bookingId;
+                                    _payment = false;
+                                  } else {
+                                    // e.g. verification news: back to the profile.
+                                    _notifications = false;
+                                  }
+                                });
+                              },
+                            )
+                          : ProviderProfileScreen(
+                              user: widget.user,
+                              authService: widget.authService,
+                              service: _profileService,
+                              notifications: _notificationService,
+                              verificationStatus: VerificationStatus.verified,
+                              verification: widget.verification,
+                              onOpenNotifications: () =>
+                                  setState(() => _notifications = true),
+                            ))
+                    : StreamBuilder<List<Booking>>(
+                        stream: _bookings,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return ProviderFailure(
+                              error: snapshot.error,
+                              onRetry: () => setState(
+                                () => _bookings = _bookingsService
+                                    .watchBookings(),
+                              ),
                             );
                           }
-                          final booking = matches.first;
-                          if (_payment) {
-                            return ProviderPaymentScreen(
-                              key: ValueKey('payment-${booking.id}'),
+                          if (snapshot.connectionState ==
+                                  ConnectionState.waiting ||
+                              !snapshot.hasData) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          final bookings = snapshot.data!;
+                          if (_selectedId != null) {
+                            final matches = bookings.where(
+                              (b) => b.id == _selectedId,
+                            );
+                            if (matches.isEmpty) {
+                              return ProviderPage(
+                                children: [
+                                  ProviderEmpty(
+                                    title: l10n.jobUnavailableTitle,
+                                    message: l10n.jobUnavailableMessage,
+                                  ),
+                                ],
+                              );
+                            }
+                            final booking = matches.first;
+                            if (_payment) {
+                              return ProviderPaymentScreen(
+                                key: ValueKey('payment-${booking.id}'),
+                                booking: booking,
+                                service: _bookingsService,
+                                onChanged: _changed,
+                              );
+                            }
+                            return ProviderJobDetailsScreen(
+                              key: ValueKey(booking.id),
                               booking: booking,
                               service: _bookingsService,
                               onChanged: _changed,
+                              onPayment: () => setState(() => _payment = true),
                             );
                           }
-                          return ProviderJobDetailsScreen(
-                            key: ValueKey(booking.id),
-                            booking: booking,
-                            service: _bookingsService,
-                            onChanged: _changed,
-                            onPayment: () => setState(() => _payment = true),
-                          );
-                        }
-                        return switch (_section) {
-                          0 => ProviderDashboardScreen(
-                            user: widget.user,
-                            bookings: bookings,
-                            onOpen: _open,
-                            onViewJobs: () => setState(() {
-                              _section = 1;
-                              _jobsTab = 0;
-                            }),
-                          ),
-                          1 => ProviderJobsScreen(
-                            bookings: bookings,
-                            tab: _jobsTab,
-                            onTab: (tab) => setState(() => _jobsTab = tab),
-                            onOpen: _open,
-                            watchReview: _bookingsService.watchReview,
-                          ),
-                          _ => ProviderEarningsScreen(
-                            bookings: bookings,
-                            onOpen: _open,
-                          ),
-                        };
-                      },
-                    ),
-            ),
-            bottomNavigationBar: AppBottomNav(
-              items: AppBottomNav.localizedProviderItems(context),
-              selectedIndex: _section,
-              onSelected: (index) => setState(() {
-                _section = index;
-                _selectedId = null;
-                _payment = false;
-                _notifications = false;
-              }),
+                          return switch (_section) {
+                            0 => ProviderDashboardScreen(
+                              user: widget.user,
+                              bookings: bookings,
+                              onOpen: _open,
+                              onViewJobs: () => setState(() {
+                                _section = 1;
+                                _jobsTab = 0;
+                              }),
+                            ),
+                            1 => ProviderJobsScreen(
+                              bookings: bookings,
+                              tab: _jobsTab,
+                              onTab: (tab) => setState(() => _jobsTab = tab),
+                              onOpen: _open,
+                              watchReview: _bookingsService.watchReview,
+                            ),
+                            _ => ProviderEarningsScreen(
+                              bookings: bookings,
+                              onOpen: _open,
+                            ),
+                          };
+                        },
+                      ),
+              ),
+              bottomNavigationBar: AppBottomNav(
+                items: AppBottomNav.localizedProviderItems(context),
+                selectedIndex: _section,
+                onSelected: (index) => setState(() {
+                  _section = index;
+                  _selectedId = null;
+                  _payment = false;
+                  _notifications = false;
+                }),
+              ),
             ),
           ),
         );

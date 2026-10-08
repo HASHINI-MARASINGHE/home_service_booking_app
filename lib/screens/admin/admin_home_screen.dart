@@ -15,6 +15,7 @@ import '../auth/logout_button.dart';
 import 'admin_disputes_screen.dart';
 import 'admin_ratings_screen.dart';
 import 'admin_verification_screen.dart';
+import '../../widgets/common/homecare_logo.dart';
 
 /// Admin dashboard: pending provider verifications and the admin's profile.
 class AdminHomeScreen extends StatefulWidget {
@@ -49,7 +50,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       builder: (context, disputeSnapshot) {
         final pending = snapshot.data ?? 0;
         final disputes = disputeSnapshot.data ?? 0;
-        return Scaffold(
+        return BrandShell(child: Scaffold(
           appBar: AppBar(
             title: Text(
               _tab == 0
@@ -93,7 +94,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             selectedIndex: _tab,
             onSelected: (index) => setState(() => _tab = index),
           ),
-        );
+        ));
       },
     ),
   );
