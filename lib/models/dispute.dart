@@ -44,8 +44,14 @@ class Dispute {
     required this.status,
     this.tag,
     this.photoCount = 0,
+    this.serviceName = '',
+    this.customerName = '',
+    this.providerName = '',
+    this.bookingRef = '',
+    this.amount,
     this.createdAt,
     this.respondDeadline,
+    this.providerRespondedAt,
     this.adminNote,
     this.decision,
     this.refundAmount,
@@ -57,7 +63,12 @@ class Dispute {
   final String? tag;
   final DisputeStatus status;
   final int photoCount;
-  final DateTime? createdAt, respondDeadline;
+
+  /// Copied from the booking when the dispute is filed, so the safety desk
+  /// and the provider can see what it is about without reading the booking.
+  final String serviceName, customerName, providerName, bookingRef;
+  final double? amount;
+  final DateTime? createdAt, respondDeadline, providerRespondedAt;
 
   // Filled in later by the safety desk / the provider (not by the customer).
   final String? adminNote, decision, providerResponse;
@@ -65,6 +76,13 @@ class Dispute {
 
   /// Only a pending dispute can still be edited or withdrawn.
   bool get isPending => status == DisputeStatus.pending;
+
+  /// The provider can answer until the 24-hour deadline, and only while the
+  /// dispute has not been decided.
+  bool canProviderRespond(DateTime now) =>
+      status != DisputeStatus.resolved &&
+      respondDeadline != null &&
+      now.isBefore(respondDeadline!);
 
   static Dispute? fromMap(String id, Map<String, dynamic>? data) {
     if (data == null) return null;
@@ -81,6 +99,8 @@ class Dispute {
     DateTime? date(Object? v) => v is Timestamp ? v.toDate() : null;
     String? text(Object? v) => v is String && v.isNotEmpty ? v : null;
     final refund = data['refundAmount'];
+    final amount = data['amount'];
+    String name(Object? v) => v is String ? v : '';
     return Dispute(
       id: id,
       bookingId: data['bookingId'] is String ? data['bookingId'] as String : id,
@@ -93,8 +113,14 @@ class Dispute {
       photoCount: data['photoCount'] is num
           ? (data['photoCount'] as num).toInt()
           : 0,
+      serviceName: name(data['serviceName']),
+      customerName: name(data['customerName']),
+      providerName: name(data['providerName']),
+      bookingRef: name(data['bookingRef']),
+      amount: amount is num ? amount.toDouble() : null,
       createdAt: date(data['createdAt']),
       respondDeadline: date(data['respondDeadline']),
+      providerRespondedAt: date(data['providerRespondedAt']),
       adminNote: text(data['adminNote']),
       decision: text(data['decision']),
       refundAmount: refund is num ? refund.toDouble() : null,
@@ -143,6 +169,15 @@ class DisputePhoto {
     Uint8List bytes, {
     String mimeType = 'image/jpeg',
   }) => DisputePhoto(id: '', base64: base64Encode(bytes), mimeType: mimeType);
+}
+
+/// What the safety desk can decide. The refund amount only applies to the
+/// first two.
+class DisputeDecisions {
+  static const fullRefund = 'Full refund approved';
+  static const partialRefund = 'Partial refund approved';
+  static const rejected = 'Claim rejected';
+  static const all = [fullRefund, partialRefund, rejected];
 }
 
 /// The reasons offered in the dispute form, plus the quick chips under it.

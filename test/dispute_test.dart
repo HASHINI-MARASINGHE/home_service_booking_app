@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_service_bookin_app/models/booking.dart';
 import 'package:home_service_bookin_app/models/dispute.dart';
+import 'package:home_service_bookin_app/screens/customer/bookings/booking_details_screen.dart';
 import 'package:home_service_bookin_app/screens/customer/disputes/dispute_screen.dart';
 import 'package:home_service_bookin_app/services/dispute_photo_picker.dart';
 import 'package:home_service_bookin_app/services/dispute_service.dart';
@@ -517,6 +518,49 @@ void main() {
       expect(find.text('Part refund for the repeat visit.'), findsOneWidget);
       expect(find.byKey(const ValueKey('edit-dispute')), findsNothing);
       expect(find.byKey(const ValueKey('withdraw-dispute')), findsNothing);
+    });
+  });
+
+  group('entry point on a completed booking', () {
+    testWidgets('Report a Problem sits below Rate & Review and opens the '
+        'dispute screen', (tester) async {
+      DisputeScreen.serviceFactory = _FakeDisputes.new;
+      addTearDown(() => DisputeScreen.serviceFactory = DisputeService.new);
+      await pumpCustomer(
+        tester,
+        const BookingDetailsScreen(bookingId: 'b1'),
+        size: const Size(390, 2600),
+        bookings: FakeBookingService(
+          bookings: [completed(const Duration(days: 2))],
+        ),
+      );
+      final report = find.byKey(const ValueKey('report-problem'));
+      await tester.scrollUntilVisible(
+        report,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Report a Problem / Dispute'), findsOneWidget);
+      // Directly under the review button.
+      expect(
+        tester.getTopLeft(report).dy,
+        greaterThan(tester.getTopLeft(find.text('Rate & Review')).dy),
+      );
+      await tester.tap(report);
+      await tester.pumpAndSettle();
+      expect(find.byType(DisputeScreen), findsOneWidget);
+    });
+
+    testWidgets('a job that is not completed has no dispute button', (
+      tester,
+    ) async {
+      await pumpCustomer(
+        tester,
+        const BookingDetailsScreen(bookingId: 'b1'),
+        size: const Size(390, 2600),
+        bookings: FakeBookingService(bookings: [booking()]),
+      );
+      expect(find.byKey(const ValueKey('report-problem')), findsNothing);
     });
   });
 }

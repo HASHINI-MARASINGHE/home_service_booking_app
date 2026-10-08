@@ -44,6 +44,7 @@ class DisputeService {
   static const maxPhotos = 5;
   static const minDescription = 10;
   static const maxDescription = 1000;
+  static const minResponse = 10;
 
   /// A photo is stored as Base64 text inside one Firestore document, which
   /// can hold at most 1 MB. Base64 adds a third, so keep the picture under
@@ -159,6 +160,11 @@ class DisputeService {
           'description': description.trim(),
           'status': DisputeStatus.pending.value,
           'photoCount': photos.length,
+          'serviceName': booking.serviceName,
+          'customerName': booking.customerName,
+          'providerName': booking.providerName ?? '',
+          'bookingRef': booking.displayReference,
+          'amount': booking.chargeTotal,
           'createdAt': FieldValue.serverTimestamp(),
           'respondDeadline': Timestamp.fromDate(deadline),
           'adminNote': null,
@@ -256,6 +262,38 @@ class DisputeService {
       );
       batch.delete(_dispute(dispute.id));
       await batch.commit();
+    } on FirebaseException catch (error) {
+      throw _friendly(error);
+    }
+  }
+
+  // --------------------------------------------------------------- respond
+  /// The provider's answer to a dispute, allowed until the 24-hour deadline
+  /// and while the dispute is not yet decided. It can be edited until then.
+  Future<void> respond({
+    required Dispute dispute,
+    required String response,
+  }) async {
+    final text = response.trim();
+    if (text.length < minResponse || text.length > maxDescription) {
+      throw const DisputeException(
+        'Write your response in $minResponse to $maxDescription characters.',
+      );
+    }
+    if (dispute.providerId != _uid) {
+      throw const DisputeException('This dispute is not about your job.');
+    }
+    if (!dispute.canProviderRespond(now())) {
+      throw const DisputeException(
+        'The response window for this dispute has closed.',
+      );
+    }
+    try {
+      await _dispute(dispute.id).update({
+        'providerResponse': text,
+        'providerRespondedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     } on FirebaseException catch (error) {
       throw _friendly(error);
     }

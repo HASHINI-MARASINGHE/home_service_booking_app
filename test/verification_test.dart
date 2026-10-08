@@ -145,6 +145,9 @@ class _Admin extends AdminService {
   Stream<List<Professional>> watchAllProfessionals() => Stream.value(const []);
 
   @override
+  Stream<int> watchPendingDisputeCount() => Stream.value(0);
+
+  @override
   Stream<int> watchPendingCount() => Stream.value(
     items.where((v) => v.status == VerificationStatus.pending).length,
   );
