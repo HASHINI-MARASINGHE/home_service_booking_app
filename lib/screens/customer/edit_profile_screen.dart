@@ -329,7 +329,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   'Your current password is required to securely update your email.',
                   style: TextStyle(
                     color: CustomerHomeTheme.mutedText,
-                    fontSize: 12,
+                    fontSize: 14,
                   ),
                 ),
               ],

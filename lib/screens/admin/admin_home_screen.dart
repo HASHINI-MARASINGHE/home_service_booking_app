@@ -460,7 +460,7 @@ class _Metric extends StatelessWidget {
         value,
         style: AppTypography.title.copyWith(color: color, fontSize: 15),
       ),
-      Text(label, style: AppTypography.caption.copyWith(fontSize: 11)),
+      Text(label, style: AppTypography.caption.copyWith(fontSize: 14)),
     ],
   );
 }

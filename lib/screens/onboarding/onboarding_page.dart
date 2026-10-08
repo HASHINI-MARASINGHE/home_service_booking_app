@@ -243,7 +243,7 @@ class _ExperienceCard extends StatelessWidget {
                           steps[index].$2,
                           style: const TextStyle(
                             color: OnboardingStyle.navy,
-                            fontSize: 12,
+                            fontSize: 14,
                             height: 1.45,
                             fontWeight: FontWeight.w500,
                           ),

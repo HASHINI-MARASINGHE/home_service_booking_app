@@ -422,7 +422,7 @@ class _NoBookings extends StatelessWidget {
                             child: Text(
                               'POPULAR ACROSS COLOMBO & SUBURBS',
                               style: AppTypography.overline.copyWith(
-                                fontSize: 11,
+                                fontSize: 14,
                               ),
                             ),
                           ),

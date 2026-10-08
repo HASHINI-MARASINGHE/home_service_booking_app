@@ -221,7 +221,7 @@ class _ProfileHeader extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: CustomerHomeTheme.mutedText,
-            fontSize: 13,
+            fontSize: 14,
           ),
         ),
         const SizedBox(height: 14),
@@ -245,7 +245,7 @@ class _ProfileHeader extends StatelessWidget {
                   _accountLabel(user.role),
                   style: const TextStyle(
                     color: CustomerHomeTheme.primaryDark,
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -335,7 +335,7 @@ class _ProfileDetail extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: CustomerHomeTheme.mutedText,
-                  fontSize: 12,
+                  fontSize: 14,
                 ),
               ),
               const SizedBox(height: 4),

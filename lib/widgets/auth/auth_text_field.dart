@@ -41,7 +41,7 @@ class AuthTextField extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
-  static const height = 52.0;
+  static const height = 56.0;
 
   @override
   State<AuthTextField> createState() => _AuthTextFieldState();
@@ -88,10 +88,10 @@ class _AuthTextFieldState extends State<AuthTextField> {
         : focused
         ? AuthColors.focusedFill
         : AuthColors.surface;
-    final radius = BorderRadius.circular(14);
+    final radius = BorderRadius.circular(AppRadius.controlRadius);
     final border = OutlineInputBorder(
       borderRadius: radius,
-      borderSide: BorderSide(color: borderColor, width: accent == null ? 1 : 2),
+      borderSide: BorderSide(color: borderColor, width: accent == null ? 2 : 3),
     );
 
     return Column(
@@ -104,8 +104,8 @@ class _AuthTextFieldState extends State<AuthTextField> {
             color:
                 accent ??
                 (widget.enabled ? AuthColors.heading : AuthColors.secondary),
-            fontSize: 14,
-            fontWeight: accent == null ? FontWeight.w500 : FontWeight.w600,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 8),
@@ -141,7 +141,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
             textAlignVertical: TextAlignVertical.center,
             style: TextStyle(
               color: widget.enabled ? AuthColors.heading : AuthColors.secondary,
-              fontSize: 15,
+              fontSize: 18,
             ),
             decoration: InputDecoration(
               constraints: const BoxConstraints.tightFor(
@@ -152,12 +152,12 @@ class _AuthTextFieldState extends State<AuthTextField> {
               hintText: widget.hintText,
               hintStyle: const TextStyle(
                 color: AuthColors.placeholder,
-                fontSize: 15,
+                fontSize: 18,
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               prefixIcon: Icon(
                 widget.prefixIcon,
-                size: 20,
+                size: 24,
                 color: accent ?? AuthColors.secondary,
               ),
               prefixIconConstraints: const BoxConstraints(minWidth: 48),
@@ -187,7 +187,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
                 widget.errorText!,
                 style: const TextStyle(
                   color: AuthColors.error,
-                  fontSize: 12.5,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
               ),

@@ -189,7 +189,7 @@ class ProviderListCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: CustomerHomeTheme.mutedText,
-                          fontSize: 12.5,
+                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -212,7 +212,7 @@ class ProviderListCard extends StatelessWidget {
                                       ' • ${provider.completedJobs} jobs',
                             style: const TextStyle(
                               color: CustomerHomeTheme.text,
-                              fontSize: 12,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

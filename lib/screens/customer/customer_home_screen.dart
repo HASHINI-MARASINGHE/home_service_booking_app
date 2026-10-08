@@ -252,14 +252,9 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                Text(
-                  l10n.customerHomeTitle,
-                  style: styles.display.copyWith(color: AppColors.brand900),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  l10n.customerHomeSubtitle,
-                  style: styles.bodyLarge.copyWith(color: AppColors.ink2),
+                _HomeBanner(
+                  title: l10n.customerHomeTitle,
+                  subtitle: l10n.customerHomeSubtitle,
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 CustomerSearchBar(
@@ -351,6 +346,76 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                   },
                 ),
               ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Welcome card: a photo of a provider at work under a deep blue fade, so
+/// the white text keeps its contrast however the photo is cropped.
+class _HomeBanner extends StatelessWidget {
+  const _HomeBanner({required this.title, required this.subtitle});
+
+  static const photo = 'assets/images/onboarding_home.jpg';
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final styles = context.textStyles;
+    return ClipRRect(
+      borderRadius: AppRadius.card,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ExcludeSemantics(
+              child: Image.asset(
+                photo,
+                fit: BoxFit.cover,
+                alignment: const Alignment(0.6, -0.4),
+              ),
+            ),
+          ),
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xF20B2A5B), // brand 900 at 95%
+                    Color(0xD90B2A5B), // brand 900 at 85%
+                    Color(0x400B2A5B), // brand 900 at 25%
+                  ],
+                  stops: [0, 0.55, 1],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.space6,
+              AppSpacing.space6,
+              AppSpacing.space12,
+              AppSpacing.space6,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: styles.h1.copyWith(color: AppColors.surface),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  subtitle,
+                  style: styles.bodySmall.copyWith(color: AppColors.surface),
+                ),
+              ],
             ),
           ),
         ],

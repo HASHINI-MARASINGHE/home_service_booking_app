@@ -14,9 +14,9 @@ class AppNavItem {
   final int badge;
 }
 
-/// Bottom navigation (Nav/Customer, Nav/Provider): every tab is a round icon
-/// button with its label always shown underneath (14 px bold, an icon alone is
-/// not enough). The selected tab has a blue ring, a pale blue fill and a blue
+/// Bottom navigation (Nav/Customer, Nav/Provider): every tab is an icon with
+/// its label always shown underneath (14 px bold, an icon alone is not
+/// enough). The selected tab has a pale blue pill behind the icon and a blue
 /// label.
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({
@@ -140,22 +140,16 @@ class _NavButton extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: AppMotion.duration(context),
                   curve: AppMotion.curve,
-                  width: AppSizes.minTap,
-                  height: AppSizes.minTap,
+                  width: 64,
+                  height: 36,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? AppColors.brand100 : AppColors.surfaceAlt,
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.brand700
-                          : AppColors.borderSubtle,
-                      width: selected ? AppSizes.borderControl : 1,
-                    ),
+                    borderRadius: AppRadius.chip,
+                    color: selected ? AppColors.brand100 : Colors.transparent,
                   ),
                   child: Icon(
                     item.icon,
                     size: AppSizes.iconNav - 2,
-                    color: selected ? AppColors.primary : AppColors.muted,
+                    color: selected ? AppColors.brand700 : AppColors.ink3,
                   ),
                 ),
               ),

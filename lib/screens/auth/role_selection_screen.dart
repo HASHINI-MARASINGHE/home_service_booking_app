@@ -268,7 +268,7 @@ class _Pill extends StatelessWidget {
       text,
       style: const TextStyle(
         color: AuthColors.primary,
-        fontSize: 12.5,
+        fontSize: 14,
         fontWeight: FontWeight.w600,
       ),
     ),
@@ -298,7 +298,7 @@ class _TrustItem extends StatelessWidget {
       Text(
         caption,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: AuthColors.secondary, fontSize: 12),
+        style: const TextStyle(color: AuthColors.secondary, fontSize: 14),
       ),
     ],
   );
@@ -419,7 +419,7 @@ class _RoleCard extends StatelessWidget {
               subtitle,
               style: const TextStyle(
                 color: AuthColors.secondary,
-                fontSize: 13.5,
+                fontSize: 14,
                 height: 1.35,
               ),
             ),

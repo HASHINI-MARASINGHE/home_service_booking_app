@@ -380,7 +380,7 @@ class _EditBookingScreenState extends State<EditBookingScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.caption.copyWith(
                                 color: AppColors.primary,
-                                fontSize: 11.5,
+                                fontSize: 14,
                               ),
                             ),
                           ),
@@ -628,7 +628,7 @@ class _BoxedTextAreaState extends State<_BoxedTextArea> {
             ),
             Text(
               '${widget.controller.text.length}/${widget.maxLength}',
-              style: AppTypography.caption.copyWith(fontSize: 11.5),
+              style: AppTypography.caption.copyWith(fontSize: 14),
             ),
           ],
         ),

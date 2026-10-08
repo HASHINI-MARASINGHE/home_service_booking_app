@@ -374,7 +374,7 @@ class _RatingBadge extends StatelessWidget {
           rating.toStringAsFixed(1),
           style: const TextStyle(
             color: AppColors.star,
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -461,7 +461,7 @@ class _ServiceTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: CustomerHomeTheme.primary,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -503,7 +503,7 @@ class _RatingSummary extends StatelessWidget {
                       'out of 5',
                       style: TextStyle(
                         color: CustomerHomeTheme.mutedText,
-                        fontSize: 12,
+                        fontSize: 14,
                       ),
                     ),
                   ],
@@ -519,7 +519,7 @@ class _RatingSummary extends StatelessWidget {
                         '$jobs ${jobs == 1 ? 'job' : 'jobs'} completed',
                         style: const TextStyle(
                           color: CustomerHomeTheme.text,
-                          fontSize: 13,
+                          fontSize: 14,
                         ),
                       ),
                       if (provider.verified) ...[
@@ -539,7 +539,7 @@ class _RatingSummary extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: CustomerHomeTheme.primary,
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
