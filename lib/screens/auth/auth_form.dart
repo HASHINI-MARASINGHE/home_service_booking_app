@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/common/homecare_logo.dart';
 import 'admin_login_screen.dart';
 import 'provider_registration_screen.dart';
 
@@ -132,6 +133,12 @@ class _AuthFormState extends State<AuthForm> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 20),
+                          child: HomeCareBrandMark(size: 44, showCard: true),
+                        ),
+                      ),
                       if (widget.register && widget.initialRole != null) ...[
                         Row(
                           children: [
