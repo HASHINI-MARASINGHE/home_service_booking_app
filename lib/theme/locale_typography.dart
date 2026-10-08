@@ -12,6 +12,7 @@ abstract final class LocaleTypography {
   static bool enabled = true;
 
   static bool isSinhala(Locale locale) => locale.languageCode == 'si';
+  static bool isTamil(Locale locale) => locale.languageCode == 'ta';
 
   /// The language theme from [AppTheme.forLocale]. Screens that were not
   /// given the app localizations (such as isolated widget tests) get [base]
