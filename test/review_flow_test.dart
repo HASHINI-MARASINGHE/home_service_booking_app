@@ -175,7 +175,8 @@ void main() {
       await pumpCustomer(
         tester,
         const BookingDetailsScreen(bookingId: 'b1'),
-        size: const Size(390, 2400),
+        // Tall enough to build the whole page, including the price card.
+        size: const Size(390, 3200),
         bookings: service,
       );
       await tester.scrollUntilVisible(

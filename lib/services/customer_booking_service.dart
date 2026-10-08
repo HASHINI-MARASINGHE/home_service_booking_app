@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -10,6 +10,8 @@ import '../models/address.dart';
 import '../models/booking.dart';
 import '../models/booking_policy.dart';
 import '../models/professional.dart';
+import '../models/quote.dart';
+import '../models/quote_flow.dart';
 import '../models/rating_stats.dart';
 import '../models/receipt.dart';
 import '../models/refund.dart';
@@ -367,7 +369,10 @@ class CustomerBookingService {
         'contactPhone': '',
         'jobNotes': '',
         'photoUrls': <String>[],
-        // The provider's published starting price; null = priced on site.
+        // The provider's published starting price is only an estimate; the
+        // real price is quoted per job (quoteStatus below).
+        'quoteStatus': QuoteStatus.pending.name,
+        'quoteCurrency': QuoteInput.currency,
         'estimatedPrice': pro.pricing,
         'totalAmount': pro.pricing,
         'laborCharge': pro.pricing,
@@ -385,6 +390,63 @@ class CustomerBookingService {
       });
     });
     return bookingRef.id;
+  }
+
+  // ---------------------------------------------------------------------
+  // Quotes
+  // ---------------------------------------------------------------------
+
+  /// Accepts the quote the customer is looking at. [shownAmount] is that
+  /// quote's price: if the provider changed it in the meantime the accept is
+  /// refused, so nobody agrees to a price they have not seen.
+  Future<void> acceptQuote(String bookingId, double shownAmount) =>
+      _answer(bookingId, shownAmount, accept: true);
+
+  /// Declines the quote the customer is looking at. The provider can send a
+  /// new one (or, for a revision, the earlier accepted price still stands).
+  Future<void> declineQuote(String bookingId, double shownAmount) =>
+      _answer(bookingId, shownAmount, accept: false);
+
+  Future<void> _answer(
+    String bookingId,
+    double shownAmount, {
+    required bool accept,
+  }) async {
+    final uid = _uid;
+    await _db.runTransaction((tx) async {
+      final snapshot = await tx.get(_booking(bookingId));
+      final data = snapshot.data();
+      if (data == null) throw StateError('This booking no longer exists.');
+      final current = Booking.fromMap(snapshot.id, data);
+      final change = QuoteFlow.answer(
+        current,
+        uid: uid,
+        shownAmount: shownAmount,
+        accept: accept,
+        now: now(),
+      );
+      tx.update(snapshot.reference, {
+        ...change.fields,
+        if (change.confirmsJob) 'acceptedAt': FieldValue.serverTimestamp(),
+        'quoteUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(
+        _db
+            .collection('notifications')
+            .doc('quote_${current.id}_${now().millisecondsSinceEpoch}'),
+        {
+          'recipientId': current.providerId,
+          'senderId': uid,
+          'type': AppNotification.quoteType,
+          'bookingId': current.id,
+          'title': change.title,
+          'body': change.body,
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+      );
+    });
   }
 
   Future<void> reschedule(Booking booking, TimeSlot slot) async {

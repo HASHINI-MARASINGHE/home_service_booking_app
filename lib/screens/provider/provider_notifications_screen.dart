@@ -57,7 +57,8 @@ class _ProviderNotificationsScreenState
           if (items.isEmpty)
             const ProviderEmpty(
               title: 'No notifications yet',
-              message: 'When a customer reviews one of your jobs, you will see it here.',
+              message:
+                  'Quotes, reviews and updates about your jobs will show here.',
             ),
           for (final item in items)
             _NotificationTile(item: item, onTap: () => _tap(item)),
@@ -92,6 +93,12 @@ class _NotificationTile extends StatelessWidget {
                     ? const Icon(
                         Icons.star_rounded,
                         color: ProviderTheme.orange,
+                        size: 22,
+                      )
+                    : item.type == AppNotification.quoteType
+                    ? const Icon(
+                        Icons.request_quote_outlined,
+                        color: ProviderTheme.teal,
                         size: 22,
                       )
                     : item.type == AppNotification.disputeType

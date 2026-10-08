@@ -203,8 +203,9 @@ class _QuickInfo extends StatelessWidget {
             icon: LucideIcons.banknote,
             label: 'Price',
             value: provider.pricing == null
-                ? 'Confirmed after inspection'
-                : 'From ${Formatters.lkr(provider.pricing)}',
+                ? 'Price on request'
+                : 'From ${Formatters.lkr(provider.pricing)} '
+                      '(estimate, final price quoted per job)',
           ),
           if (days.isNotEmpty)
             _InfoRow(

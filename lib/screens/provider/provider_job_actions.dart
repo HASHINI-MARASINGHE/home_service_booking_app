@@ -104,6 +104,19 @@ class _ProviderJobActionsState extends State<ProviderJobActions> {
       );
     }
     if (widget.booking.status == BookingStatus.pending) {
+      final decline = OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: ProviderTheme.red,
+          side: BorderSide(color: ProviderTheme.red.withValues(alpha: 0.3)),
+        ),
+        onPressed: () => _act(BookingStatus.declined),
+        child: const Text('Decline'),
+      );
+      // New requests are confirmed when the customer accepts the quote, so
+      // only requests made before quotes existed can be accepted directly.
+      if (!widget.booking.canAcceptWithoutQuote) {
+        return SizedBox(width: double.infinity, child: decline);
+      }
       return Row(
         children: [
           Expanded(
@@ -135,11 +148,27 @@ class _ProviderJobActionsState extends State<ProviderJobActions> {
     }
     if (widget.allowComplete &&
         widget.booking.status == BookingStatus.confirmed) {
-      return FilledButton.icon(
-        style: FilledButton.styleFrom(backgroundColor: ProviderTheme.green),
-        onPressed: () => _act(BookingStatus.completed),
-        icon: const Icon(Icons.check_circle_outline),
-        label: const Text('Mark Job Complete'),
+      final blocker = widget.booking.completionBlocker;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: ProviderTheme.green),
+            onPressed: blocker == null
+                ? () => _act(BookingStatus.completed)
+                : null,
+            icon: const Icon(Icons.check_circle_outline),
+            label: const Text('Mark Job Complete'),
+          ),
+          if (blocker != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              blocker,
+              key: const ValueKey('complete-blocked'),
+              style: const TextStyle(color: ProviderTheme.orange),
+            ),
+          ],
+        ],
       );
     }
     return const SizedBox.shrink();

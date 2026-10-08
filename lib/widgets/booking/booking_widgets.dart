@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/booking.dart';
+import '../../models/booking_price.dart';
 import '../../models/professional.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
@@ -425,7 +426,17 @@ class PaymentSummaryCard extends StatelessWidget {
                   ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          if (b.lineItems.isEmpty)
+          if (b.approvedAmount == null && b.lineItems.isEmpty)
+            Row(
+              children: [
+                Expanded(child: Text(b.serviceName, style: AppTypography.body)),
+                Text(
+                  BookingPrice.forCustomer(b),
+                  style: AppTypography.bodyStrong,
+                ),
+              ],
+            )
+          else if (b.lineItems.isEmpty)
             AmountRow(label: b.serviceName, amount: b.chargeTotal)
           else
             for (final item in b.lineItems)
@@ -441,7 +452,11 @@ class PaymentSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      completed ? 'Total Paid' : 'Estimated Total',
+                      completed
+                          ? 'Total Paid'
+                          : b.approvedAmount == null
+                          ? 'Total'
+                          : 'Approved price',
                       style: AppTypography.title,
                     ),
                     Text(
@@ -451,7 +466,12 @@ class PaymentSummaryCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(Formatters.lkr(b.chargeTotal), style: AppTypography.amount),
+              Text(
+                BookingPrice.amountOr(b, 'Quote pending'),
+                style: b.approvedAmount == null
+                    ? AppTypography.subtitle
+                    : AppTypography.amount,
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
@@ -565,13 +585,9 @@ class BookingCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  Formatters.lkr(b.chargeTotal),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.subtitle.copyWith(
-                    color: AppColors.primary,
-                  ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _PriceChip(booking: b),
                 ),
               ),
               Text(
@@ -747,4 +763,31 @@ class _TrackerDot extends StatelessWidget {
       ),
     ),
   };
+}
+
+/// The price of a booking as a status chip: "Quote pending", "Quote
+/// received: LKR 3,500" or "Confirmed: LKR 3,500". Never "LKR 0".
+class _PriceChip extends StatelessWidget {
+  const _PriceChip({required this.booking});
+
+  final Booking booking;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = booking;
+    final (background, color, icon) = b.awaitingCustomer
+        ? (AppColors.primarySoft, AppColors.primaryDark, LucideIcons.receipt)
+        : b.approvedAmount != null
+        ? (AppColors.successSoft, AppColors.success, LucideIcons.lock)
+        : b.status.isHistory
+        ? (AppColors.surfaceLavender, AppColors.body, LucideIcons.circleSlash)
+        : (AppColors.warningSoft, AppColors.warning, LucideIcons.hourglass);
+    return StatusPill(
+      key: const ValueKey('price-chip'),
+      label: BookingPrice.forCustomer(b),
+      background: background,
+      color: color,
+      icon: icon,
+    );
+  }
 }

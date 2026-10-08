@@ -25,7 +25,11 @@ Widget details() => const ProviderDetailsScreen(providerId: 'pro');
 
 void main() {
   testWidgets('provider profile shows the real listing fields', (tester) async {
-    await pumpCustomer(tester, Material(child: details()));
+    await pumpCustomer(
+      tester,
+      Material(child: details()),
+      size: const Size(390, 1800),
+    );
     expect(find.text('Nuwan Fernando'), findsOneWidget);
     expect(
       find.text('Licensed Air Conditioning & Electrical Specialist'),
@@ -38,7 +42,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Electrical Repair'), findsOneWidget);
-    expect(find.text('From LKR 2,500'), findsNWidgets(3));
+    expect(find.text('From LKR 2,500'), findsNWidgets(2));
+    expect(
+      find.text('From LKR 2,500 (estimate, final price quoted per job)'),
+      findsOneWidget,
+    );
 
     await tester.scrollUntilVisible(
       find.text('128 jobs completed'),
@@ -87,7 +95,14 @@ void main() {
       expect(find.text('4.9 ★ • 128 jobs'), findsOneWidget);
       await tester.drag(find.byType(ListView).first, const Offset(0, -600));
       await tester.pumpAndSettle();
-      expect(find.text('Rs. 2,500'), findsOneWidget);
+      // The price is quoted per job: the starting price is only an estimate.
+      expect(find.byKey(const ValueKey('price-quote-pending')), findsOneWidget);
+      expect(
+        find.text(
+          'Provider estimate: from LKR 2,500 (final price quoted per job).',
+        ),
+        findsOneWidget,
+      );
       expect(find.text(address().line), findsOneWidget);
       expect(
         find.textContaining('09:00 AM'),
@@ -149,24 +164,31 @@ void main() {
       expect(bookings.created.single.serviceName, 'AC Servicing');
     });
 
-    testWidgets('no price shows on inspection; no address asks to add one', (
-      tester,
-    ) async {
-      await pumpBook(
-        tester,
-        pro: const Professional(
-          id: 'pro',
-          name: 'Amali Perera',
-          specialty: 'Plumber',
-        ),
-        addresses: [],
-      );
-      expect(find.text('Plumber'), findsWidgets);
-      await tester.drag(find.byType(ListView).first, const Offset(0, -600));
-      await tester.pumpAndSettle();
-      expect(find.text('On inspection'), findsOneWidget);
-      expect(find.text('Add a service address'), findsOneWidget);
-    });
+    testWidgets(
+      'no base price still books as a pending quote; no address asks to add one',
+      (tester) async {
+        await pumpBook(
+          tester,
+          pro: const Professional(
+            id: 'pro',
+            name: 'Amali Perera',
+            specialty: 'Plumber',
+          ),
+          addresses: [],
+        );
+        expect(find.text('Plumber'), findsWidgets);
+        await tester.drag(find.byType(ListView).first, const Offset(0, -600));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('price-quote-pending')),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Provider estimate'), findsNothing);
+        expect(find.text('On inspection'), findsNothing);
+        expect(find.text('LKR 0'), findsNothing);
+        expect(find.text('Add a service address'), findsOneWidget);
+      },
+    );
 
     testWidgets('fits a 320 × 640 phone', (tester) async {
       await pumpBook(tester, size: const Size(320, 640));

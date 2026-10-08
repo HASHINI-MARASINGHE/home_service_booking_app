@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'quote.dart';
+
 enum BookingStatus {
   pending,
   confirmed,
@@ -119,6 +121,12 @@ class Booking {
     this.refundAmount,
     this.addressNeedsUpdate = false,
     this.updatedAt,
+    this.quoteStatus,
+    this.quotedAmount,
+    this.quoteNote,
+    this.acceptedAmount,
+    this.quoteHistory = const [],
+    this.quoteUpdatedAt,
   });
 
   final String id, customerId, providerId, serviceName, customerName, address;
@@ -138,6 +146,14 @@ class Booking {
   final String? cardLast4, cancellationReason;
   final double? cancellationFee, refundAmount;
   final bool addressNeedsUpdate;
+
+  /// Provider quote flow. `quoteStatus` is null for bookings made before
+  /// quotes existed; those keep the price they were created with.
+  final QuoteStatus? quoteStatus;
+  final double? quotedAmount, acceptedAmount;
+  final String? quoteNote;
+  final List<QuoteEntry> quoteHistory;
+  final DateTime? quoteUpdatedAt;
   final BookingStatus status;
   final DateTime? scheduledAt,
       createdAt,
@@ -206,6 +222,12 @@ class Booking {
     refundAmount: _money(data['refundAmount']),
     addressNeedsUpdate: data['addressNeedsUpdate'] == true,
     updatedAt: _date(data['updatedAt']),
+    quoteStatus: QuoteStatus.parse(data['quoteStatus']),
+    quotedAmount: _money(data['quotedAmount']),
+    quoteNote: _optional(data['quoteNote']),
+    acceptedAmount: _money(data['acceptedAmount']),
+    quoteHistory: QuoteEntry.listFrom(data['quoteHistory']),
+    quoteUpdatedAt: _date(data['quoteUpdatedAt']),
   );
 
   Map<String, dynamic> toMap() => {
@@ -257,6 +279,15 @@ class Booking {
     'refundAmount': refundAmount,
     'addressNeedsUpdate': addressNeedsUpdate,
     'updatedAt': _stamp(updatedAt),
+    if (quoteStatus != null) ...{
+      'quoteStatus': quoteStatus!.name,
+      'quoteCurrency': QuoteInput.currency,
+      'quotedAmount': quotedAmount,
+      'quoteNote': quoteNote,
+      'acceptedAmount': acceptedAmount,
+      'quoteHistory': [for (final entry in quoteHistory) entry.toMap()],
+      'quoteUpdatedAt': _stamp(quoteUpdatedAt),
+    },
   };
 
   /// `BK-78924`; falls back to a short form of the document ID.
@@ -267,8 +298,65 @@ class Booking {
     return 'BK-${short.toUpperCase()}';
   }
 
-  /// What the customer was or will be charged.
-  double get chargeTotal => totalAmount ?? estimatedPrice ?? 0;
+  /// True once this booking uses the quote flow.
+  bool get usesQuotes => quoteStatus != null;
+
+  /// The price both sides agreed to, or null while there is none. Bookings
+  /// made before quotes existed keep the price they were created with.
+  double? get approvedAmount {
+    if (acceptedAmount != null) return acceptedAmount;
+    if (usesQuotes) return null;
+    final legacy = totalAmount ?? estimatedPrice;
+    return legacy != null && legacy > 0 ? legacy : null;
+  }
+
+  /// What the customer was or will be charged: the approved price, never an
+  /// estimate. Zero until a quote is accepted.
+  double get chargeTotal =>
+      approvedAmount ?? (usesQuotes ? 0 : totalAmount ?? estimatedPrice ?? 0);
+
+  /// A quote (or a revised quote) is waiting for the customer.
+  bool get awaitingCustomer => quoteStatus == QuoteStatus.quoted;
+
+  /// The waiting quote replaces an amount the customer already approved.
+  bool get isRevision => awaitingCustomer && acceptedAmount != null;
+
+  /// The customer said no to a revision; the earlier amount still stands.
+  bool get revisionDeclined =>
+      quoteStatus == QuoteStatus.declined && acceptedAmount != null;
+
+  /// The provider may send (or re-send) a first quote.
+  bool get canSendQuote =>
+      status == BookingStatus.pending &&
+      !awaitingCustomer &&
+      quoteStatus != QuoteStatus.accepted;
+
+  /// The provider may change the price of a confirmed job.
+  bool get canReviseQuote =>
+      status == BookingStatus.confirmed && !awaitingCustomer;
+
+  /// Old requests (made before quotes) can still be accepted directly. New
+  /// ones are confirmed when the customer accepts the quote.
+  bool get canAcceptWithoutQuote =>
+      status == BookingStatus.pending && !usesQuotes;
+
+  /// The customer can answer the quote now.
+  bool get canAnswerQuote =>
+      awaitingCustomer &&
+      (status == BookingStatus.pending || status == BookingStatus.confirmed);
+
+  /// Why the job cannot be marked complete yet, or null when it can.
+  String? get completionBlocker {
+    if (awaitingCustomer) {
+      return 'Wait for the customer to answer your quote before completing '
+          'this job.';
+    }
+    if (approvedAmount == null) {
+      return 'This job has no approved price yet. Send a quote and wait for '
+          'the customer to accept it.';
+    }
+    return null;
+  }
 
   /// Card/online payments are captured up front and held in escrow.
   bool get isPrepaid =>
@@ -306,6 +394,14 @@ class Booking {
             target == BookingStatus.completed);
     if (!valid) {
       throw StateError('This job has changed. Refresh and try again.');
+    }
+    if (target == BookingStatus.confirmed && usesQuotes) {
+      throw StateError(
+        'Send a quote. The job is confirmed when the customer accepts it.',
+      );
+    }
+    if (target == BookingStatus.completed && completionBlocker != null) {
+      throw StateError(completionBlocker!);
     }
     if (status == BookingStatus.pending &&
         target == BookingStatus.confirmed &&

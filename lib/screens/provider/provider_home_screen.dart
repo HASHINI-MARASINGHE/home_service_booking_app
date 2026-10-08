@@ -139,7 +139,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                                 return;
                               }
                               setState(() {
-                                if (item.type == AppNotification.reviewType) {
+                                if (item.type == AppNotification.reviewType ||
+                                    item.type == AppNotification.quoteType) {
                                   _selectedId = item.bookingId;
                                   _payment = false;
                                 } else {

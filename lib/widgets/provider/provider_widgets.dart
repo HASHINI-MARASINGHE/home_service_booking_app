@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../../l10n/app_localizations_en.dart';
 import '../../l10n/l10n_context.dart';
 import '../../models/booking.dart';
+import '../../models/booking_price.dart';
 import '../../screens/provider/provider_theme.dart';
 import '../../theme/app_theme.dart';
 import '../common/app_buttons.dart';
@@ -12,7 +13,7 @@ import '../common/empty_state.dart';
 import '../common/status_chip.dart';
 
 String money(double? value) {
-  if (value == null) return 'Not provided';
+  if (value == null) return 'No price yet';
   final parts = value
       .toStringAsFixed(value == value.roundToDouble() ? 0 : 2)
       .split('.');
@@ -245,10 +246,7 @@ class BookingTile extends StatelessWidget {
           spacing: 16,
           children: [
             Text(
-              switch (booking.totalAmount ?? booking.estimatedPrice) {
-                final amount? => money(amount),
-                null => context.l10n.notProvided,
-              },
+              BookingPrice.forProvider(booking),
               style: const TextStyle(
                 color: ProviderTheme.teal,
                 fontWeight: FontWeight.w700,

@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// An in-app notification addressed to exactly one user (`recipientId`).
-/// Today the only type is `review`: a customer reviewed the recipient's job.
+/// Types: `review`, `dispute`, `verification` and `quote` (a price was sent,
+/// revised, accepted or declined on one of the recipient's bookings).
 class AppNotification {
   const AppNotification({
     required this.id,
@@ -22,6 +23,7 @@ class AppNotification {
 
   static const reviewType = 'review';
   static const disputeType = 'dispute';
+  static const quoteType = 'quote';
 
   static AppNotification? fromMap(String id, Map<String, dynamic> data) {
     final recipientId = data['recipientId'];
