@@ -175,9 +175,12 @@ void main() {
             expect(style.fontSize, greaterThanOrEqualTo(14));
           }
         }
-        expect(si.textTheme.bodyMedium!.height, 1.75);
-        expect(si.textTheme.titleLarge!.height, 1.6);
-        expect(en.textTheme.bodyMedium!.height, lessThan(1.75));
+        // Style guide: body 18/28 in English and 18/32 in Sinhala, section
+        // titles 24/32 and 24/40.
+        expect(si.textTheme.bodyMedium!.height, closeTo(32 / 18, 0.001));
+        expect(si.textTheme.titleLarge!.height, closeTo(40 / 24, 0.001));
+        expect(en.textTheme.bodyMedium!.height, closeTo(28 / 18, 0.001));
+        expect(en.textTheme.titleLarge!.height, closeTo(32 / 24, 0.001));
       },
     );
   });
@@ -226,7 +229,7 @@ void main() {
 
   group('Customer Home', () {
     testWidgets('English text and the switch are shown', (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
+      tester.view.physicalSize = const Size(390, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(_app(_customerHome()));
@@ -240,7 +243,7 @@ void main() {
     testWidgets('Sinhala replaces the home text without a restart', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(390, 844);
+      tester.view.physicalSize = const Size(390, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(_app(_customerHome(), locale: _si));

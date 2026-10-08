@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n_context.dart';
-import '../../../theme/customer_home_theme.dart';
+import '../../../theme/app_theme.dart';
 import '../../../widgets/common/app_bottom_nav.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 class CustomerAvatar extends StatelessWidget {
   const CustomerAvatar({super.key, required this.photoUrl, this.radius = 28});
@@ -15,13 +16,9 @@ class CustomerAvatar extends StatelessWidget {
     final url = photoUrl?.trim() ?? '';
     return CircleAvatar(
       radius: radius,
-      backgroundColor: CustomerHomeTheme.mint,
+      backgroundColor: AppColors.brand100,
       child: url.isEmpty
-          ? Icon(
-              Icons.person,
-              color: CustomerHomeTheme.primary,
-              size: radius * 1.05,
-            )
+          ? Icon(Icons.person, color: AppColors.brand700, size: radius * 1.05)
           : ClipOval(
               child: Image.network(
                 url,
@@ -30,7 +27,7 @@ class CustomerAvatar extends StatelessWidget {
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Icon(
                   Icons.person,
-                  color: CustomerHomeTheme.primary,
+                  color: AppColors.brand700,
                   size: radius * 1.05,
                 ),
               ),
@@ -61,46 +58,33 @@ class _CustomerSearchBarState extends State<CustomerSearchBar> {
   void _clear() {
     _controller.clear();
     widget.onChanged?.call('');
+    setState(() {});
   }
 
   @override
-  Widget build(BuildContext context) => TextField(
-    key: const ValueKey('provider-search'),
-    controller: _controller,
-    onChanged: (text) {
-      setState(() {});
-      widget.onChanged?.call(text);
-    },
-    textInputAction: TextInputAction.search,
-    style: const TextStyle(fontSize: 16),
-    decoration: InputDecoration(
-      hintText: context.l10n.searchHint,
-      hintStyle: const TextStyle(
-        color: CustomerHomeTheme.mutedText,
-        fontSize: 15,
-      ),
-      prefixIcon: const Icon(Icons.search, color: CustomerHomeTheme.primary),
-      suffixIcon: _controller.text.isEmpty
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AppTextField(
+      fieldKey: const ValueKey('provider-search'),
+      controller: _controller,
+      label: l10n.searchLabel,
+      hintText: l10n.searchHint,
+      prefixIcon: Icons.search,
+      textInputAction: TextInputAction.search,
+      onChanged: (text) {
+        setState(() {});
+        widget.onChanged?.call(text);
+      },
+      suffix: _controller.text.isEmpty
           ? null
           : IconButton(
               key: const ValueKey('clear-search'),
-              tooltip: context.l10n.clearSearch,
+              tooltip: l10n.clearSearch,
               icon: const Icon(Icons.close_rounded),
               onPressed: _clear,
             ),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(vertical: 16),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: CustomerHomeTheme.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: CustomerHomeTheme.primary),
-      ),
-    ),
-  );
+    );
+  }
 }
 
 class CustomerBottomNavigation extends StatelessWidget {

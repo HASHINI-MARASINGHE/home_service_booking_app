@@ -14,9 +14,10 @@ class AppNavItem {
   final int badge;
 }
 
-/// Bottom navigation from the design (Nav/Customer, Nav/Provider): every tab
-/// is a round icon button with its label underneath. The selected tab turns
-/// mint green with a green ring, a bold green label and a green icon.
+/// Bottom navigation (Nav/Customer, Nav/Provider): every tab is an icon with
+/// its label always shown underneath (14 px bold, an icon alone is not
+/// enough). The selected tab has a pale blue pill behind the icon and a blue
+/// label.
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({
     super.key,
@@ -71,14 +72,25 @@ class AppBottomNav extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: const BoxDecoration(
       color: AppColors.surface,
-      border: Border(top: BorderSide(color: AppColors.border)),
-      boxShadow: AppShadows.card,
+      border: Border(
+        top: BorderSide(
+          color: AppColors.borderSubtle,
+          width: AppSizes.borderControl,
+        ),
+      ),
+      boxShadow: AppShadows.bar,
     ),
     child: SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xs,
+          AppSpacing.xs,
+          AppSpacing.xs,
+          AppSpacing.space1,
+        ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (var i = 0; i < items.length; i++)
               Expanded(
@@ -106,11 +118,6 @@ class _NavButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _selectedFill = Color(0xFFE6F8EF);
-  static const _selectedRing = Color(0xFFA9E9C9);
-  static const _idleFill = Color(0xFFF4F6FA);
-  static const _idleRing = Color(0xFFE3E7EF);
-
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
@@ -118,10 +125,11 @@ class _NavButton extends StatelessWidget {
     label: item.label,
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderRadius: AppRadius.button,
       child: ExcludeSemantics(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
+          // The bar is 72 px tall in all: this plus its padding.
+          constraints: const BoxConstraints(minHeight: AppSizes.nav - 14),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -130,41 +138,32 @@ class _NavButton extends StatelessWidget {
                 label: Text('${item.badge}'),
                 backgroundColor: AppColors.danger,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  width: 44,
-                  height: 44,
+                  duration: AppMotion.duration(context),
+                  curve: AppMotion.curve,
+                  width: 64,
+                  height: 36,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? _selectedFill : _idleFill,
-                    border: Border.all(
-                      color: selected ? _selectedRing : _idleRing,
-                    ),
+                    borderRadius: AppRadius.chip,
+                    color: selected ? AppColors.brand100 : Colors.transparent,
                   ),
                   child: Icon(
                     item.icon,
-                    size: 21,
-                    color: selected ? AppColors.primary : AppColors.muted,
+                    size: AppSizes.iconNav - 2,
+                    color: selected ? AppColors.brand700 : AppColors.ink3,
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.space1),
+              // Labels are always shown, 14 px bold. A long label wraps.
               Text(
                 item.label,
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style:
-                    (Theme.of(context).textTheme.bodyMedium ??
-                            const TextStyle())
-                        .copyWith(
-                          fontSize: 14,
-                          height: 1.2,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: selected ? AppColors.primary : AppColors.muted,
-                        ),
+                style: context.textStyles.caption.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: selected ? AppColors.primary : AppColors.muted,
+                ),
               ),
             ],
           ),

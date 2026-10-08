@@ -292,7 +292,7 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
-                  height: 92,
+                  height: 104,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _days.length,
@@ -604,7 +604,7 @@ class _PromiseCard extends StatelessWidget {
         ),
         Text(
           '100% Guaranteed',
-          style: TextStyle(color: CustomerHomeTheme.mutedText, fontSize: 13.5),
+          style: TextStyle(color: CustomerHomeTheme.mutedText, fontSize: 14),
         ),
       ],
     ),
@@ -707,7 +707,7 @@ class _ServiceCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CustomerHomeTheme.mutedText,
-                    fontSize: 13.5,
+                    fontSize: 14,
                   ),
                 ),
               ],
@@ -719,7 +719,7 @@ class _ServiceCard extends StatelessWidget {
             'Change',
             style: TextStyle(
               color: CustomerHomeTheme.primary,
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -770,7 +770,7 @@ class _ProviderCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CustomerHomeTheme.mutedText,
-                    fontSize: 13.5,
+                    fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -781,7 +781,7 @@ class _ProviderCard extends StatelessWidget {
                             '${p.completedJobs} jobs',
                   style: const TextStyle(
                     color: CustomerHomeTheme.primary,
-                    fontSize: 13.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -836,54 +836,57 @@ class _DayChip extends StatelessWidget {
                     : CustomerHomeTheme.border,
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  Formatters.weekdayShort(date),
-                  style: TextStyle(
-                    color: selected
-                        ? Colors.white
-                        : CustomerHomeTheme.mutedText,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    Formatters.weekdayShort(date),
+                    style: TextStyle(
+                      color: selected
+                          ? Colors.white
+                          : CustomerHomeTheme.mutedText,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${date.day}',
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    decoration: enabled ? null : TextDecoration.lineThrough,
+                  const SizedBox(height: 2),
+                  Text(
+                    '${date.day}',
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      decoration: enabled ? null : TextDecoration.lineThrough,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                isToday
-                    ? Text(
-                        'TODAY',
-                        style: TextStyle(
-                          color: selected
-                              ? Colors.white
-                              : CustomerHomeTheme.mutedText,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
+                  const SizedBox(height: 2),
+                  isToday
+                      ? Text(
+                          'Today',
+                          style: TextStyle(
+                            color: selected
+                                ? Colors.white
+                                : CustomerHomeTheme.mutedText,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: enabled
+                                ? (selected
+                                      ? Colors.white
+                                      : CustomerHomeTheme.primary)
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      )
-                    : Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: enabled
-                              ? (selected
-                                    ? Colors.white
-                                    : CustomerHomeTheme.primary)
-                              : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -997,7 +1000,7 @@ class _SlotRow extends StatelessWidget {
                           _subtitle,
                           style: const TextStyle(
                             color: CustomerHomeTheme.mutedText,
-                            fontSize: 13.5,
+                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -1074,7 +1077,7 @@ class _LocationCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: CustomerHomeTheme.mutedText,
-                        fontSize: 13.5,
+                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1143,7 +1146,7 @@ class _TotalCard extends StatelessWidget {
                     'after inspection.',
           style: const TextStyle(
             color: CustomerHomeTheme.mutedText,
-            fontSize: 13,
+            fontSize: 14,
           ),
         ),
       ],
@@ -1178,7 +1181,7 @@ class _PaymentCard extends StatelessWidget {
                 'No payment is taken now.',
                 style: TextStyle(
                   color: CustomerHomeTheme.mutedText,
-                  fontSize: 13.5,
+                  fontSize: 14,
                 ),
               ),
             ],

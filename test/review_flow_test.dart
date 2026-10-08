@@ -31,8 +31,7 @@ class _Auth extends Fake implements FirebaseAuth {}
 class _Firestore extends Fake implements FirebaseFirestore {}
 
 class _ProviderService extends ProviderBookingService {
-  _ProviderService(this.review)
-    : super(auth: _Auth(), firestore: _Firestore());
+  _ProviderService(this.review) : super(auth: _Auth(), firestore: _Firestore());
   final Review? review;
 
   @override
@@ -185,16 +184,23 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('YOUR REVIEW'), findsOneWidget);
-      expect(find.text('"Arrived on time and left the place spotless."'),
-          findsOneWidget);
+      expect(
+        find.text('"Arrived on time and left the place spotless."'),
+        findsOneWidget,
+      );
+      await tester.scrollUntilVisible(
+        find.text('View Your Review'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('View Your Review'), findsOneWidget);
     });
   });
 
   group('customer edits and deletes their review', () {
-    FakeBookingService reviewed({int rating = 4}) => FakeBookingService(
-      bookings: [booking(status: BookingStatus.completed)],
-    )..reviews['b1'] = sampleReview(rating: rating);
+    FakeBookingService reviewed({int rating = 4}) =>
+        FakeBookingService(bookings: [booking(status: BookingStatus.completed)])
+          ..reviews['b1'] = sampleReview(rating: rating);
 
     Future<void> open(WidgetTester tester, FakeBookingService service) =>
         pumpCustomer(

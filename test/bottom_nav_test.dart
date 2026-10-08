@@ -21,9 +21,7 @@ void main() {
     testWidgets('shows Home, Bookings, Saved, Profile with the design icons', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        host(AppBottomNav.customerItems, 0, (_) {}),
-      );
+      await tester.pumpWidget(host(AppBottomNav.customerItems, 0, (_) {}));
       for (final label in ['Home', 'Bookings', 'Saved', 'Profile']) {
         expect(find.text(label), findsOneWidget);
       }
@@ -43,7 +41,9 @@ void main() {
       final idle = tester.widget<Text>(find.text('Home'));
       expect(selected.style!.fontWeight, FontWeight.w700);
       expect(selected.style!.color, AppColors.primary);
-      expect(idle.style!.fontWeight, FontWeight.w500);
+      // Labels are always bold (14 px); the selected tab differs by color,
+      // ring and fill.
+      expect(idle.style!.fontWeight, FontWeight.w700);
       expect(idle.style!.color, AppColors.muted);
       expect(
         tester.getSemantics(find.text('Bookings')),
@@ -69,26 +69,27 @@ void main() {
   });
 
   group('provider navigation (Nav/Provider)', () {
-    testWidgets('shows Leads, My Jobs, Earnings, Profile with the design icons', (
-      tester,
-    ) async {
-      await tester.pumpWidget(host(AppBottomNav.providerItems, 2, (_) {}));
-      for (final label in ['Leads', 'My Jobs', 'Earnings', 'Profile']) {
-        expect(find.text(label), findsOneWidget);
-      }
-      for (final icon in [
-        LucideIcons.house,
-        LucideIcons.calendar,
-        LucideIcons.wallet,
-        LucideIcons.user,
-      ]) {
-        expect(find.byIcon(icon), findsOneWidget);
-      }
-      expect(
-        tester.widget<Text>(find.text('Earnings')).style!.fontWeight,
-        FontWeight.w700,
-      );
-    });
+    testWidgets(
+      'shows Leads, My Jobs, Earnings, Profile with the design icons',
+      (tester) async {
+        await tester.pumpWidget(host(AppBottomNav.providerItems, 2, (_) {}));
+        for (final label in ['Leads', 'My Jobs', 'Earnings', 'Profile']) {
+          expect(find.text(label), findsOneWidget);
+        }
+        for (final icon in [
+          LucideIcons.house,
+          LucideIcons.calendar,
+          LucideIcons.wallet,
+          LucideIcons.user,
+        ]) {
+          expect(find.byIcon(icon), findsOneWidget);
+        }
+        expect(
+          tester.widget<Text>(find.text('Earnings')).style!.fontWeight,
+          FontWeight.w700,
+        );
+      },
+    );
   });
 
   testWidgets('tabs stay tappable (48px+) and fit a narrow phone', (

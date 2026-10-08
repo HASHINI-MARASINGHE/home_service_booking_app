@@ -130,7 +130,7 @@ class _NotificationTile extends StatelessWidget {
                       dateLabel(context, item.createdAt),
                       style: const TextStyle(
                         color: ProviderTheme.muted,
-                        fontSize: 12.5,
+                        fontSize: 14,
                       ),
                     ),
                   ],

@@ -122,5 +122,30 @@
   "viewRequest": "View request",
   "viewDetails": "View details",
   "notProvided": "Not provided",
-  "notScheduled": "Not scheduled"
+  "notScheduled": "Not scheduled",
+  "textSizeLabel": "Text size",
+  "textSizeNormal": "Normal",
+  "textSizeLarge": "Large",
+  "textSizeExtraLarge": "Extra large",
+  "searchLabel": "Search",
+  "verifiedBadge": "Verified",
+  "fromPrice": "From {amount}",
+  "@fromPrice": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "ratingSemantics": "Rated {rating} out of 5",
+  "@ratingSemantics": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      }
+    }
+  },
+  "selectedLabel": "Selected",
+  "emptyProvidersTitle": "No providers found",
+  "loadErrorTitle": "Did not work"
 }

@@ -255,7 +255,7 @@ class _RescheduleBookingScreenState extends State<RescheduleBookingScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   SizedBox(
-                    height: 84,
+                    height: 104,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       clipBehavior: Clip.none,
@@ -427,48 +427,51 @@ class _DateCard extends StatelessWidget {
           onTap: onTap,
           child: SizedBox(
             width: 64,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  Formatters.weekdayShort(date),
-                  style: TextStyle(
-                    color: selected ? Colors.white : AppColors.muted,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    Formatters.weekdayShort(date),
+                    style: TextStyle(
+                      color: selected ? Colors.white : AppColors.muted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${date.day}',
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    decoration: available ? null : TextDecoration.lineThrough,
+                  const SizedBox(height: 2),
+                  Text(
+                    '${date.day}',
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      decoration: available ? null : TextDecoration.lineThrough,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                isToday
-                    ? Text(
-                        'TODAY',
-                        style: TextStyle(
-                          color: selected ? Colors.white : AppColors.muted,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w700,
+                  const SizedBox(height: 2),
+                  isToday
+                      ? Text(
+                          'Today',
+                          style: TextStyle(
+                            color: selected ? Colors.white : AppColors.muted,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: available
+                                ? (selected ? Colors.white : AppColors.primary)
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      )
-                    : Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: available
-                              ? (selected ? Colors.white : AppColors.primary)
-                              : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

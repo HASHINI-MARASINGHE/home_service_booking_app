@@ -1,84 +1,26 @@
 import 'package:flutter/material.dart';
 
-abstract final class ProviderTheme {
-  static const muted = Color(0xFF64748B);
-  static const teal = Color(0xFF0F766E);
-  static const surface = Color(0xFFFFFFFF);
-  static const navy = Color(0xFF0F172A);
-  static const body = Color(0xFF111827);
-  static const background = Color(0xFFF8FAFC);
-  static const tealLight = Color(0xFFE6F6F4);
-  static const border = Color(0xFFE2E8F0);
-  static const orangeBorder = Color(0xFFFED7AA);
-  static const warningBackground = Color(0xFFFFF7ED);
-  static const grey = Color(0xFF6B7280);
-  static const orange = Color(0xFFC2410C);
-  static const green = Color(0xFF15803D);
-  static const red = Color(0xFFB91C1C);
+import '../../theme/app_theme.dart';
 
-  static ThemeData get data => ThemeData(
-    useMaterial3: true,
-    scaffoldBackgroundColor: background,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: teal,
-      primary: teal,
-      surface: surface,
-      error: red,
-    ),
-    textTheme: const TextTheme(
-      headlineSmall: TextStyle(
-        color: navy,
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-      ),
-      titleLarge: TextStyle(
-        color: navy,
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-      ),
-      titleMedium: TextStyle(
-        color: navy,
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-      ),
-      bodyMedium: TextStyle(color: body, fontSize: 14),
-      bodySmall: TextStyle(color: muted, fontSize: 12),
-    ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: background,
-      foregroundColor: navy,
-      centerTitle: true,
-      scrolledUnderElevation: 0,
-      titleTextStyle: TextStyle(
-        color: navy,
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: surface,
-      indicatorColor: tealLight,
-      labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(fontSize: 12, color: muted),
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: surface,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    ),
-    dividerTheme: const DividerThemeData(color: border),
-  );
+/// Older color names used by the provider screens. They now point at the
+/// style guide colors in [AppColors]; new code should use those directly.
+/// (`teal` and `tealLight` keep their names but are the brand blue.)
+abstract final class ProviderTheme {
+  static const muted = AppColors.ink3;
+  static const teal = AppColors.brand700;
+  static const surface = AppColors.surface;
+  static const navy = AppColors.ink;
+  static const body = AppColors.ink;
+  static const background = AppColors.bg;
+  static const tealLight = AppColors.brand100;
+  static const border = AppColors.borderSubtle;
+  static const orangeBorder = AppColors.warningSolid;
+  static const warningBackground = AppColors.warningSoft;
+  static const grey = AppColors.neutralText;
+  static const orange = AppColors.warningText;
+  static const green = AppColors.successSolid;
+  static const red = AppColors.errorSolid;
+
+  /// Same theme as the rest of the app.
+  static ThemeData get data => AppTheme.light;
 }

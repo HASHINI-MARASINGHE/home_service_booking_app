@@ -253,4 +253,41 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get notScheduled => 'කාලසටහන් කර නැත';
+
+  @override
+  String get textSizeLabel => 'අකුරු ප්‍රමාණය';
+
+  @override
+  String get textSizeNormal => 'සාමාන්‍ය';
+
+  @override
+  String get textSizeLarge => 'විශාල';
+
+  @override
+  String get textSizeExtraLarge => 'ඉතා විශාල';
+
+  @override
+  String get searchLabel => 'සොයන්න';
+
+  @override
+  String get verifiedBadge => 'තහවුරු කළ';
+
+  @override
+  String fromPrice(String amount) {
+    return '$amount සිට';
+  }
+
+  @override
+  String ratingSemantics(String rating) {
+    return '5 න් $rating ක් ඇගයීම';
+  }
+
+  @override
+  String get selectedLabel => 'තෝරාගත්';
+
+  @override
+  String get emptyProvidersTitle => 'සේවා සපයන්නන් හමු නොවීය';
+
+  @override
+  String get loadErrorTitle => 'සාර්ථක නොවීය';
 }

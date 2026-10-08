@@ -6,6 +6,10 @@ import '../../l10n/app_localizations_en.dart';
 import '../../l10n/l10n_context.dart';
 import '../../models/booking.dart';
 import '../../screens/provider/provider_theme.dart';
+import '../../theme/app_theme.dart';
+import '../common/app_buttons.dart';
+import '../common/empty_state.dart';
+import '../common/status_chip.dart';
 
 String money(double? value) {
   if (value == null) return 'Not provided';
@@ -54,19 +58,16 @@ class ProviderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 14),
-    padding: const EdgeInsets.all(16),
+    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+    padding: const EdgeInsets.all(AppSpacing.md),
     decoration: BoxDecoration(
       color: color,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: ProviderTheme.border),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x060F172A),
-          blurRadius: 12,
-          offset: Offset(0, 4),
-        ),
-      ],
+      borderRadius: AppRadius.card,
+      border: Border.all(
+        color: ProviderTheme.border,
+        width: AppSizes.borderControl,
+      ),
+      boxShadow: AppShadows.soft,
     ),
     child: child,
   );
@@ -83,24 +84,9 @@ class ProviderEmpty extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => ProviderCard(
-    child: Column(
-      children: [
-        Icon(icon, size: 36, color: ProviderTheme.teal),
-        const SizedBox(height: 12),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: ProviderTheme.muted),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+    child: EmptyState(title: title, message: message, icon: icon),
   );
 }
 
@@ -131,41 +117,35 @@ class ProviderFailure extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
+          AppPrimaryButton(
+            label: context.l10n.retry,
+            onPressed: onRetry,
+            expand: false,
+          ),
         ],
       ),
     ),
   );
 }
 
+/// A booking status as a [StatusChip]: icon shape, word and color together.
 class BookingBadge extends StatelessWidget {
   const BookingBadge({super.key, required this.status});
   final BookingStatus status;
 
   @override
-  Widget build(BuildContext context) {
-    final color = switch (status) {
-      BookingStatus.pending => ProviderTheme.teal,
-      BookingStatus.confirmed || BookingStatus.completed => ProviderTheme.green,
-      BookingStatus.declined => ProviderTheme.red,
-      _ => ProviderTheme.grey,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Text(
-        status.localizedLabel(context.l10n),
-        style: TextStyle(
-          color: color,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => StatusChip(
+    type: switch (status) {
+      BookingStatus.pending => StatusType.warning,
+      BookingStatus.confirmed ||
+      BookingStatus.onTheWay ||
+      BookingStatus.inProgress => StatusType.info,
+      BookingStatus.completed => StatusType.success,
+      BookingStatus.declined => StatusType.error,
+      BookingStatus.cancelled || BookingStatus.unknown => StatusType.neutral,
+    },
+    label: status.localizedLabel(context.l10n),
+  );
 }
 
 class DetailRow extends StatelessWidget {

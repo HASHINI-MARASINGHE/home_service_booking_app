@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
+
 abstract final class OnboardingStyle {
-  static const teal = Color(0xFF0F766E);
-  static const navy = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const background = Color(0xFFF8FAFC);
-  static const white = Color(0xFFFFFFFF);
-  static const lightTeal = Color(0xFFE6F6F4);
-  static const border = Color(0xFFE2E8F0);
+  static const teal = AppColors.brand700; // the brand blue now
+  static const navy = AppColors.ink;
+  static const muted = AppColors.ink3;
+  static const background = AppColors.bg;
+  static const white = AppColors.surface;
+  static const lightTeal = AppColors.brand100; // soft blue now
+  static const border = AppColors.borderSubtle;
 
   // Scoped to onboarding; existing authentication/customer/provider styling
   // and components retain their current behavior.
@@ -73,7 +75,7 @@ class OnboardingPage extends StatelessWidget {
                   border: Border.all(color: OnboardingStyle.border),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x0A0F172A),
+                      color: AppColors.shadow,
                       blurRadius: 20,
                       offset: Offset(0, 8),
                     ),
@@ -179,7 +181,7 @@ class _ExperienceCard extends StatelessWidget {
       border: Border.all(color: OnboardingStyle.border),
       boxShadow: const [
         BoxShadow(
-          color: Color(0x080F172A),
+          color: AppColors.shadow,
           blurRadius: 12,
           offset: Offset(0, 5),
         ),
@@ -241,7 +243,7 @@ class _ExperienceCard extends StatelessWidget {
                           steps[index].$2,
                           style: const TextStyle(
                             color: OnboardingStyle.navy,
-                            fontSize: 12,
+                            fontSize: 14,
                             height: 1.45,
                             fontWeight: FontWeight.w500,
                           ),

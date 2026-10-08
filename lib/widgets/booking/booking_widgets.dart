@@ -118,7 +118,7 @@ class StatusTimeline extends StatelessWidget {
                     overflow: TextOverflow.visible,
                     softWrap: false,
                     style: AppTypography.caption.copyWith(
-                      fontSize: 12,
+                      fontSize: 14,
                       color: i <= current ? AppColors.primary : AppColors.muted,
                       fontWeight: i <= current
                           ? FontWeight.w700

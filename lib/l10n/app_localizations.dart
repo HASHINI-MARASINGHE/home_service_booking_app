@@ -505,6 +505,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not scheduled'**
   String get notScheduled;
+
+  /// No description provided for @textSizeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Text size'**
+  String get textSizeLabel;
+
+  /// No description provided for @textSizeNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get textSizeNormal;
+
+  /// No description provided for @textSizeLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get textSizeLarge;
+
+  /// No description provided for @textSizeExtraLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra large'**
+  String get textSizeExtraLarge;
+
+  /// No description provided for @searchLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get searchLabel;
+
+  /// No description provided for @verifiedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get verifiedBadge;
+
+  /// No description provided for @fromPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'From {amount}'**
+  String fromPrice(String amount);
+
+  /// No description provided for @ratingSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Rated {rating} out of 5'**
+  String ratingSemantics(String rating);
+
+  /// No description provided for @selectedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get selectedLabel;
+
+  /// No description provided for @emptyProvidersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No providers found'**
+  String get emptyProvidersTitle;
+
+  /// No description provided for @loadErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Did not work'**
+  String get loadErrorTitle;
 }
 
 class _AppLocalizationsDelegate

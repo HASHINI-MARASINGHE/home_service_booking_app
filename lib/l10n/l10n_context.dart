@@ -41,3 +41,15 @@ extension BookingStatusL10n on BookingStatus {
     BookingStatus.unknown => l10n.statusUnknown,
   };
 }
+
+/// A rupee amount with Western digits, like `Rs. 2,500` (or `Rs. 2,500.50`).
+String rupees(double value) {
+  final parts = value
+      .toStringAsFixed(value == value.roundToDouble() ? 0 : 2)
+      .split('.');
+  final digits = parts.first.replaceAllMapped(
+    RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+    (match) => '${match[1]},',
+  );
+  return 'Rs. $digits${parts.length > 1 ? '.${parts.last}' : ''}';
+}

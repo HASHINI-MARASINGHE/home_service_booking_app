@@ -469,7 +469,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Flexible(
           child: Text(
             'Your details are protected',
-            style: TextStyle(color: AuthColors.secondary, fontSize: 12.5),
+            style: TextStyle(color: AuthColors.secondary, fontSize: 14),
           ),
         ),
       ],

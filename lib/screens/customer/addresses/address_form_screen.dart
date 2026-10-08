@@ -322,7 +322,7 @@ class _MapPreview extends StatelessWidget {
           colors: [
             AppColors.surfaceLavender,
             AppColors.surfaceLavender,
-            Color(0xFFA9ADBF),
+            AppColors.borderSubtle,
           ],
           stops: [0, 0.45, 1],
         ),

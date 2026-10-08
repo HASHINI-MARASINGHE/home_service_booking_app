@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../../l10n/l10n_context.dart';
 import '../../models/app_user.dart';
 import '../../models/booking.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/common/language_switch.dart';
+import '../../widgets/common/motion_widgets.dart';
+import '../../widgets/common/text_size_selector.dart';
 import '../../widgets/provider/provider_widgets.dart';
-import 'provider_theme.dart';
 
 class ProviderDashboardScreen extends StatelessWidget {
   const ProviderDashboardScreen({
@@ -49,18 +51,18 @@ class ProviderDashboardScreen extends StatelessWidget {
     final l10n = context.l10n;
     return ProviderPage(
       children: [
+        // Two choices for language, three for text size.
         const LanguageSwitch(),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.sm),
+        const TextSizeSelector(),
+        const SizedBox(height: AppSpacing.md),
         Text(
           l10n.providerGreeting(user.name),
           style: Theme.of(context).textTheme.headlineSmall,
         ),
-        const SizedBox(height: 6),
-        Text(
-          l10n.providerTagline,
-          style: const TextStyle(color: ProviderTheme.muted),
-        ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.space1),
+        Text(l10n.providerTagline, style: context.textStyles.bodySmall),
+        const SizedBox(height: AppSpacing.xl),
         Row(
           children: [
             Expanded(
@@ -70,7 +72,7 @@ class ProviderDashboardScreen extends StatelessWidget {
                 icon: Icons.notifications_none,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: _Stat(
                 label: l10n.todaysJobs,
@@ -95,9 +97,11 @@ class ProviderDashboardScreen extends StatelessWidget {
             icon: Icons.event_available_outlined,
           )
         else
-          BookingTile(
-            booking: upcoming.first,
-            onTap: () => onOpen(upcoming.first),
+          FadeSlideIn(
+            child: BookingTile(
+              booking: upcoming.first,
+              onTap: () => onOpen(upcoming.first),
+            ),
           ),
         // A Wrap so the title and button stack instead of overflowing when
         // the text is long (Sinhala) or large.
@@ -121,7 +125,13 @@ class ProviderDashboardScreen extends StatelessWidget {
         else
           ...requests
               .take(3)
-              .map((b) => BookingTile(booking: b, onTap: () => onOpen(b))),
+              .indexed
+              .map(
+                (r) => FadeSlideIn(
+                  index: r.$1,
+                  child: BookingTile(booking: r.$2, onTap: () => onOpen(r.$2)),
+                ),
+              ),
       ],
     );
   }
@@ -137,11 +147,11 @@ class _Stat extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: ProviderTheme.teal),
-        const SizedBox(height: 12),
+        Icon(icon, color: AppColors.brand700, size: AppSizes.iconNav),
+        const SizedBox(height: AppSpacing.sm),
         Text(value, style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: ProviderTheme.muted)),
+        const SizedBox(height: AppSpacing.space1),
+        Text(label, style: context.textStyles.bodySmall),
       ],
     ),
   );
