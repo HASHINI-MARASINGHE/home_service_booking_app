@@ -394,7 +394,6 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                   const SizedBox(height: 12),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: CustomerHomeTheme.border),
                       boxShadow: const [
@@ -405,7 +404,11 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                         ),
                       ],
                     ),
-                    child: Column(
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
                       children: [
                         ListTile(
                           contentPadding: const EdgeInsets.symmetric(
@@ -546,6 +549,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                       ],
                     ),
                   ),
+                ),
                   const SizedBox(height: AppSpacing.xl),
                   const Text(
                     'Data & Privacy Settings',
@@ -558,7 +562,6 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                   const SizedBox(height: 12),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: CustomerHomeTheme.border),
                       boxShadow: const [
@@ -569,7 +572,11 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                         ),
                       ],
                     ),
-                    child: Column(
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
                       children: [
                         SwitchListTile(
                           contentPadding: const EdgeInsets.symmetric(
@@ -629,6 +636,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                       ],
                     ),
                   ),
+                ),
                   const SizedBox(height: AppSpacing.xxl),
                   // Danger Zone - Delete Account
                   Container(

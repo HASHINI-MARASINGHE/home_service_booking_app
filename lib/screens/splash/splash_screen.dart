@@ -90,138 +90,149 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFAFCFF),
-              Colors.white,
-              Color(0xFFF6F9FD),
-            ],
-            stops: [0.0, 0.5, 1.0],
+      backgroundColor: const Color(0xFFF6F9FD),
+      body: SizedBox.expand(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFAFCFF),
+                Colors.white,
+                Color(0xFFF6F9FD),
+              ],
+              stops: [0.0, 0.5, 1.0],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Spacer(flex: 3),
-                          // Animated Center Logo & Wordmark
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: ScaleTransition(
-                              scale: _scaleAnimation,
-                              child: const HomeCareLogo(
-                                markSize: 56,
-                                titleSize: 32,
-                                showTagline: true,
-                                taglineSize: 11,
-                                showCard: true,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 38),
-                          // Subtle loading progress indicator
-                          FadeTransition(
-                            opacity: _fadeAnimation,
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Center(
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                        maxWidth: 480,
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: IntrinsicHeight(
                             child: Column(
-                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                SizedBox(
-                                  width: 140,
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: AnimatedBuilder(
-                                      animation: _progressAnimation,
-                                      builder: (context, _) {
-                                        return LinearProgressIndicator(
-                                          value: _progressAnimation.value < 0.05
-                                              ? null
-                                              : _progressAnimation.value,
-                                          minHeight: 3.2,
-                                          backgroundColor: AppColors.brand100
-                                              .withValues(alpha: 0.7),
-                                          valueColor:
-                                              const AlwaysStoppedAnimation<Color>(
-                                            AppColors.brand700,
+                                const Spacer(flex: 3),
+                                // Animated Center Logo & Wordmark
+                                FadeTransition(
+                                  opacity: _fadeAnimation,
+                                  child: ScaleTransition(
+                                    scale: _scaleAnimation,
+                                    child: const HomeCareLogo(
+                                      markSize: 56,
+                                      titleSize: 32,
+                                      showTagline: true,
+                                      taglineSize: 11,
+                                      showCard: true,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 38),
+                                // Subtle loading progress indicator
+                                FadeTransition(
+                                  opacity: _fadeAnimation,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 140,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: AnimatedBuilder(
+                                            animation: _progressAnimation,
+                                            builder: (context, _) {
+                                              return LinearProgressIndicator(
+                                                value: _progressAnimation.value < 0.05
+                                                    ? null
+                                                    : _progressAnimation.value,
+                                                minHeight: 3.2,
+                                                backgroundColor: AppColors.brand100
+                                                    .withValues(alpha: 0.7),
+                                                valueColor:
+                                                    const AlwaysStoppedAnimation<Color>(
+                                                  AppColors.brand700,
+                                                ),
+                                              );
+                                            },
                                           ),
-                                        );
-                                      },
-                                    ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      const Text(
+                                        'INITIALIZING',
+                                        style: TextStyle(
+                                          color: AppColors.ink3,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 2.0,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 14),
-                                const Text(
-                                  'INITIALIZING',
-                                  style: TextStyle(
-                                    color: AppColors.ink3,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 2.0,
+                                const Spacer(flex: 4),
+                                // Bottom trust & brand message
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 20,
+                                          height: 20,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.brand50,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: AppColors.brand700
+                                                  .withValues(alpha: 0.25),
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            LucideIcons.shieldCheck,
+                                            color: AppColors.brand700,
+                                            size: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Verified Technicians • Sri Lanka',
+                                          style: TextStyle(
+                                            color: AppColors.ink2,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: -0.1,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const Spacer(flex: 4),
-                          // Bottom trust & brand message
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.brand50,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: AppColors.brand700
-                                          .withValues(alpha: 0.25),
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    LucideIcons.shieldCheck,
-                                    color: AppColors.brand700,
-                                    size: 12,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Verified Technicians • Sri Lanka',
-                                  style: TextStyle(
-                                    color: AppColors.ink2,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

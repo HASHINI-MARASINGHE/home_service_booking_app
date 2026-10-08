@@ -856,7 +856,6 @@ class _ProfileGroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: CustomerHomeTheme.border),
         boxShadow: const [
@@ -867,7 +866,12 @@ class _ProfileGroupCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(children: children),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: children),
+      ),
     );
   }
 }
@@ -895,8 +899,10 @@ class _ActionTile extends StatelessWidget {
     final effectiveIconColor = iconColor ?? CustomerHomeTheme.primary;
     final isDanger = iconColor == Colors.red;
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
       leading: Container(
         width: 40,
         height: 40,
@@ -955,7 +961,8 @@ class _ActionTile extends StatelessWidget {
         ],
       ),
       onTap: onTap,
-    );
+    ),
+  );
   }
 }
 

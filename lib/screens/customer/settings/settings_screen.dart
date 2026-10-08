@@ -251,7 +251,6 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: CustomerHomeTheme.border),
         boxShadow: const [
@@ -262,7 +261,12 @@ class _SettingsCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(children: children),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: children),
+      ),
     );
   }
 }
@@ -285,64 +289,67 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: const BoxDecoration(
-          color: CustomerHomeTheme.mint,
-          shape: BoxShape.circle,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: const BoxDecoration(
+            color: CustomerHomeTheme.mint,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: CustomerHomeTheme.primary, size: 21),
         ),
-        child: Icon(icon, color: CustomerHomeTheme.primary, size: 21),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: CustomerHomeTheme.text,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 2),
-        child: Text(
-          subtitle,
+        title: Text(
+          title,
           style: const TextStyle(
-            color: CustomerHomeTheme.mutedText,
-            fontSize: 13,
+            color: CustomerHomeTheme.text,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
           ),
         ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (trailingBadge != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.brand100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                trailingBadge!,
-                style: const TextStyle(
-                  color: CustomerHomeTheme.primaryDark,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            subtitle,
+            style: const TextStyle(
+              color: CustomerHomeTheme.mutedText,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (trailingBadge != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.brand100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  trailingBadge!,
+                  style: const TextStyle(
+                    color: CustomerHomeTheme.primaryDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
+              const SizedBox(width: 6),
+            ],
+            const Icon(
+              Icons.chevron_right,
+              color: CustomerHomeTheme.mutedText,
+              size: 20,
             ),
-            const SizedBox(width: 6),
           ],
-          const Icon(
-            Icons.chevron_right,
-            color: CustomerHomeTheme.mutedText,
-            size: 20,
-          ),
-        ],
+        ),
+        onTap: onTap,
       ),
-      onTap: onTap,
     );
   }
 }
