@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/customer_home_theme.dart';
+import '../../../utils/validators.dart';
 
 class PaymentMethodItem {
   PaymentMethodItem({
@@ -217,6 +219,9 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
               TextFormField(
                 controller: nameCtrl,
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(Validators.maxName),
+                ],
                 decoration: InputDecoration(
                   labelText: 'Cardholder Name',
                   hintText: 'e.g. John Doe',
@@ -229,13 +234,17 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                   if (val == null || val.trim().isEmpty) {
                     return 'Cardholder name is required.';
                   }
-                  return null;
+                  return Validators.name(val, label: 'cardholder name');
                 },
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: numberCtrl,
                 keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                  LengthLimitingTextInputFormatter(23),
+                ],
                 decoration: InputDecoration(
                   labelText: 'Card Number',
                   hintText: '1234 5678 9012 3456',
@@ -246,7 +255,9 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                 ),
                 validator: (val) {
                   final clean = (val ?? '').replaceAll(' ', '');
-                  if (clean.length < 15 || clean.length > 19) {
+                  if (!RegExp(r'^\d+$').hasMatch(clean) ||
+                      clean.length < 15 ||
+                      clean.length > 19) {
                     return 'Enter a valid 16-digit card number.';
                   }
                   return null;
@@ -259,6 +270,10 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                     child: TextFormField(
                       controller: expiryCtrl,
                       keyboardType: TextInputType.datetime,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
+                        LengthLimitingTextInputFormatter(5),
+                      ],
                       decoration: InputDecoration(
                         labelText: 'Expiry (MM/YY)',
                         hintText: '09/28',
@@ -268,10 +283,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                         ),
                       ),
                       validator: (val) {
-                        if (val == null || !RegExp(r'^\d{2}\/\d{2}$').hasMatch(val.trim())) {
-                          return 'Format MM/YY';
-                        }
-                        return null;
+                        return Validators.cardExpiry(val, DateTime.now());
                       },
                     ),
                   ),
@@ -281,6 +293,10 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                       controller: cvvCtrl,
                       obscureText: true,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
                       decoration: InputDecoration(
                         labelText: 'CVV',
                         hintText: '123',
@@ -291,7 +307,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                       ),
                       validator: (val) {
                         final clean = (val ?? '').trim();
-                        if (clean.length < 3 || clean.length > 4) {
+                        if (!RegExp(r'^\d{3,4}$').hasMatch(clean)) {
                           return '3-4 digits';
                         }
                         return null;

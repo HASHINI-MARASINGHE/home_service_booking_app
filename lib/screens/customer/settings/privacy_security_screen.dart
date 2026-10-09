@@ -5,6 +5,7 @@ import '../../../services/auth_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/customer_home_theme.dart';
+import '../../../utils/validators.dart';
 
 class PrivacySecurityScreen extends StatefulWidget {
   const PrivacySecurityScreen({
@@ -145,6 +146,9 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     validator: (val) {
                       if (val == null || val.length < 6) {
                         return 'At least 6 characters required.';
+                      }
+                      if (val.length > Validators.maxPassword) {
+                        return 'Use at most ${Validators.maxPassword} characters.';
                       }
                       return null;
                     },

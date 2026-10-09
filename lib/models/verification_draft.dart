@@ -1,3 +1,4 @@
+import '../utils/validators.dart';
 import '../services/document_picker.dart';
 import 'provider_verification.dart';
 
@@ -32,17 +33,14 @@ class VerificationDraft {
   static const maxCertificates = 5;
 
   // ------------------------------------------------------------ validators
-  static String? nameError(String? v) =>
-      (v ?? '').trim().length < 2 ? 'Enter your full name.' : null;
+  static String? nameError(String? v) => (v ?? '').trim().length < 2
+      ? 'Enter your full name.'
+      : Validators.name(v, label: 'full name');
 
   static bool _blank(String? v) => (v ?? '').trim().isEmpty;
 
   static String? phoneError(String? v) {
-    if (_blank(v) && !requireEverything) return null;
-    return RegExp(r'^\+?\d{9,15}$')
-            .hasMatch((v ?? '').replaceAll(RegExp(r'[\s-]'), ''))
-        ? null
-        : 'Enter a valid phone number.';
+    return Validators.phone(v, required: true);
   }
 
   static String? professionError(String? v) => _blank(v) && requireEverything

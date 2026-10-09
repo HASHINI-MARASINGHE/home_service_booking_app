@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/app_user.dart';
+import '../../utils/validators.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common/homecare_logo.dart';
 import 'admin_login_screen.dart';
@@ -215,10 +217,15 @@ class _AuthFormState extends State<AuthForm> {
                             autofillHints: const [AutofillHints.name],
                             textCapitalization: TextCapitalization.words,
                             textInputAction: TextInputAction.next,
+                            inputFormatters: [
+                              LengthLimitingTextInputFormatter(
+                                Validators.maxName,
+                              ),
+                            ],
                             validator: (value) =>
-                                value == null || value.trim().isEmpty
+                                (value ?? '').trim().isEmpty
                                 ? 'Enter your name.'
-                                : null,
+                                : Validators.name(value),
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -233,14 +240,13 @@ class _AuthFormState extends State<AuthForm> {
                           autofillHints: const [AutofillHints.email],
                           autocorrect: false,
                           textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            final email = value?.trim() ?? '';
-                            if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-                                .hasMatch(email)) {
-                              return 'Enter a valid email address.';
-                            }
-                            return null;
-                          },
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(Validators.maxEmail),
+                          ],
+                          validator: (value) =>
+                              Validators.email(value) == null
+                              ? null
+                              : 'Enter a valid email address.',
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -259,14 +265,18 @@ class _AuthFormState extends State<AuthForm> {
                                 : AutofillHints.password,
                           ],
                           onFieldSubmitted: (_) => _submit(),
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(
+                              Validators.maxPassword,
+                            ),
+                          ],
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Enter your password.';
                             }
-                            if (widget.register && value.length < 6) {
-                              return 'Use at least 6 characters.';
-                            }
-                            return null;
+                            return widget.register
+                                ? Validators.password(value)
+                                : null;
                           },
                         ),
                         if (!widget.register)
