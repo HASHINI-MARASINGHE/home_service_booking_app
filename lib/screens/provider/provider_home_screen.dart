@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n_context.dart';
 import '../../models/app_user.dart';
 import '../../models/app_notification.dart';
@@ -11,6 +13,7 @@ import '../../services/auth_service.dart';
 import '../../services/provider_booking_service.dart';
 import '../../services/provider_notification_service.dart';
 import '../../services/provider_profile_service.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/locale_typography.dart';
 import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/provider/provider_widgets.dart';
@@ -89,6 +92,35 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     _jobsTab = status == BookingStatus.confirmed ? 1 : 2;
   });
 
+  /// One of the four tab pages (not a job or the notifications list).
+  bool get _onTabPage => _selectedId == null && !_notifications;
+
+  /// Notifications and the provider's profile, at the right of the header.
+  List<Widget> _tabActions(AppLocalizations l10n) => [
+    IconButton(
+      key: const ValueKey('header-bell'),
+      tooltip: l10n.titleNotifications,
+      icon: const Icon(LucideIcons.bell),
+      onPressed: () => setState(() {
+        _section = 3;
+        _notifications = true;
+      }),
+    ),
+    Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.xs),
+      child: IconButton(
+        key: const ValueKey('header-profile'),
+        tooltip: l10n.navProfile,
+        style: IconButton.styleFrom(
+          backgroundColor: AppColors.brand900,
+          foregroundColor: Colors.white,
+        ),
+        icon: const Icon(LucideIcons.user, size: 20),
+        onPressed: () => setState(() => _section = 3),
+      ),
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) => Theme(
     // The style guide theme with the font and line heights of the language.
@@ -104,6 +136,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           child: BrandShell(
             child: Scaffold(
               appBar: AppBar(
+                // The four tab pages: title on the left, then the bell and the
+                // provider's profile on the right.
+                centerTitle: _onTabPage ? false : null,
+                actions: _onTabPage ? _tabActions(l10n) : null,
                 title: Text(
                   _selectedId != null
                       ? (_payment ? l10n.titleJobPayment : l10n.titleJobDetails)
@@ -233,6 +269,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                             _ => ProviderEarningsScreen(
                               bookings: bookings,
                               onOpen: _open,
+                              onExploreLeads: () =>
+                                  setState(() => _section = 0),
                             ),
                           };
                         },
