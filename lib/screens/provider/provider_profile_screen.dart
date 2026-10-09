@@ -34,6 +34,7 @@ class ProviderProfileScreen extends StatefulWidget {
     this.verificationStatus,
     this.verification,
     this.onOpenVerification,
+    this.onSelectTab,
   });
   final AppUser user;
   final AuthService authService;
@@ -48,6 +49,7 @@ class ProviderProfileScreen extends StatefulWidget {
   final VerificationStatus? verificationStatus;
   final ProviderVerification? verification;
   final VoidCallback? onOpenVerification;
+  final ValueChanged<int>? onSelectTab;
   @override
   State<ProviderProfileScreen> createState() => _ProviderProfileScreenState();
 }
@@ -138,7 +140,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               onTap: widget.onOpenNotifications,
             ),
           if (widget.verificationStatus == VerificationStatus.verified)
-            const _DisputesEntry(),
+            _DisputesEntry(onSelectTab: widget.onSelectTab),
           _CredentialsCard(
             phone: _value(profile.phone),
             profession: _value(profile.profession),
@@ -531,7 +533,8 @@ class _NotificationsEntryState extends State<_NotificationsEntry> {
 
 /// Opens the list of disputes filed about this provider's jobs.
 class _DisputesEntry extends StatelessWidget {
-  const _DisputesEntry();
+  const _DisputesEntry({this.onSelectTab});
+  final ValueChanged<int>? onSelectTab;
 
   @override
   Widget build(BuildContext context) {
@@ -541,16 +544,21 @@ class _DisputesEntry extends StatelessWidget {
       label: 'My disputes',
       child: GestureDetector(
         key: const ValueKey('profile-nav-disputes'),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => Theme(
-              data: ProviderTheme.data,
-              child: const BrandShell(
-                child: MyDisputesScreen(asProvider: true),
+        onTap: () async {
+          final target = await Navigator.of(context).push<int>(
+            MaterialPageRoute<int>(
+              builder: (_) => Theme(
+                data: ProviderTheme.data,
+                child: const BrandShell(
+                  child: MyDisputesScreen(asProvider: true),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+          if (target != null) {
+            onSelectTab?.call(target);
+          }
+        },
         behavior: HitTestBehavior.opaque,
         child: Container(
           margin: const EdgeInsets.only(bottom: AppSpacing.sm),

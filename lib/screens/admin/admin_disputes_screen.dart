@@ -6,14 +6,20 @@ import '../../services/admin_service.dart';
 import '../../services/app_error.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_search_bar.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../customer/disputes/dispute_widgets.dart';
 
 /// The safety desk's list of disputes: Pending, Under Review and Resolved.
 class AdminDisputesScreen extends StatefulWidget {
-  const AdminDisputesScreen({super.key, required this.service});
+  const AdminDisputesScreen({
+    super.key,
+    required this.service,
+    this.onSelectTab,
+  });
   final AdminService service;
+  final ValueChanged<int>? onSelectTab;
 
   @override
   State<AdminDisputesScreen> createState() => _AdminDisputesScreenState();
@@ -227,14 +233,20 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
                           separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
                           itemBuilder: (context, i) => _DisputeTile(
                             dispute: filteredItems[i],
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => AdminDisputeScreen(
-                                  service: widget.service,
-                                  disputeId: filteredItems[i].id,
+                            onTap: () async {
+                              final target =
+                                  await Navigator.of(context).push<int>(
+                                MaterialPageRoute<int>(
+                                  builder: (_) => AdminDisputeScreen(
+                                    service: widget.service,
+                                    disputeId: filteredItems[i].id,
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                              if (target != null && target != 2) {
+                                widget.onSelectTab?.call(target);
+                              }
+                            },
                           ),
                         ),
                 ),
@@ -410,6 +422,11 @@ class AdminDisputeScreen extends StatelessWidget {
           return _DisputeBody(service: service, dispute: dispute);
         },
       ),
+    ),
+    bottomNavigationBar: AppBottomNav(
+      items: AppBottomNav.localizedAdminItems(context),
+      selectedIndex: 2,
+      onSelected: (index) => Navigator.of(context).pop(index),
     ),
   );
 }

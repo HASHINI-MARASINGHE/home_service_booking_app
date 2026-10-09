@@ -161,19 +161,29 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     ? (_notifications
                           ? ProviderNotificationsScreen(
                               service: _notificationService,
-                              onOpen: (item) {
+                              onOpen: (item) async {
                                 if (item.type == AppNotification.disputeType) {
                                   // A dispute about one of this provider's jobs.
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
+                                  final target =
+                                      await Navigator.of(context).push<int>(
+                                    MaterialPageRoute<int>(
                                       builder: (_) => Theme(
                                         data: ProviderTheme.data,
                                         child: ProviderDisputeScreen(
                                           bookingId: item.bookingId,
+                                          selectedIndex: 3,
                                         ),
                                       ),
                                     ),
                                   );
+                                  if (target != null && mounted) {
+                                    setState(() {
+                                      _section = target;
+                                      _selectedId = null;
+                                      _payment = false;
+                                      _notifications = false;
+                                    });
+                                  }
                                   return;
                                 }
                                 setState(() {
@@ -197,6 +207,12 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                               verification: widget.verification,
                               onOpenNotifications: () =>
                                   setState(() => _notifications = true),
+                              onSelectTab: (index) => setState(() {
+                                _section = index;
+                                _selectedId = null;
+                                _payment = false;
+                                _notifications = false;
+                              }),
                             ))
                     : StreamBuilder<List<Booking>>(
                         stream: _bookings,

@@ -57,6 +57,34 @@ class AppBottomNav extends StatelessWidget {
     ];
   }
 
+  /// Admin tabs: Providers, Ratings, Disputes, Profile.
+  static const adminItems = [
+    AppNavItem(icon: LucideIcons.shieldCheck, label: 'Providers'),
+    AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
+    AppNavItem(icon: LucideIcons.triangleAlert, label: 'Disputes'),
+    AppNavItem(icon: LucideIcons.user, label: 'Profile'),
+  ];
+
+  /// [adminItems] with optional pending/disputes counts.
+  static List<AppNavItem> localizedAdminItems(
+    BuildContext context, {
+    int pending = 0,
+    int disputes = 0,
+  }) => [
+    AppNavItem(
+      icon: LucideIcons.shieldCheck,
+      label: 'Providers',
+      badge: pending,
+    ),
+    const AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
+    AppNavItem(
+      icon: LucideIcons.triangleAlert,
+      label: 'Disputes',
+      badge: disputes,
+    ),
+    const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
+  ];
+
   /// [providerItems] with the labels in the current language.
   static List<AppNavItem> localizedProviderItems(BuildContext context) {
     final l10n = context.l10n;

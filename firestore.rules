@@ -36,7 +36,7 @@ service cloud.firestore {
 
     // ------------------------------------------------------------------ users
     match /users/{uid} {
-      allow read: if isUser(uid);
+      allow read: if isUser(uid) || isAdmin();
       allow create: if isUser(uid) &&
         request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'role', 'photoUrl']) &&
         request.resource.data.uid == uid &&
@@ -475,7 +475,8 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
       allow read: if signedIn() &&
-        (resource.data.customerId == request.auth.uid ||
+        (isAdmin() ||
+         resource.data.customerId == request.auth.uid ||
          (resource.data.providerId == request.auth.uid && providerSignedIn()));
       allow update: if providerQuote() ||
         customerQuoteAnswer() ||

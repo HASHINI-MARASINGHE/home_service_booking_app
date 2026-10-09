@@ -37,6 +37,17 @@ class _ProviderNotificationsScreenState
     if (mounted) widget.onOpen(item);
   }
 
+  Future<void> _markRead(List<AppNotification> items) async {
+    try {
+      await widget.service.markAllRead(items.map((n) => n.id));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not mark as read. Try again.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => StreamBuilder<List<AppNotification>>(
     stream: _items,
@@ -52,8 +63,26 @@ class _ProviderNotificationsScreenState
         return const Center(child: CircularProgressIndicator());
       }
       final items = snapshot.data!;
+      final unread = items.where((n) => !n.read).toList();
       return ProviderPage(
         children: [
+          if (items.isNotEmpty)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    unread.isEmpty ? 'All caught up' : '${unread.length} unread',
+                    style: const TextStyle(color: ProviderTheme.muted),
+                  ),
+                ),
+                TextButton.icon(
+                  key: const ValueKey('mark-all-read'),
+                  onPressed: unread.isEmpty ? null : () => _markRead(unread),
+                  icon: const Icon(Icons.done_all_rounded, size: 18),
+                  label: const Text('Mark all as read'),
+                ),
+              ],
+            ),
           if (items.isEmpty)
             const ProviderEmpty(
               title: 'No notifications yet',
@@ -61,7 +90,11 @@ class _ProviderNotificationsScreenState
                   'Quotes, reviews and updates about your jobs will show here.',
             ),
           for (final item in items)
-            _NotificationTile(item: item, onTap: () => _tap(item)),
+            _NotificationTile(
+              item: item,
+              onTap: () => _tap(item),
+              onMarkRead: () => _markRead([item]),
+            ),
         ],
       );
     },
@@ -69,9 +102,13 @@ class _ProviderNotificationsScreenState
 }
 
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.item, required this.onTap});
+  const _NotificationTile({
+    required this.item,
+    required this.onTap,
+    required this.onMarkRead,
+  });
   final AppNotification item;
-  final VoidCallback onTap;
+  final VoidCallback onTap, onMarkRead;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -144,15 +181,29 @@ class _NotificationTile extends StatelessWidget {
                 ),
               ),
               if (!item.read)
-                Container(
-                  key: const ValueKey('unread-dot'),
-                  margin: const EdgeInsets.only(top: 6, left: 8),
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: ProviderTheme.teal,
-                    shape: BoxShape.circle,
-                  ),
+                Column(
+                  children: [
+                    Container(
+                      key: const ValueKey('unread-dot'),
+                      margin: const EdgeInsets.only(top: 6, left: 8, bottom: 2),
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: ProviderTheme.teal,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    IconButton(
+                      key: const ValueKey('mark-read'),
+                      tooltip: 'Mark as read',
+                      onPressed: onMarkRead,
+                      icon: const Icon(
+                        Icons.check_rounded,
+                        size: 20,
+                        color: ProviderTheme.teal,
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),

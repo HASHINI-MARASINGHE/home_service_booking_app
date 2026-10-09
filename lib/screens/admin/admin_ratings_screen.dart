@@ -8,6 +8,7 @@ import '../../models/service_category.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_search_bar.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../../widgets/common/review_widgets.dart';
@@ -218,6 +219,11 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
             ),
           ),
           body: SafeArea(child: content),
+          bottomNavigationBar: AppBottomNav(
+            items: AppBottomNav.localizedAdminItems(context),
+            selectedIndex: 1,
+            onSelected: (i) => Navigator.of(context).pop(i),
+          ),
         );
       }
       return content;
@@ -740,6 +746,11 @@ class _AdminProviderReviewsScreenState
             );
           },
         ),
+      ),
+      bottomNavigationBar: AppBottomNav(
+        items: AppBottomNav.localizedAdminItems(context),
+        selectedIndex: 1,
+        onSelected: (index) => Navigator.of(context).pop(index),
       ),
     );
   }

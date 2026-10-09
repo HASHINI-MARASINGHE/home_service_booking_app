@@ -7,6 +7,7 @@ import '../../services/admin_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_widgets.dart';
 
 /// One provider's submission: everything they sent, with the admin's actions
@@ -240,6 +241,11 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
               ),
           ],
         ),
+      ),
+      bottomNavigationBar: AppBottomNav(
+        items: AppBottomNav.localizedAdminItems(context),
+        selectedIndex: 0,
+        onSelected: (index) => Navigator.of(context).pop(index),
       ),
     );
   }
