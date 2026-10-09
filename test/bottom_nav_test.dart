@@ -92,6 +92,30 @@ void main() {
     );
   });
 
+  group('admin navigation (Nav/Admin)', () {
+    testWidgets(
+      'shows Providers, Ratings, Disputes, Profile with the design icons',
+      (tester) async {
+        await tester.pumpWidget(host(AppBottomNav.adminItems, 2, (_) {}));
+        for (final label in ['Providers', 'Ratings', 'Disputes', 'Profile']) {
+          expect(find.text(label), findsOneWidget);
+        }
+        for (final icon in [
+          LucideIcons.shieldCheck,
+          LucideIcons.star,
+          LucideIcons.triangleAlert,
+          LucideIcons.user,
+        ]) {
+          expect(find.byIcon(icon), findsOneWidget);
+        }
+        expect(
+          tester.widget<Text>(find.text('Disputes')).style!.fontWeight,
+          FontWeight.w700,
+        );
+      },
+    );
+  });
+
   testWidgets('tabs stay tappable (48px+) and fit a narrow phone', (
     tester,
   ) async {

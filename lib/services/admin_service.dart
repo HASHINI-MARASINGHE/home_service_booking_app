@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/app_user.dart';
+import '../models/booking.dart';
 import '../models/dispute.dart';
 import '../models/professional.dart';
 import '../models/provider_verification.dart';
@@ -17,6 +19,34 @@ class AdminService {
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _db;
+
+  // -------------------------------------------------------------- monitoring
+  /// Every customer account, live, A to Z.
+  Stream<List<AppUser>> watchCustomers() => _db
+      .collection('users')
+      .where('role', isEqualTo: AppUser.customerRole)
+      .snapshots()
+      .map((snapshot) {
+        final users = <AppUser>[];
+        for (final doc in snapshot.docs) {
+          try {
+            users.add(AppUser.fromMap(doc.id, doc.data()));
+          } on FormatException {
+            // Skip malformed profiles.
+          }
+        }
+        return users..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      });
+
+  /// The most recent bookings on the platform, live, newest first.
+  Stream<List<Booking>> watchAllBookings({int limit = 500}) => _db
+      .collection('bookings')
+      .orderBy('createdAt', descending: true)
+      .limit(limit)
+      .snapshots()
+      .map((snapshot) => [
+        for (final doc in snapshot.docs) Booking.fromMap(doc.id, doc.data()),
+      ]);
 
   /// First number of the public Provider ID range: HCP-1001, HCP-1002, ...
   static const providerCodeBase = 1000;

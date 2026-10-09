@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/dispute.dart';
 import '../../services/dispute_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/empty_state.dart';
 import '../customer/disputes/dispute_screen.dart';
 import '../provider/provider_dispute_screen.dart';
@@ -30,17 +31,25 @@ class _MyDisputesScreenState extends State<MyDisputesScreen> {
     asProvider: widget.asProvider,
   );
 
-  void _open(Dispute dispute) => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => widget.asProvider
-          // Keep the provider look on the screen opened from here.
-          ? Theme(
-              data: ProviderTheme.data,
-              child: ProviderDisputeScreen(bookingId: dispute.bookingId),
-            )
-          : DisputeScreen(bookingId: dispute.bookingId),
-    ),
-  );
+  Future<void> _open(Dispute dispute) async {
+    final target = await Navigator.of(context).push<int>(
+      MaterialPageRoute<int>(
+        builder: (_) => widget.asProvider
+            // Keep the provider look on the screen opened from here.
+            ? Theme(
+                data: ProviderTheme.data,
+                child: ProviderDisputeScreen(
+                  bookingId: dispute.bookingId,
+                  selectedIndex: 3,
+                ),
+              )
+            : DisputeScreen(bookingId: dispute.bookingId),
+      ),
+    );
+    if (target != null && mounted) {
+      Navigator.of(context).pop(target);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -119,6 +128,13 @@ class _MyDisputesScreenState extends State<MyDisputesScreen> {
         },
       ),
     ),
+    bottomNavigationBar: widget.asProvider
+        ? AppBottomNav(
+            items: AppBottomNav.localizedProviderItems(context),
+            selectedIndex: 3,
+            onSelected: (i) => Navigator.of(context).pop(i),
+          )
+        : null,
   );
 }
 
