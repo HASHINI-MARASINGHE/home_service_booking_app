@@ -244,7 +244,7 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
       ),
       bottomNavigationBar: AppBottomNav(
         items: AppBottomNav.localizedAdminItems(context),
-        selectedIndex: 0,
+        selectedIndex: 1,
         onSelected: (index) => Navigator.of(context).pop(index),
       ),
     );

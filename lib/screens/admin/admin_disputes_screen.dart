@@ -243,7 +243,7 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
                                   ),
                                 ),
                               );
-                              if (target != null && target != 2) {
+                              if (target != null && target != 3) {
                                 widget.onSelectTab?.call(target);
                               }
                             },
@@ -425,7 +425,7 @@ class AdminDisputeScreen extends StatelessWidget {
     ),
     bottomNavigationBar: AppBottomNav(
       items: AppBottomNav.localizedAdminItems(context),
-      selectedIndex: 2,
+      selectedIndex: 3,
       onSelected: (index) => Navigator.of(context).pop(index),
     ),
   );

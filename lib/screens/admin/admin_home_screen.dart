@@ -12,6 +12,7 @@ import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_search_bar.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../auth/logout_button.dart';
+import 'admin_dashboard_screen.dart';
 import 'admin_disputes_screen.dart';
 import 'admin_monitor_screen.dart';
 import 'admin_ratings_screen.dart';
@@ -77,10 +78,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     _tab == 0
-                        ? 'Providers'
+                        ? 'Home'
                         : _tab == 1
-                        ? 'Ratings'
+                        ? 'Providers'
                         : _tab == 2
+                        ? 'Ratings'
+                        : _tab == 3
                         ? 'Disputes'
                         : 'Profile',
                     style: const TextStyle(
@@ -101,13 +104,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
             body: SafeArea(
               child: _tab == 0
+                  ? AdminDashboardScreen(service: _service)
+                  : _tab == 1
                   ? AdminProvidersScreen(
                       service: _service,
                       onSelectTab: (index) => setState(() => _tab = index),
                     )
-                  : _tab == 1
-                  ? AdminRatingsScreen(service: _service)
                   : _tab == 2
+                  ? AdminRatingsScreen(service: _service)
+                  : _tab == 3
                   ? AdminDisputesScreen(
                       service: _service,
                       onSelectTab: (index) => setState(() => _tab = index),
@@ -116,7 +121,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       user: widget.user,
                       authService: widget.authService,
                       service: _service,
-                      onNavigateToRatings: () => setState(() => _tab = 1),
+                      onNavigateToRatings: () => setState(() => _tab = 2),
+                      onSelectTab: (index) => setState(() => _tab = index),
                     ),
             ),
             bottomNavigationBar: AppBottomNav(
@@ -380,7 +386,7 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                                   ),
                                 ),
                               );
-                              if (target != null && target != 0) {
+                              if (target != null && target != 1) {
                                 widget.onSelectTab?.call(target);
                               }
                             },
@@ -564,8 +570,10 @@ class AdminProfileScreen extends StatelessWidget {
     required this.authService,
     required this.service,
     this.onNavigateToRatings,
+    this.onSelectTab,
   });
 
+  final ValueChanged<int>? onSelectTab;
   final AppUser user;
   final AuthService authService;
   final AdminService service;
@@ -696,11 +704,14 @@ class AdminProfileScreen extends StatelessWidget {
       const SizedBox(height: AppSpacing.md),
       AppCard(
         key: const ValueKey('open-monitor'),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => AdminMonitorScreen(service: service),
-          ),
-        ),
+        onTap: () async {
+          final target = await Navigator.of(context).push<int>(
+            MaterialPageRoute<int>(
+              builder: (_) => AdminMonitorScreen(service: service),
+            ),
+          );
+          if (target != null && target != 4) onSelectTab?.call(target);
+        },
         padding: const EdgeInsets.all(AppSpacing.md),
         border: Border.all(color: AppColors.borderSubtle),
         child: Row(
