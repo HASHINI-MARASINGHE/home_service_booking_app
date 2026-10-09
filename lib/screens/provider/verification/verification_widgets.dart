@@ -68,7 +68,10 @@ class _VerificationDetailsFormState extends State<VerificationDetailsForm> {
         TextFormField(
           key: const ValueKey('detail-name'),
           controller: _name,
-          decoration: const InputDecoration(labelText: 'Full name'),
+          decoration: const InputDecoration(
+            labelText: 'Full name',
+            hintText: 'e.g. John Doe',
+          ),
           textCapitalization: TextCapitalization.words,
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.name],
@@ -878,7 +881,10 @@ class _ExperienceDialogState extends State<_ExperienceDialog> {
           TextField(
             key: const ValueKey('experience-title'),
             controller: _title,
-            decoration: const InputDecoration(labelText: 'Role / what you did'),
+            decoration: const InputDecoration(
+              labelText: 'Role / what you did',
+              hintText: 'e.g. Senior Electrician',
+            ),
             textCapitalization: TextCapitalization.sentences,
             onChanged: (_) => setState(() {}),
           ),
@@ -888,6 +894,7 @@ class _ExperienceDialogState extends State<_ExperienceDialog> {
             controller: _company,
             decoration: const InputDecoration(
               labelText: 'Company or place (optional)',
+              hintText: 'e.g. Lanka Electricity Co.',
             ),
             textCapitalization: TextCapitalization.words,
           ),
@@ -895,7 +902,10 @@ class _ExperienceDialogState extends State<_ExperienceDialog> {
           TextField(
             key: const ValueKey('experience-years'),
             controller: _years,
-            decoration: const InputDecoration(labelText: 'Years (optional)'),
+            decoration: const InputDecoration(
+              labelText: 'Years (optional)',
+              hintText: 'e.g. 3',
+            ),
             keyboardType: TextInputType.number,
           ),
         ],

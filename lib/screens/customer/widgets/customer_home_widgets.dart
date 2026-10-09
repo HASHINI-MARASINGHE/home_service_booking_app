@@ -25,6 +25,13 @@ class CustomerAvatar extends StatelessWidget {
                 width: radius * 2,
                 height: radius * 2,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : Icon(
+                        Icons.person,
+                        color: AppColors.brand700,
+                        size: radius * 1.05,
+                      ),
                 errorBuilder: (context, error, stackTrace) => Icon(
                   Icons.person,
                   color: AppColors.brand700,

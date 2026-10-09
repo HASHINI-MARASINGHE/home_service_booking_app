@@ -691,6 +691,7 @@ class _DisputeBodyState extends State<_DisputeBody> {
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: 'Refund amount (LKR)',
+                hintText: 'e.g. 1500',
                 helperText: d.amount == null
                     ? null
                     : 'Job total ${Formatters.lkr(d.amount)}',
