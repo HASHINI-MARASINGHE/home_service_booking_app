@@ -262,7 +262,23 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                         NotificationBell(service: widget.notifications!),
                         const SizedBox(width: AppSpacing.sm),
                       ],
-                      CustomerAvatar(photoUrl: user.photoUrl, radius: 24),
+                      // Opens the Profile tab, like the bottom navigation.
+                      Semantics(
+                        button: true,
+                        label: l10n.navProfile,
+                        excludeSemantics: true,
+                        child: InkResponse(
+                          key: const ValueKey('home-profile-avatar'),
+                          radius: 28,
+                          onTap: () => CustomerScope.of(
+                            context,
+                          ).selectTab(CustomerTab.profile),
+                          child: CustomerAvatar(
+                            photoUrl: user.photoUrl,
+                            radius: 24,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

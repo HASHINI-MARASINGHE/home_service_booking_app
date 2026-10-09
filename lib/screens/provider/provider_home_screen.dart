@@ -100,7 +100,17 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     IconButton(
       key: const ValueKey('header-bell'),
       tooltip: l10n.titleNotifications,
-      icon: const Icon(LucideIcons.bell),
+      icon: StreamBuilder<int>(
+        stream: _notificationService.watchUnreadCount(),
+        builder: (context, snapshot) {
+          final unread = snapshot.data ?? 0;
+          return Badge(
+            isLabelVisible: unread > 0,
+            label: Text(unread > 9 ? '9+' : '$unread'),
+            child: const Icon(LucideIcons.bell),
+          );
+        },
+      ),
       onPressed: () => setState(() {
         _section = 3;
         _notifications = true;
