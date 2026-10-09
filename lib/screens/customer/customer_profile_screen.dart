@@ -7,6 +7,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/customer_home_theme.dart';
 import '../../theme/text_size_controller.dart';
+import '../disputes/my_disputes_screen.dart';
 import 'addresses/my_addresses_screen.dart';
 import 'customer_scope.dart';
 import 'edit_profile_screen.dart';
@@ -164,7 +165,7 @@ class _ProfileContent extends StatelessWidget {
             '1. Services & Bookings\nHomeCare connects customers with independent service providers. By booking a service, you agree to provide safe access to the premises and accurate service descriptions.\n\n'
             '2. Pricing & Payments\nAll payments are calculated based on transparent standard rates and agreed line items. Cash on Service or in-app card payments are released upon customer confirmation of satisfactory job completion.\n\n'
             '3. Cancellation Policy\nFree cancellation is available up to 2 hours before the scheduled appointment time. Cancellations after provider dispatch may incur a nominal arrival fee.\n\n'
-            '4. Dispute Resolution\nDisputes must be reported within 48 hours of service completion via the booking history receipt.',
+            '4. Dispute Resolution\nDisputes must be reported within 3 days of service completion via the booking history receipt.',
             style: TextStyle(
               fontSize: 14,
               color: CustomerHomeTheme.text,
@@ -337,6 +338,7 @@ class _ProfileContent extends StatelessWidget {
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Password',
+                  hintText: '••••••••',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -498,6 +500,18 @@ class _ProfileContent extends StatelessWidget {
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const MyAddressesScreen(),
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 1, indent: 72, color: CustomerHomeTheme.border),
+                        _ActionTile(
+                          key: const ValueKey('profile-nav-disputes'),
+                          icon: Icons.gavel_outlined,
+                          title: isSinhala ? 'මගේ ආරවුල්' : 'My Disputes',
+                          subtitle: isSinhala ? 'ඔබේ ආරවුල්වල තත්ත්වය බලන්න' : 'Track the status of your disputes',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MyDisputesScreen(),
                             ),
                           ),
                         ),

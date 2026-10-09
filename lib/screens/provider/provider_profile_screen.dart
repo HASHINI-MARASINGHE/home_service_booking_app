@@ -19,6 +19,7 @@ import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import '../auth/logout_button.dart';
 import '../customer/settings/language_settings_screen.dart';
+import '../disputes/my_disputes_screen.dart';
 import '../customer/settings/text_size_settings_screen.dart';
 import 'provider_theme.dart';
 
@@ -136,6 +137,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               service: widget.notifications!,
               onTap: widget.onOpenNotifications,
             ),
+          if (widget.verificationStatus == VerificationStatus.verified)
+            const _DisputesEntry(),
           _CredentialsCard(
             phone: _value(profile.phone),
             profession: _value(profile.profession),
@@ -526,6 +529,72 @@ class _NotificationsEntryState extends State<_NotificationsEntry> {
   );
 }
 
+/// Opens the list of disputes filed about this provider's jobs.
+class _DisputesEntry extends StatelessWidget {
+  const _DisputesEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    final styles = context.textStyles;
+    return Semantics(
+      button: true,
+      label: 'My disputes',
+      child: GestureDetector(
+        key: const ValueKey('profile-nav-disputes'),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => Theme(
+              data: ProviderTheme.data,
+              child: const BrandShell(
+                child: MyDisputesScreen(asProvider: true),
+              ),
+            ),
+          ),
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: _profileCard(),
+          child: ExcludeSemantics(
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.brand50,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: const Icon(
+                    LucideIcons.scale,
+                    color: AppColors.brand700,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('My disputes', style: styles.label),
+                      Text(
+                        'Track disputes about your jobs',
+                        style: styles.caption,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(LucideIcons.chevronRight, color: AppColors.ink3),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The provider's details as a list of rows, like "Phone 0721515123".
 class _CredentialsCard extends StatelessWidget {
   const _CredentialsCard({
@@ -847,12 +916,14 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         _field(
           _phone,
           'Phone (optional)',
+          hint: '+94 77 123 4567',
           maxLength: 40,
           keyboard: TextInputType.phone,
         ),
         _field(
           _profession,
           'Profession',
+          hint: 'e.g. Plumber, Electrician',
           maxLength: 100,
           validator: (value) => value == null || value.trim().isEmpty
               ? 'Enter your profession.'
@@ -861,6 +932,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         _field(
           _experience,
           'Years of experience',
+          hint: 'e.g. 5',
           keyboard: TextInputType.number,
           validator: (value) {
             final years = int.tryParse(value?.trim() ?? '');
@@ -869,10 +941,17 @@ class _ProfileEditorState extends State<_ProfileEditor> {
                 : null;
           },
         ),
-        _field(_about, 'About', maxLength: 2000, lines: 4),
+        _field(
+          _about,
+          'About',
+          hint: 'Tell customers about your skills and experience',
+          maxLength: 2000,
+          lines: 4,
+        ),
         _field(
           _services,
           'Services (separate with commas)',
+          hint: 'e.g. Pipe Repair, Tap Installation',
           lines: 2,
           validator: (value) {
             final services = (value ?? '')
@@ -887,6 +966,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         _field(
           _pricing,
           'Starting price in LKR (optional)',
+          hint: 'e.g. 2500',
           keyboard: const TextInputType.numberWithOptions(decimal: true),
           validator: (value) {
             if (value == null || value.trim().isEmpty) return null;
@@ -930,6 +1010,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   Widget _field(
     TextEditingController controller,
     String label, {
+    String? hint,
     int? maxLength,
     int lines = 1,
     TextInputType? keyboard,
@@ -939,7 +1020,10 @@ class _ProfileEditorState extends State<_ProfileEditor> {
     child: TextFormField(
       controller: controller,
       enabled: !_saving,
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+      ),
       maxLength: maxLength,
       maxLines: lines,
       keyboardType: keyboard,

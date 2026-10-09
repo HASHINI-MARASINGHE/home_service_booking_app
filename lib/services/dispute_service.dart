@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/booking.dart';
@@ -76,6 +76,32 @@ class DisputeService {
       _dispute(bookingId)
           .snapshots()
           .map((doc) => Dispute.fromMap(doc.id, doc.data()));
+
+  /// Every dispute the signed-in user is part of, newest first. [asProvider]
+  /// lists the disputes about the provider's jobs instead of the customer's
+  /// own. Sorted here so no composite index is needed.
+  Stream<List<Dispute>> watchMyDisputes({bool asProvider = false}) {
+    final String uid;
+    try {
+      uid = _uid;
+    } on DisputeException catch (error) {
+      return Stream.error(error);
+    }
+    return _db
+        .collection('disputes')
+        .where(asProvider ? 'providerId' : 'customerId', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) {
+          final disputes = [
+            for (final doc in snapshot.docs) ?Dispute.fromMap(doc.id, doc.data()),
+          ]..sort((a, b) {
+              final x = a.createdAt, y = b.createdAt;
+              if (x == null || y == null) return x == null ? (y == null ? 0 : -1) : 1;
+              return y.compareTo(x);
+            });
+          return disputes;
+        });
+  }
 
   /// The dispute's photos, in the order they were added.
   Stream<List<DisputePhoto>> watchPhotos(String bookingId) =>
@@ -268,6 +294,9 @@ class DisputeService {
       batch.delete(
         _db.collection('notifications').doc('dispute_${dispute.id}'),
       );
+      batch.delete(
+        _db.collection('notifications').doc('dispute_${dispute.id}_response'),
+      );
       batch.delete(_dispute(dispute.id));
       await batch.commit();
     } on FirebaseException catch (error) {
@@ -277,8 +306,10 @@ class DisputeService {
 
   // --------------------------------------------------------------- respond
   /// The provider's answer to a dispute, allowed until the 24-hour deadline
-  /// and while the dispute is not yet decided. It can be edited until then.
-  // Provider response - saves provider's side of the story within the 24h window.
+  /// and while the dispute is not yet decided. It can be edited until then,
+  /// and notifies the customer of the response.
+  // Provider response - saves provider's side of the story within the 24h window
+  // and notifies the customer that a response has been provided.
   Future<void> respond({
     required Dispute dispute,
     required String response,
@@ -303,6 +334,26 @@ class DisputeService {
         'providerRespondedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      try {
+        await _db
+            .collection('notifications')
+            .doc('dispute_${dispute.id}_response')
+            .set({
+              'recipientId': dispute.customerId,
+              'senderId': _uid,
+              'type': 'dispute',
+              'bookingId': dispute.bookingId,
+              'title': 'Provider responded to dispute',
+              'body':
+                  'The provider responded regarding the problem reported on '
+                  '${dispute.serviceName.isEmpty ? 'your job' : dispute.serviceName} '
+                  '(#${dispute.bookingRef}).',
+              'read': false,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+      } catch (_) {
+        // Ignored if remote Firestore rules have not yet been deployed.
+      }
     } on FirebaseException catch (error) {
       throw _friendly(error);
     }

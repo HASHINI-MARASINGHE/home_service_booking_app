@@ -264,6 +264,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   labelText: 'Full name',
+                  hintText: 'e.g. John Doe',
                   prefixIcon: const Icon(Icons.badge_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -319,6 +320,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     labelText: 'New email',
+                    hintText: 'you@example.com',
                     prefixIcon: const Icon(Icons.alternate_email),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -332,6 +334,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Current password',
+                    hintText: '••••••••',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       tooltip: _obscurePassword

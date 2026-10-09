@@ -114,6 +114,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       enabled: !_busy,
                       decoration: const InputDecoration(
                         labelText: 'Username',
+                        hintText: 'admin',
                         prefixIcon: Icon(LucideIcons.user, size: 18),
                       ),
                       autocorrect: false,
@@ -129,6 +130,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       enabled: !_busy,
                       decoration: InputDecoration(
                         labelText: 'Password',
+                        hintText: '••••••••',
                         prefixIcon: const Icon(LucideIcons.lock, size: 18),
                         suffixIcon: IconButton(
                           icon: Icon(

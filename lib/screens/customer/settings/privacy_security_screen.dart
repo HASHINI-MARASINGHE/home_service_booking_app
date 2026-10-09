@@ -97,6 +97,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     obscureText: obscureCurrent,
                     decoration: InputDecoration(
                       labelText: 'Current password',
+                      hintText: '••••••••',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -125,6 +126,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     obscureText: obscureNew,
                     decoration: InputDecoration(
                       labelText: 'New password',
+                      hintText: '••••••••',
                       prefixIcon: const Icon(Icons.vpn_key_outlined),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -153,6 +155,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     obscureText: obscureConfirm,
                     decoration: InputDecoration(
                       labelText: 'Confirm new password',
+                      hintText: '••••••••',
                       prefixIcon: const Icon(Icons.check_circle_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -290,6 +293,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Password',
+                  hintText: '••••••••',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

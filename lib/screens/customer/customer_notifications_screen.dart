@@ -8,6 +8,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../../widgets/common/empty_state.dart';
 import 'bookings/booking_details_screen.dart';
+import 'disputes/dispute_screen.dart';
 
 /// The bell on the customer's Home screen, with the number of unread
 /// notifications. Opens [CustomerNotificationsScreen].
@@ -71,6 +72,14 @@ class _CustomerNotificationsScreenState
       }
     }
     if (!mounted || item.bookingId.isEmpty) return;
+    if (item.type == AppNotification.disputeType) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DisputeScreen(bookingId: item.bookingId),
+        ),
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BookingDetailsScreen(bookingId: item.bookingId),
@@ -105,7 +114,8 @@ class _CustomerNotificationsScreenState
                     child: EmptyState(
                       icon: LucideIcons.bell,
                       title: 'No notifications yet',
-                      message: 'Quotes from your providers will show here.',
+                      message:
+                          'Quotes and dispute updates from your providers will show here.',
                     ),
                   );
                 }
@@ -152,7 +162,9 @@ class _Tile extends StatelessWidget {
           IconTile(
             icon: item.type == AppNotification.quoteType
                 ? LucideIcons.receipt
-                : LucideIcons.bell,
+                : item.type == AppNotification.disputeType
+                    ? LucideIcons.triangleAlert
+                    : LucideIcons.bell,
             size: 40,
           ),
           const SizedBox(width: AppSpacing.sm),

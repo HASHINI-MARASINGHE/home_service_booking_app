@@ -772,17 +772,42 @@ service cloud.firestore {
         request.resource.data.body.size() <= 300 &&
         request.resource.data.read == false &&
         request.resource.data.createdAt == request.time;
-      // The safety desk tells the provider a dispute moved on.
+      // The safety desk tells the provider or customer a dispute moved on.
       allow create: if isAdmin() &&
         request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
           'bookingId', 'title', 'body', 'read', 'createdAt']) &&
         request.resource.data.type == 'dispute' &&
         request.resource.data.senderId == request.auth.uid &&
         request.resource.data.bookingId is string &&
-        notificationId in ['dispute_' + request.resource.data.bookingId + '_review',
-          'dispute_' + request.resource.data.bookingId + '_resolved'] &&
+        (
+          (notificationId in ['dispute_' + request.resource.data.bookingId + '_review',
+             'dispute_' + request.resource.data.bookingId + '_resolved'] &&
+           request.resource.data.recipientId ==
+             get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.providerId)
+          ||
+          (notificationId in ['dispute_' + request.resource.data.bookingId + '_customer_review',
+             'dispute_' + request.resource.data.bookingId + '_customer_resolved'] &&
+           request.resource.data.recipientId ==
+             get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.customerId)
+        ) &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 300 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
+      // A provider tells the customer they answered the dispute.
+      allow create, update: if signedIn() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'read', 'createdAt']) &&
+        request.resource.data.type == 'dispute' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.bookingId is string &&
+        notificationId == 'dispute_' + request.resource.data.bookingId + '_response' &&
+        exists(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)) &&
+        get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.providerId == request.auth.uid &&
         request.resource.data.recipientId ==
-          get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.providerId &&
+          get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.customerId &&
         request.resource.data.title is string &&
         request.resource.data.title.size() <= 120 &&
         request.resource.data.body is string &&
@@ -824,7 +849,7 @@ service cloud.firestore {
       // A dispute notice goes away when the dispute is withdrawn.
       allow delete: if signedIn() &&
         resource.data.type == 'dispute' &&
-        resource.data.senderId == request.auth.uid &&
+        (resource.data.senderId == request.auth.uid || resource.data.recipientId == request.auth.uid) &&
         !existsAfter(/databases/$(database)/documents/disputes/$(resource.data.bookingId));
       // Removed together with the review it announced.
       allow delete: if signedIn() &&
@@ -965,7 +990,12 @@ service cloud.firestore {
          resource.data.customerId == request.auth.uid ||
          resource.data.providerId == request.auth.uid ||
          isAdmin());
-      allow list: if isAdmin();
+      // Profiles list a user's own disputes (queries filter by customerId or
+      // providerId); the safety desk lists them all.
+      allow list: if isAdmin() ||
+        (signedIn() &&
+         (resource.data.customerId == request.auth.uid ||
+          resource.data.providerId == request.auth.uid));
 
       allow create: if signedIn() &&
         request.resource.data.keys().hasOnly(['bookingId', 'customerId',

@@ -219,6 +219,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   labelText: 'Cardholder Name',
+                  hintText: 'e.g. John Doe',
                   prefixIcon: const Icon(Icons.person_outline),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),

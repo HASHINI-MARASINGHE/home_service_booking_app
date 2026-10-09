@@ -769,6 +769,8 @@ class PersonAvatar extends StatelessWidget {
             : Image.network(
                 photoUrl!,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) =>
+                    progress == null ? child : fallback,
                 errorBuilder: (_, _, _) => fallback,
               ),
       ),

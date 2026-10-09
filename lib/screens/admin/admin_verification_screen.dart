@@ -394,7 +394,25 @@ class _DocumentView extends StatelessWidget {
             context: context,
             builder: (_) => Dialog(
               child: InteractiveViewer(
-                child: Image.network(file.url, fit: BoxFit.contain),
+                child: Image.network(
+                  file.url,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : const SizedBox(
+                          height: 200,
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                  errorBuilder: (_, _, _) => Container(
+                    height: 120,
+                    alignment: Alignment.center,
+                    color: AppColors.surfaceLavender,
+                    child: Text(
+                      'Image could not be loaded',
+                      style: AppTypography.caption,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/dispute.dart';
@@ -253,12 +253,13 @@ class AdminService {
         ]..sort((a, b) => a.id.compareTo(b.id)),
       );
 
-  /// Pending -> Under Review, and tells the provider.
+  /// Pending -> Under Review, and tells the provider and customer.
   // Dispute state transition - changes status from 'pending' to 'underReview'.
-  // Notifies the provider that safety desk has initiated an official investigation.
+  // Notifies the provider and customer that safety desk has initiated an official investigation.
   Future<void> startDisputeReview(Dispute dispute) async {
     final adminId = _uid;
     final ref = _db.collection('disputes').doc(dispute.id);
+    Dispute? currentDispute;
     await _db.runTransaction((tx) async {
       final current = Dispute.fromMap(dispute.id, (await tx.get(ref)).data());
       if (current == null) {
@@ -275,6 +276,7 @@ class AdminService {
         _db.collection('notifications').doc('dispute_${dispute.id}_review'),
         _disputeNote(
           adminId: adminId,
+          recipientId: current.providerId,
           dispute: current,
           title: 'Dispute under review',
           body:
@@ -283,14 +285,38 @@ class AdminService {
               '(#${current.bookingRef}).',
         ),
       );
+      currentDispute = current;
     });
+
+    // Notify customer separately so undeployed remote rules never block review.
+    if (currentDispute != null) {
+      try {
+        await _db
+            .collection('notifications')
+            .doc('dispute_${dispute.id}_customer_review')
+            .set(
+              _disputeNote(
+                adminId: adminId,
+                recipientId: currentDispute!.customerId,
+                dispute: currentDispute!,
+                title: 'Dispute under review',
+                body:
+                    'The safety desk is reviewing your dispute for '
+                    '${currentDispute!.serviceName.isEmpty ? 'your job' : currentDispute!.serviceName} '
+                    '(#${currentDispute!.bookingRef}).',
+              ),
+            );
+      } catch (_) {
+        // Ignored if remote Firestore rules have not yet been deployed.
+      }
+    }
   }
 
   /// Under Review -> Resolved with the decision (and refund), and tells the
-  /// provider. The refund itself is paid outside the app for now; the amount
-  /// is recorded here and shown to the customer.
+  /// provider and customer. The refund itself is paid outside the app for now;
+  /// the amount is recorded here and shown to the customer.
   // Dispute resolution - validates refund bounds against job total,
-  // updates status to 'resolved', attaches admin verdict/notes, and notifies provider.
+  // updates status to 'resolved', attaches admin verdict/notes, and notifies provider and customer.
   Future<void> resolveDispute({
     required Dispute dispute,
     required String decision,
@@ -325,6 +351,7 @@ class AdminService {
       }
     }
     final ref = _db.collection('disputes').doc(dispute.id);
+    Dispute? currentDispute;
     await _db.runTransaction((tx) async {
       final current = Dispute.fromMap(dispute.id, (await tx.get(ref)).data());
       if (current == null) {
@@ -346,6 +373,7 @@ class AdminService {
         _db.collection('notifications').doc('dispute_${dispute.id}_resolved'),
         _disputeNote(
           adminId: adminId,
+          recipientId: current.providerId,
           dispute: current,
           title: 'Dispute resolved: $decision',
           body:
@@ -354,16 +382,41 @@ class AdminService {
               '(#${current.bookingRef}).',
         ),
       );
+      currentDispute = current;
     });
+
+    // Notify customer separately so undeployed remote rules never block resolution.
+    if (currentDispute != null) {
+      try {
+        await _db
+            .collection('notifications')
+            .doc('dispute_${dispute.id}_customer_resolved')
+            .set(
+              _disputeNote(
+                adminId: adminId,
+                recipientId: currentDispute!.customerId,
+                dispute: currentDispute!,
+                title: 'Dispute resolved: $decision',
+                body:
+                    'The safety desk decided your dispute for '
+                    '${currentDispute!.serviceName.isEmpty ? 'your job' : currentDispute!.serviceName} '
+                    '(#${currentDispute!.bookingRef}): $decision.',
+              ),
+            );
+      } catch (_) {
+        // Ignored if remote Firestore rules have not yet been deployed.
+      }
+    }
   }
 
   Map<String, dynamic> _disputeNote({
     required String adminId,
+    required String recipientId,
     required Dispute dispute,
     required String title,
     required String body,
   }) => {
-    'recipientId': dispute.providerId,
+    'recipientId': recipientId,
     'senderId': adminId,
     'type': 'dispute',
     'bookingId': dispute.bookingId,

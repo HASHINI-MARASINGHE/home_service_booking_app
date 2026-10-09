@@ -210,6 +210,7 @@ class _AuthFormState extends State<AuthForm> {
                             enabled: !_busy,
                             decoration: const InputDecoration(
                               labelText: 'Name',
+                              hintText: 'e.g. John Doe',
                             ),
                             autofillHints: const [AutofillHints.name],
                             textCapitalization: TextCapitalization.words,
@@ -224,7 +225,10 @@ class _AuthFormState extends State<AuthForm> {
                         TextFormField(
                           controller: _email,
                           enabled: !_busy,
-                          decoration: const InputDecoration(labelText: 'Email'),
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            hintText: 'you@example.com',
+                          ),
                           keyboardType: TextInputType.emailAddress,
                           autofillHints: const [AutofillHints.email],
                           autocorrect: false,
@@ -244,6 +248,7 @@ class _AuthFormState extends State<AuthForm> {
                           enabled: !_busy,
                           decoration: const InputDecoration(
                             labelText: 'Password',
+                            hintText: '••••••••',
                           ),
                           obscureText: true,
                           autocorrect: false,
