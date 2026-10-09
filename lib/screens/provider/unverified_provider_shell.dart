@@ -79,6 +79,7 @@ class _UnverifiedProviderShellState extends State<UnverifiedProviderShell> {
       builder: (context) => StreamBuilder<int>(
         stream: _unread,
         builder: (context, snapshot) => BrandShell(
+          backdrop: true,
           child: Scaffold(
             appBar: AppBar(
               title: Text(_tab == 0 ? 'Profile' : 'Notifications'),

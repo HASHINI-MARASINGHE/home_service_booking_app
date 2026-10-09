@@ -1097,7 +1097,7 @@ class _ProviderMenuSections extends StatelessWidget {
     MaterialPageRoute<void>(
       builder: (_) => Theme(
         data: ProviderTheme.data,
-        child: BrandShell(child: screen),
+        child: BrandShell(backdrop: true, child: screen),
       ),
     ),
   );

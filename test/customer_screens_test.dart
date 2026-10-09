@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_service_bookin_app/models/address.dart';
 import 'package:home_service_bookin_app/models/booking.dart';
+import 'package:home_service_bookin_app/models/quote.dart';
 import 'package:home_service_bookin_app/models/receipt.dart';
 import 'package:home_service_bookin_app/models/refund.dart';
 import 'package:home_service_bookin_app/screens/customer/addresses/address_form_screen.dart';
@@ -316,6 +320,112 @@ void main() {
       expect(find.text('Lic #LK-AC-409'), findsOneWidget);
       await scrollTo(tester, find.text('LKR 11,500'));
       expect(find.text('3 Items'), findsOneWidget);
+    });
+
+    testWidgets('signed-off booking without an issued receipt builds one '
+        'from its own booking and provider', (tester) async {
+      await pumpCustomer(
+        tester,
+        const ReceiptScreen(bookingId: 'b1'),
+        bookings: FakeBookingService(
+          bookings: [
+            booking(
+              status: BookingStatus.completed,
+              completedAt: DateTime(2025, 11, 13, 12),
+            ),
+          ],
+        ),
+      );
+      expect(find.text('INV-2025-B1'), findsOneWidget);
+      expect(find.text('#BK-B1'), findsOneWidget);
+      expect(
+        find.text('Air Conditioning & Electrical Specialist'),
+        findsOneWidget,
+      );
+      await scrollTo(tester, find.text('LKR 5,500'));
+      expect(find.text('3 Items'), findsOneWidget);
+      expect(find.text('Base AC Servicing (2 Units)'), findsOneWidget);
+    });
+
+    testWidgets('completed booking without a sign-off time still shows '
+        'its receipt', (tester) async {
+      await pumpCustomer(
+        tester,
+        const ReceiptScreen(bookingId: 'b1'),
+        bookings: FakeBookingService(
+          bookings: [booking(status: BookingStatus.completed)],
+        ),
+      );
+      expect(find.text('Receipt not issued yet'), findsNothing);
+      expect(find.text('#BK-B1'), findsOneWidget);
+    });
+
+    testWidgets('Check again on the not-issued state reloads', (tester) async {
+      await pumpCustomer(
+        tester,
+        const ReceiptScreen(bookingId: 'b1'),
+        bookings: FakeBookingService(bookings: [booking()]),
+      );
+      await tester.tap(find.text('Check again'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Receipt not issued yet'), findsOneWidget);
+    });
+
+    testWidgets('quote booking receipt totals the accepted quote', (
+      tester,
+    ) async {
+      await pumpCustomer(
+        tester,
+        const ReceiptScreen(bookingId: 'b1'),
+        bookings: FakeBookingService(
+          bookings: [
+            booking(
+              status: BookingStatus.completed,
+              quoteStatus: QuoteStatus.accepted,
+              acceptedAmount: 7000,
+            ),
+          ],
+        ),
+      );
+      await scrollTo(tester, find.text('LKR 7,000').last);
+      expect(find.text('2 Items'), findsOneWidget);
+    });
+
+    testWidgets('app booking receipt itemizes the accepted quote and shows '
+        'the default saved card', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'saved_payment_cards_v1': jsonEncode([
+          {
+            'id': 'c1',
+            'brand': 'Visa',
+            'last4': '4521',
+            'holderName': 'Dilshan Perera',
+            'expiry': '08/28',
+            'isDefault': true,
+          },
+        ]),
+      });
+      await pumpCustomer(
+        tester,
+        const ReceiptScreen(bookingId: 'b1'),
+        bookings: FakeBookingService(
+          bookings: [
+            booking(
+              status: BookingStatus.completed,
+              quoteStatus: QuoteStatus.accepted,
+              acceptedAmount: 7000,
+              quoteNote: 'Parts and labour included',
+              noPrice: true,
+              noCard: true,
+            ),
+          ],
+        ),
+      );
+      await scrollTo(tester, find.text('Parts and labour included'));
+      expect(find.text('LKR 6,800'), findsOneWidget);
+      await scrollTo(tester, find.text('Visa ending in •• 4521'));
+      expect(find.textContaining('Default card on file'), findsOneWidget);
     });
 
     testWidgets('missing receipt shows a not-issued state', (tester) async {

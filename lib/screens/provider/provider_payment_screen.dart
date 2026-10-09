@@ -78,12 +78,18 @@ class ProviderPaymentScreen extends StatelessWidget {
             DetailRow(
               icon: Icons.credit_card_outlined,
               label: 'Payment method',
-              value: booking.paymentMethod ?? 'Pay after the service',
+              value: booking.cardLast4 != null
+                  ? 'Card ending in •• ${booking.cardLast4}'
+                  : booking.paymentMethod?.toLowerCase() == 'cash'
+                  ? 'Cash on Service'
+                  : booking.paymentMethod ?? 'Pay after the service',
             ),
             DetailRow(
               icon: Icons.info_outline,
               label: 'Payment status',
-              value: booking.paymentStatus ?? 'Unpaid',
+              value: booking.paymentStatus == 'paid'
+                  ? 'Paid (Completed)'
+                  : 'Unpaid (Awaiting completion sign-off)',
             ),
           ],
         ),

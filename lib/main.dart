@@ -11,9 +11,11 @@ import 'theme/text_size_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await LocaleController.instance.load();
-  await TextSizeController.instance.load();
+  await Future.wait([
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    LocaleController.instance.load(),
+    TextSizeController.instance.load(),
+  ]);
   runApp(const MyApp());
 }
 

@@ -8,6 +8,7 @@ import '../../services/app_error.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
 import '../common/app_widgets.dart';
+import 'payment_method_sheet.dart';
 
 /// The price of a booking, from the customer's side: waiting for a quote,
 /// a quote to accept or decline, or the locked price.
@@ -71,7 +72,23 @@ class _QuoteCardState extends State<QuoteCard> {
     });
     try {
       if (answer == _Answer.accept) {
-        await service.acceptQuote(_b.id, amount);
+        final paymentChoice = await PaymentMethodSelectionSheet.show(
+          context,
+          amount: amount,
+          initialMethod: _b.paymentMethod,
+          initialCardLast4: _b.cardLast4,
+        );
+        if (paymentChoice == null || !mounted) {
+          setState(() => _busy = null);
+          return;
+        }
+
+        await service.acceptQuote(
+          _b.id,
+          amount,
+          paymentMethod: paymentChoice.method,
+          cardLast4: paymentChoice.cardLast4,
+        );
       } else {
         await service.declineQuote(_b.id, amount);
       }

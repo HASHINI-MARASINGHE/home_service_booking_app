@@ -45,6 +45,30 @@ class PaymentMethodItem {
       );
 }
 
+const _savedCardsKey = 'saved_payment_cards_v2';
+const _legacySavedCardsKey = 'saved_payment_cards_v1';
+
+/// The customer's default saved card (cards are stored on this device), or
+/// null when there is none or storage is unavailable.
+Future<PaymentMethodItem?> loadDefaultPaymentCard() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    // Clean up old demo key if present
+    if (prefs.containsKey(_legacySavedCardsKey)) {
+      await prefs.remove(_legacySavedCardsKey);
+    }
+    final raw = prefs.getString(_savedCardsKey);
+    if (raw == null) return null;
+    final cards = (jsonDecode(raw) as List)
+        .map((e) => PaymentMethodItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+    if (cards.isEmpty) return null;
+    return cards.firstWhere((c) => c.isDefault, orElse: () => cards.first);
+  } catch (_) {
+    return null;
+  }
+}
+
 class PaymentMethodsScreen extends StatefulWidget {
   const PaymentMethodsScreen({super.key});
 
@@ -53,7 +77,7 @@ class PaymentMethodsScreen extends StatefulWidget {
 }
 
 class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
-  static const _kCardsKey = 'saved_payment_cards_v1';
+  static const _kCardsKey = _savedCardsKey;
 
   List<PaymentMethodItem> _cards = [];
   bool _loading = true;
@@ -67,6 +91,9 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   Future<void> _loadCards() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey(_legacySavedCardsKey)) {
+        await prefs.remove(_legacySavedCardsKey);
+      }
       final raw = prefs.getString(_kCardsKey);
       if (raw != null) {
         final list = (jsonDecode(raw) as List)
@@ -80,30 +107,11 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       }
     } catch (_) {}
 
-    // Default sample cards for immediate real-world experience
-    final initial = [
-      PaymentMethodItem(
-        id: 'card_1',
-        brand: 'Visa',
-        last4: '4521',
-        holderName: 'Dilshan Perera',
-        expiry: '08/28',
-        isDefault: true,
-      ),
-      PaymentMethodItem(
-        id: 'card_2',
-        brand: 'Mastercard',
-        last4: '8820',
-        holderName: 'Dilshan Perera',
-        expiry: '11/27',
-        isDefault: false,
-      ),
-    ];
+    // No cards by default until user adds one
     setState(() {
-      _cards = initial;
+      _cards = [];
       _loading = false;
     });
-    _persistCards(initial);
   }
 
   Future<void> _persistCards(List<PaymentMethodItem> cards) async {
@@ -128,6 +136,128 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         content: Text('${target.brand} •••• ${target.last4} set as default payment method.'),
       ),
     );
+  }
+
+  Future<void> _openEditCardDialog(PaymentMethodItem card) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(text: card.holderName);
+    final expiryCtrl = TextEditingController(text: card.expiry);
+
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Edit ${card.brand} (•••• ${card.last4})',
+                    style: const TextStyle(
+                      color: CustomerHomeTheme.primaryDark,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: nameCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Cardholder Name',
+                  prefixIcon: const Icon(Icons.person_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Cardholder name is required.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: expiryCtrl,
+                keyboardType: TextInputType.datetime,
+                decoration: InputDecoration(
+                  labelText: 'Expiry Date (MM/YY)',
+                  prefixIcon: const Icon(Icons.date_range_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                validator: (val) {
+                  if (val == null || !RegExp(r'^(0[1-9]|1[0-2])\/\d{2}$').hasMatch(val.trim())) {
+                    return 'Enter valid expiry (MM/YY).';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brand700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: () {
+                  if (formKey.currentState?.validate() == true) {
+                    Navigator.pop(context, true);
+                  }
+                },
+                child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      setState(() {
+        final idx = _cards.indexWhere((c) => c.id == card.id);
+        if (idx != -1) {
+          _cards[idx] = PaymentMethodItem(
+            id: card.id,
+            brand: card.brand,
+            last4: card.last4,
+            holderName: nameCtrl.text.trim(),
+            expiry: expiryCtrl.text.trim(),
+            isDefault: card.isDefault,
+          );
+        }
+      });
+      _persistCards(_cards);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Card details updated.')),
+      );
+    }
   }
 
   Future<void> _deleteCard(PaymentMethodItem card) async {
@@ -364,9 +494,9 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: CustomerHomeTheme.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: CustomerHomeTheme.background,
+        backgroundColor: Colors.transparent,
         foregroundColor: CustomerHomeTheme.primaryDark,
         elevation: 0,
         title: const Text(
@@ -441,6 +571,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                         child: _CardItemWidget(
                           card: card,
                           onSetDefault: () => _setDefault(card),
+                          onEdit: () => _openEditCardDialog(card),
                           onDelete: () => _deleteCard(card),
                         ),
                       ),
@@ -567,11 +698,13 @@ class _CardItemWidget extends StatelessWidget {
   const _CardItemWidget({
     required this.card,
     required this.onSetDefault,
+    required this.onEdit,
     required this.onDelete,
   });
 
   final PaymentMethodItem card;
   final VoidCallback onSetDefault;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -667,6 +800,7 @@ class _CardItemWidget extends StatelessWidget {
                 icon: const Icon(Icons.more_vert, color: CustomerHomeTheme.mutedText),
                 onSelected: (value) {
                   if (value == 'default') onSetDefault();
+                  if (value == 'edit') onEdit();
                   if (value == 'delete') onDelete();
                 },
                 itemBuilder: (context) => [
@@ -675,6 +809,10 @@ class _CardItemWidget extends StatelessWidget {
                       value: 'default',
                       child: Text('Set as default'),
                     ),
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Text('Edit card'),
+                  ),
                   const PopupMenuItem(
                     value: 'delete',
                     child: Text(

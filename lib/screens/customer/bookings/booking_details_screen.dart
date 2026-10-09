@@ -9,6 +9,7 @@ import '../../../services/app_error.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/formatters.dart';
 import '../../../widgets/booking/booking_widgets.dart';
+import '../../../widgets/booking/payment_method_sheet.dart';
 import '../../../widgets/booking/quote_card.dart';
 import '../../../widgets/common/app_widgets.dart';
 import '../../../widgets/common/review_widgets.dart';
@@ -399,7 +400,50 @@ class _Details extends StatelessWidget {
     final b = booking;
     switch (b.status) {
       case BookingStatus.completed:
+        final isPaid = b.paymentStatus == 'paid';
         return [
+          if (!isPaid) ...[
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.brand100.withValues(alpha: 0.5),
+                borderRadius: AppRadius.card,
+                border: Border.all(color: AppColors.primary, width: 1.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.checkCircle, color: AppColors.primary),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Professional marked work as completed',
+                          style: AppTypography.subtitle.copyWith(
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Please verify that the job was done to your satisfaction before confirming payment.',
+                    style: AppTypography.caption.copyWith(color: AppColors.body),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  PrimaryButton(
+                    label: 'Confirm Job & Pay ${Formatters.lkr(b.chargeTotal)}',
+                    icon: LucideIcons.badgeCheck,
+                    onPressed: () => _confirmPaymentAndSignOff(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
           PrimaryButton(
             label: 'View Receipt',
             icon: LucideIcons.receipt,
@@ -483,6 +527,60 @@ class _Details extends StatelessWidget {
         ];
       case BookingStatus.declined || BookingStatus.unknown:
         return const [];
+    }
+  }
+
+  Future<void> _confirmPaymentAndSignOff(BuildContext context) async {
+    final b = booking;
+    final choice = await PaymentMethodSelectionSheet.show(
+      context,
+      amount: b.chargeTotal,
+      initialMethod: b.paymentMethod,
+      initialCardLast4: b.cardLast4,
+    );
+    if (choice == null || !context.mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Confirm Service Satisfaction & Payment'),
+        content: Text(
+          choice.method == 'cash'
+              ? 'Are you satisfied with the work and have you paid ${Formatters.lkr(b.chargeTotal)} in cash directly to your provider?'
+              : 'Are you satisfied with the work and authorize releasing ${Formatters.lkr(b.chargeTotal)} from your card ending in ${choice.cardLast4 ?? "card"}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Not Yet'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('Confirm & Pay'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final service = CustomerScope.of(context).bookings;
+      await service.confirmPayment(
+        b.id,
+        paymentMethod: choice.method,
+        cardLast4: choice.cardLast4,
+      );
+      if (!context.mounted) return;
+      showAppSnack(
+        context,
+        choice.method == 'cash'
+            ? 'Cash payment recorded. Thank you!'
+            : 'Payment authorized and receipt issued. Thank you!',
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      showAppSnack(context, AppError.message(error), error: true);
     }
   }
 

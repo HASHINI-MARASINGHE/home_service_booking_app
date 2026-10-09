@@ -10,7 +10,7 @@ plugins {
 android {
     namespace = "com.example.home_service_bookin_app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
