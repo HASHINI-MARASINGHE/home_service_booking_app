@@ -44,7 +44,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
       widget.splashDuration ??
       (widget.preferences != null
           ? Duration.zero
-          : const Duration(milliseconds: 1400));
+          : const Duration(milliseconds: 1500));
 
   @override
   void initState() {
@@ -79,32 +79,35 @@ class _OnboardingGateState extends State<OnboardingGate> {
       _loading = true;
       _failed = false;
     });
-    final stopwatch = Stopwatch()..start();
     try {
       // Development only. Launch once with --dart-define=RESET_ONBOARDING=true.
       if (kDebugMode && const bool.fromEnvironment('RESET_ONBOARDING')) {
         await _preferences.reset();
       }
-      // Onboarding is for people who are signed out: a first launch, or the
-      // app opened again after logging out. Someone who is still signed in
-      // goes straight to their home screen.
-      final signedIn = await _isSignedIn();
-      final completed = signedIn
-          ? true
-          : widget.preferences != null
-          ? await _preferences.isCompleted()
-          : false;
-      final hasSavedLang = await LocaleController.instance.hasSavedLanguage();
 
-      final elapsed = stopwatch.elapsed;
-      if (_effectiveSplashDuration > elapsed) {
-        await Future.delayed(_effectiveSplashDuration - elapsed);
-      }
+      // Check session state concurrently with the 1.5s splash display
+      final checkState = () async {
+        final signedIn = await _isSignedIn();
+        final completed = signedIn
+            ? true
+            : widget.preferences != null
+            ? await _preferences.isCompleted()
+            : false;
+        final hasSavedLang = await LocaleController.instance.hasSavedLanguage();
+        return (completed: completed, hasSavedLang: hasSavedLang);
+      }();
+
+      final results = await Future.wait([
+        checkState,
+        Future.delayed(_effectiveSplashDuration),
+      ]);
+
+      final state = results[0] as ({bool completed, bool hasSavedLang});
 
       if (mounted) {
         setState(() {
-          _completed = completed;
-          _languageChosen = hasSavedLang;
+          _completed = state.completed;
+          _languageChosen = state.hasSavedLang;
         });
       }
     } catch (_) {

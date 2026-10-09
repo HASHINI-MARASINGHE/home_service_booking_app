@@ -19,7 +19,7 @@ class SplashScreen extends StatefulWidget {
   const SplashScreen({
     super.key,
     this.onInitialized,
-    this.minDuration = const Duration(milliseconds: 1400),
+    this.minDuration = const Duration(milliseconds: 1500),
   });
 
   /// Optional callback invoked when the splash duration finishes.
@@ -45,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1400),
     );
 
     _fadeAnimation = CurvedAnimation(

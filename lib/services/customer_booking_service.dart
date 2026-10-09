@@ -669,7 +669,7 @@ class CustomerBookingService {
       tx.update(snapshot.reference, {
         'paymentStatus': 'paid',
         'paymentMethod': chosenMethod,
-        if (chosenCard != null) 'cardLast4': chosenCard,
+        'cardLast4': ?chosenCard,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 

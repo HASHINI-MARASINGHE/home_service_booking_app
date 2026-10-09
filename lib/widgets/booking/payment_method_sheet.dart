@@ -58,7 +58,7 @@ class PaymentMethodSelectionSheet extends StatefulWidget {
 class _PaymentMethodSelectionSheetState
     extends State<PaymentMethodSelectionSheet> {
   String _selectedMethod = 'cash';
-  List<PaymentMethodItem> _cards = [];
+  final List<PaymentMethodItem> _cards = [];
   PaymentMethodItem? _selectedCard;
   bool _loadingCards = true;
 
