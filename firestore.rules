@@ -1,0 +1,1128 @@
+rules_version = '2';
+
+// Complete Firestore ruleset: users, provider workflow (from
+// docs/provider_phase1.rules) and the customer booking-management flows.
+// Deploy with: firebase deploy --only firestore:rules
+// The customer rules mirror lib/models/booking_policy.dart — keep in sync.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function providerSignedIn() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'provider';
+    }
+
+    function bookingPath(id) {
+      return /databases/$(database)/documents/bookings/$(id);
+    }
+
+    function lockPath(id) {
+      return /databases/$(database)/documents/slotLocks/$(id);
+    }
+
+    function optionalString(data, key, max) {
+      return data.get(key, null) == null ||
+        (data[key] is string && data[key].size() <= max);
+    }
+
+    // ------------------------------------------------------------------ users
+    match /users/{uid} {
+      allow read: if isUser(uid) || isAdmin();
+      allow create: if isUser(uid) &&
+        request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'role', 'photoUrl']) &&
+        request.resource.data.uid == uid &&
+        request.resource.data.role in ['customer', 'provider'] &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 80 &&
+        request.resource.data.email is string;
+      // Role and uid are fixed after registration.
+      allow update: if isUser(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'email', 'photoUrl']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 80;
+      allow delete: if false;
+
+      // ------------------------------------------------ saved addresses
+      function addressFields() {
+        return ['type', 'label', 'houseNumber', 'street', 'city', 'postalCode',
+          'province', 'landmark', 'accessNotes', 'latitude', 'longitude',
+          'isDefault', 'createdAt', 'updatedAt'];
+      }
+
+      function validCoordinate(value, limit) {
+        return value == null ||
+          (value is number && value >= -limit && value <= limit);
+      }
+
+      function validAddress(d) {
+        return d.keys().hasOnly(addressFields()) &&
+          d.type in ['home', 'office', 'parents', 'other'] &&
+          d.label is string && d.label.size() <= 60 &&
+          d.houseNumber is string && d.houseNumber.size() > 0 && d.houseNumber.size() <= 80 &&
+          d.street is string && d.street.size() > 0 && d.street.size() <= 120 &&
+          d.city is string && d.city.size() > 0 && d.city.size() <= 80 &&
+          d.postalCode is string && d.postalCode.size() <= 10 &&
+          d.province is string && d.province.size() <= 80 &&
+          d.landmark is string && d.landmark.size() <= 120 &&
+          d.accessNotes is string && d.accessNotes.size() <= 200 &&
+          validCoordinate(d.get('latitude', null), 90) &&
+          validCoordinate(d.get('longitude', null), 180) &&
+          d.isDefault is bool &&
+          d.updatedAt == request.time;
+      }
+
+      match /addresses/{addressId} {
+        allow read, delete: if isUser(uid);
+        allow create: if isUser(uid) &&
+          request.resource.data.keys().hasAll(addressFields()) &&
+          validAddress(request.resource.data) &&
+          request.resource.data.createdAt == request.time;
+        allow update: if isUser(uid) &&
+          validAddress(request.resource.data) &&
+          request.resource.data.createdAt == resource.data.createdAt;
+      }
+    }
+
+    // ------------------------------------------- read-only catalog data
+    // Written only by the trusted backend (Admin SDK / tool/seed).
+    // A provider may publish only their own identity fields, mirrored from
+    // users/{uid} and their profile (Profile > save). Rating, verification,
+    // Provider ID, job counts and working hours can only be set by an admin
+    // (when verifying) or the trusted backend, so a provider can never
+    // verify or rate themselves.
+    function selfListingFields() {
+      return ['name', 'photoUrl', 'specialty', 'phone', 'about', 'experience',
+        'services', 'pricing', 'updatedAt'];
+    }
+
+    function validServiceList(services) {
+      return services is list && services.size() <= 20 &&
+        validServiceAt(services, 0) && validServiceAt(services, 1) &&
+        validServiceAt(services, 2) && validServiceAt(services, 3) &&
+        validServiceAt(services, 4) && validServiceAt(services, 5) &&
+        validServiceAt(services, 6) && validServiceAt(services, 7) &&
+        validServiceAt(services, 8) && validServiceAt(services, 9) &&
+        validServiceAt(services, 10) && validServiceAt(services, 11) &&
+        validServiceAt(services, 12) && validServiceAt(services, 13) &&
+        validServiceAt(services, 14) && validServiceAt(services, 15) &&
+        validServiceAt(services, 16) && validServiceAt(services, 17) &&
+        validServiceAt(services, 18) && validServiceAt(services, 19);
+    }
+
+    function validSelfListing(d, keys, uid) {
+      let account = get(/databases/$(database)/documents/users/$(uid)).data;
+      return d.name == account.name &&
+        (!('photoUrl' in keys) || d.photoUrl == account.get('photoUrl', null)) &&
+        d.specialty is string && d.specialty.size() > 0 && d.specialty.size() <= 100 &&
+        d.phone is string && d.phone.size() <= 40 &&
+        d.get('about', '') is string && d.get('about', '').size() <= 2000 &&
+        d.get('experience', 0) is int &&
+        d.get('experience', 0) >= 0 && d.get('experience', 0) <= 80 &&
+        validServiceList(d.get('services', [])) &&
+        (d.get('pricing', null) == null ||
+          (d.pricing is number && d.pricing >= 0 && d.pricing <= 10000000)) &&
+        d.updatedAt == request.time;
+    }
+
+    match /professionals/{providerId} {
+      allow read: if signedIn();
+      // Admin publishes it when verifying a provider (see AdminService.verify).
+      allow create, update: if isAdmin();
+      allow create: if providerSignedIn() && request.auth.uid == providerId &&
+        request.resource.data.keys().hasOnly(selfListingFields()) &&
+        validSelfListing(request.resource.data, request.resource.data.keys(), providerId);
+      allow update: if providerSignedIn() && request.auth.uid == providerId &&
+        changedKeys().hasOnly(selfListingFields()) &&
+        validSelfListing(request.resource.data, changedKeys(), providerId);
+      allow delete: if false;
+    }
+
+    match /services/{serviceId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------- provider profiles
+    function editableProviderFields() {
+      return ['providerId', 'phone', 'profession', 'experience', 'about',
+        'services', 'pricing', 'availability', 'updatedAt'];
+    }
+
+    function validServiceAt(services, index) {
+      return services.size() <= index ||
+        (services[index] is string && services[index].size() > 0 && services[index].size() <= 100);
+    }
+
+    function validProviderProfile(data, uid) {
+      return data.keys().hasAll(editableProviderFields()) &&
+        data.providerId == uid &&
+        data.phone is string && data.phone.size() <= 40 &&
+        data.profession is string && data.profession.size() > 0 && data.profession.size() <= 100 &&
+        data.experience is int && data.experience >= 0 && data.experience <= 80 &&
+        data.about is string && data.about.size() <= 2000 &&
+        data.services is list && data.services.size() <= 20 &&
+        validServiceAt(data.services, 0) && validServiceAt(data.services, 1) &&
+        validServiceAt(data.services, 2) && validServiceAt(data.services, 3) &&
+        validServiceAt(data.services, 4) && validServiceAt(data.services, 5) &&
+        validServiceAt(data.services, 6) && validServiceAt(data.services, 7) &&
+        validServiceAt(data.services, 8) && validServiceAt(data.services, 9) &&
+        validServiceAt(data.services, 10) && validServiceAt(data.services, 11) &&
+        validServiceAt(data.services, 12) && validServiceAt(data.services, 13) &&
+        validServiceAt(data.services, 14) && validServiceAt(data.services, 15) &&
+        validServiceAt(data.services, 16) && validServiceAt(data.services, 17) &&
+        validServiceAt(data.services, 18) && validServiceAt(data.services, 19) &&
+        (data.pricing == null || (data.pricing is number && data.pricing >= 0 && data.pricing <= 10000000)) &&
+        data.availability is bool && data.updatedAt == request.time;
+    }
+
+    match /providerProfiles/{uid} {
+      // The provider reads their own profile; admins can read any profile.
+      allow read: if (providerSignedIn() && request.auth.uid == uid) || isAdmin();
+      allow create: if providerSignedIn() && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(editableProviderFields()) &&
+        validProviderProfile(request.resource.data, uid);
+      allow update: if providerSignedIn() && request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(editableProviderFields()) &&
+        validProviderProfile(request.resource.data, uid);
+      allow delete: if false;
+    }
+
+    // --------------------------------------------------------------- bookings
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function customerOwnsOpenBooking() {
+      return signedIn() &&
+        resource.data.customerId == request.auth.uid &&
+        resource.data.status in ['pending', 'confirmed'];
+    }
+
+    function providerVerified() {
+      return get(/databases/$(database)/documents/providerVerifications/$(request.auth.uid)).data.status == 'verified';
+    }
+
+    function providerTransition() {
+      return providerSignedIn() && providerVerified() &&
+        resource.data.providerId == request.auth.uid &&
+        (
+          (resource.data.status == 'pending' &&
+           request.resource.data.status == 'confirmed' &&
+           // Quote-flow bookings are confirmed when the customer accepts.
+           resource.data.get('quoteStatus', null) == null &&
+           (resource.data.get('expiresAt', null) == null ||
+             (resource.data.expiresAt is timestamp && resource.data.expiresAt > request.time)) &&
+           changedKeys().hasOnly(['status', 'acceptedAt']) &&
+           request.resource.data.acceptedAt == request.time)
+          ||
+          (resource.data.status == 'pending' &&
+           request.resource.data.status == 'declined' &&
+           changedKeys().hasOnly(['status', 'declinedAt']) &&
+           request.resource.data.declinedAt == request.time)
+          ||
+          (resource.data.status == 'confirmed' &&
+           request.resource.data.status == 'completed' &&
+           hasApprovedPrice(resource.data) &&
+           changedKeys().hasOnly(['status', 'completedAt']) &&
+           request.resource.data.completedAt == request.time)
+          ||
+          // The provider confirms they were paid for a finished cash job; only
+          // then does it count towards their earnings.
+          (resource.data.status == 'completed' &&
+           request.resource.data.status == 'completed' &&
+           resource.data.get('paymentStatus', null) == 'unpaid' &&
+           request.resource.data.paymentStatus == 'paid' &&
+           changedKeys().hasOnly(['paymentStatus', 'paidAt']) &&
+           request.resource.data.paidAt == request.time)
+        );
+    }
+
+    // ------------------------------------------------------------ quotes
+    // The price is quoted per job: the provider sends it, the customer
+    // accepts it (which confirms the job and locks the amount), and a revised
+    // price needs the customer's approval again. Bookings made before quotes
+    // existed have no quoteStatus and keep the price they were created with.
+    function validQuoteAmount(v) {
+      return v is number && v > 0 && v <= 10000000 && v == math.floor(v);
+    }
+
+    function hasApprovedPrice(b) {
+      return (b.get('acceptedAmount', null) is number &&
+              b.acceptedAmount > 0 &&
+              b.get('quoteStatus', null) != 'quoted') ||
+        (b.get('quoteStatus', null) == null &&
+         b.get('totalAmount', null) is number && b.totalAmount > 0);
+    }
+
+    // A provider sends a first quote on a request, or revises a confirmed job.
+    // Cheap checks come first and repeated values are bound once: a rules
+    // request may evaluate at most 1000 expressions.
+    function providerQuote() {
+      let b = resource.data;
+      let n = request.resource.data;
+      let history = n.get('quoteHistory', []);
+      let last = history[history.size() - 1];
+      return n.get('quoteStatus', null) == 'quoted' &&
+        b.providerId == request.auth.uid &&
+        changedKeys().hasOnly(['quoteStatus', 'quotedAmount', 'quoteNote',
+          'quoteHistory', 'quoteUpdatedAt', 'updatedAt']) &&
+        (
+          (b.status == 'pending' &&
+           b.get('quoteStatus', 'pending') in ['pending', 'declined'] &&
+           (b.get('expiresAt', null) == null ||
+             (b.expiresAt is timestamp && b.expiresAt > request.time))) ||
+          (b.status == 'confirmed' &&
+           b.get('quoteStatus', 'accepted') in ['accepted', 'declined'])
+        ) &&
+        validQuoteAmount(n.quotedAmount) &&
+        optionalString(n, 'quoteNote', 500) &&
+        n.quoteUpdatedAt == request.time &&
+        n.updatedAt == request.time &&
+        history.size() <= 40 &&
+        history.size() > b.get('quoteHistory', []).size() &&
+        last.amount == n.quotedAmount &&
+        last.status == 'quoted' &&
+        // A confirmed job's price change must say why.
+        (b.status == 'pending' ||
+         (last.get('reason', null) is string &&
+          last.reason.size() >= 3 &&
+          last.reason.size() <= 300 &&
+          n.quotedAmount != b.get('acceptedAmount', null))) &&
+        providerSignedIn() && providerVerified();
+    }
+
+    // The customer accepts or declines the quote they were shown.
+    function customerQuoteAnswer() {
+      let b = resource.data;
+      let n = request.resource.data;
+      let history = n.get('quoteHistory', []);
+      let last = history[history.size() - 1];
+      let accepting = n.get('quoteStatus', null) == 'accepted';
+      return b.get('quoteStatus', null) == 'quoted' &&
+        n.get('quoteStatus', null) in ['accepted', 'declined'] &&
+        b.customerId == request.auth.uid &&
+        b.status in ['pending', 'confirmed'] &&
+        validQuoteAmount(b.get('quotedAmount', null)) &&
+        n.quoteUpdatedAt == request.time &&
+        n.updatedAt == request.time &&
+        history.size() <= 40 &&
+        history.size() > b.get('quoteHistory', []).size() &&
+        last.amount == b.quotedAmount &&
+        last.status == n.quoteStatus &&
+        (accepting
+          ? (changedKeys().hasOnly(['status', 'acceptedAt', 'quoteStatus',
+               'acceptedAmount', 'totalAmount', 'laborCharge', 'quoteHistory',
+               'quoteUpdatedAt', 'updatedAt']) &&
+             n.acceptedAmount == b.quotedAmount &&
+             n.totalAmount == b.quotedAmount &&
+             n.laborCharge == b.quotedAmount &&
+             (b.status == 'pending'
+               ? (n.status == 'confirmed' &&
+                  n.acceptedAt == request.time &&
+                  b.get('scheduledAt', null) is timestamp &&
+                  b.scheduledAt > request.time)
+               : n.status == 'confirmed'))
+          : changedKeys().hasOnly(['quoteStatus', 'quoteHistory',
+               'quoteUpdatedAt', 'updatedAt']));
+    }
+
+    // Edit Booking Details: location, notes, phone and photos only.
+    function customerEdit() {
+      let n = request.resource.data;
+      return customerOwnsOpenBooking() &&
+        changedKeys().hasOnly(['addressId', 'address', 'addressLabel',
+          'addressArea', 'addressNeedsUpdate', 'accessNotes', 'contactPhone',
+          'jobNotes', 'photoUrls', 'updatedAt']) &&
+        n.updatedAt == request.time &&
+        optionalString(n, 'addressId', 128) &&
+        n.address is string && n.address.size() > 0 && n.address.size() <= 300 &&
+        optionalString(n, 'addressLabel', 60) &&
+        optionalString(n, 'addressArea', 120) &&
+        n.get('addressNeedsUpdate', false) is bool &&
+        optionalString(n, 'accessNotes', 200) &&
+        optionalString(n, 'contactPhone', 20) &&
+        optionalString(n, 'jobNotes', 1000) &&
+        n.get('photoUrls', []) is list && n.get('photoUrls', []).size() <= 5;
+    }
+
+    // Colombo (UTC+05:30) wall-clock slot → absolute timestamp.
+    function slotInstant(date, hhmm) {
+      return timestamp.date(int(date[0:4]), int(date[5:7]), int(date[8:10])) +
+        duration.value(int(hhmm[0:2]) * 60 + int(hhmm[3:5]) - 330, 'm');
+    }
+
+    function lockIdFor(providerId, date, start) {
+      return providerId + '_' + date + '_' + start.replace(':', '');
+    }
+
+    function validSlotShape(n) {
+      return n.slotDate is string && n.slotDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        n.startTime is string && n.startTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$') &&
+        n.endTime is string && n.endTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$') &&
+        n.endTime > n.startTime;
+    }
+
+    // A customer books a verified provider (CustomerBookingService.createBooking).
+    // The booking and its slot lock are written in one transaction, so two
+    // bookings can never take the same slot (the lock cannot be overwritten),
+    // and the price is the provider's own published price, never the client's.
+    function validNewBooking(bookingId) {
+      let n = request.resource.data;
+      let pro = get(/databases/$(database)/documents/professionals/$(n.providerId)).data;
+      return n.keys().hasOnly(['reference', 'customerId', 'customerName',
+          'providerId', 'providerName', 'serviceName', 'status', 'slotDate',
+          'startTime', 'endTime', 'scheduledAt', 'endAt', 'slotLockId',
+          'addressId', 'address', 'addressLabel', 'addressArea', 'accessNotes',
+          'contactPhone', 'jobNotes', 'photoUrls', 'estimatedPrice',
+          'totalAmount', 'laborCharge', 'serviceFee', 'paymentStatus',
+          'quoteStatus', 'quoteCurrency', 'createdAt', 'updatedAt']) &&
+        n.get('quoteStatus', 'pending') == 'pending' &&
+        n.get('quoteCurrency', 'LKR') == 'LKR' &&
+        n.customerId == request.auth.uid &&
+        n.providerId is string &&
+        n.providerId != request.auth.uid &&
+        exists(/databases/$(database)/documents/professionals/$(n.providerId)) &&
+        pro.get('verified', false) == true &&
+        n.status == 'pending' &&
+        n.paymentStatus == 'unpaid' &&
+        n.serviceName is string && n.serviceName.size() > 0 && n.serviceName.size() <= 120 &&
+        n.customerName is string && n.customerName.size() <= 80 &&
+        n.get('providerName', '') is string && n.get('providerName', '').size() <= 80 &&
+        n.get('reference', '') is string && n.get('reference', '').size() <= 20 &&
+        n.address is string && n.address.size() > 0 && n.address.size() <= 300 &&
+        optionalString(n, 'addressLabel', 60) &&
+        optionalString(n, 'addressArea', 120) &&
+        optionalString(n, 'accessNotes', 500) &&
+        validSlotShape(n) &&
+        n.scheduledAt == slotInstant(n.slotDate, n.startTime) &&
+        n.endAt == slotInstant(n.slotDate, n.endTime) &&
+        n.scheduledAt > request.time + duration.value(2, 'h') &&
+        n.slotLockId == lockIdFor(n.providerId, n.slotDate, n.startTime) &&
+        getAfter(lockPath(n.slotLockId)).data.bookingId == bookingId &&
+        n.get('estimatedPrice', null) == pro.get('pricing', null) &&
+        n.get('totalAmount', null) == pro.get('pricing', null) &&
+        n.get('laborCharge', null) == pro.get('pricing', null) &&
+        n.serviceFee == 0 &&
+        n.photoUrls == [] &&
+        n.get('contactPhone', '') == '' &&
+        n.get('jobNotes', '') == '' &&
+        n.createdAt == request.time &&
+        n.updatedAt == request.time;
+    }
+
+    // Reschedule: the new slot's lock must be created in the same
+    // transaction (locks can never be overwritten → no double booking) and
+    // the old lock released. Both slots must be > 2 h away.
+    function customerReschedule(bookingId) {
+      let n = request.resource.data;
+      let oldLock = resource.data.get('slotLockId', null);
+      return customerOwnsOpenBooking() &&
+        changedKeys().hasOnly(['slotDate', 'startTime', 'endTime', 'scheduledAt',
+          'endAt', 'slotLockId', 'rescheduledAt', 'updatedAt']) &&
+        resource.data.scheduledAt is timestamp &&
+        resource.data.scheduledAt > request.time + duration.value(2, 'h') &&
+        validSlotShape(n) &&
+        n.scheduledAt == slotInstant(n.slotDate, n.startTime) &&
+        n.endAt == slotInstant(n.slotDate, n.endTime) &&
+        n.scheduledAt > request.time + duration.value(2, 'h') &&
+        n.slotLockId == lockIdFor(resource.data.providerId, n.slotDate, n.startTime) &&
+        n.rescheduledAt == request.time &&
+        n.updatedAt == request.time &&
+        getAfter(lockPath(n.slotLockId)).data.bookingId == bookingId &&
+        (oldLock == null || oldLock == n.slotLockId || !existsAfter(lockPath(oldLock)));
+    }
+
+    function chargeTotal(b) {
+      // Quote-flow bookings are charged the accepted price, never an estimate.
+      return b.get('quoteStatus', null) != null &&
+          !(b.get('acceptedAmount', null) is number) ? 0 :
+        b.get('totalAmount', null) is number ? b.totalAmount :
+        (b.get('estimatedPrice', null) is number ? b.estimatedPrice : 0);
+    }
+
+    // Free > 2 h before start, otherwise 20% (floored) is kept.
+    function expectedFee(b) {
+      return b.get('scheduledAt', null) is timestamp &&
+        b.scheduledAt > request.time + duration.value(2, 'h')
+        ? 0 : math.floor(chargeTotal(b) / 5);
+    }
+
+    function customerCancel(bookingId) {
+      let b = resource.data;
+      let n = request.resource.data;
+      let captured = b.get('paymentStatus', null) in ['escrow', 'paid'];
+      let oldLock = b.get('slotLockId', null);
+      return customerOwnsOpenBooking() &&
+        changedKeys().hasOnly(['status', 'cancelledAt', 'cancellationReason',
+          'cancellationFee', 'refundAmount', 'paymentStatus', 'slotLockId',
+          'updatedAt']) &&
+        n.status == 'cancelled' &&
+        n.cancelledAt == request.time &&
+        n.updatedAt == request.time &&
+        n.cancellationReason in ['Changed my plans', 'Booked by mistake',
+          'Found another provider', 'Other'] &&
+        n.cancellationFee == expectedFee(b) &&
+        n.refundAmount == (captured ? chargeTotal(b) - expectedFee(b) : 0) &&
+        n.get('paymentStatus', null) ==
+          (captured ? 'refund_pending' : b.get('paymentStatus', null)) &&
+        n.get('slotLockId', null) == null &&
+        (oldLock == null || !existsAfter(lockPath(oldLock))) &&
+        (!captured || existsAfter(/databases/$(database)/documents/refunds/$(bookingId)));
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if signedIn() &&
+        (isAdmin() ||
+         resource.data.customerId == request.auth.uid ||
+         (resource.data.providerId == request.auth.uid && providerSignedIn()));
+      allow update: if providerQuote() ||
+        customerQuoteAnswer() ||
+        providerTransition() ||
+        customerEdit() ||
+        customerReschedule(bookingId) ||
+        customerCancel(bookingId);
+      // Customers create their own pending bookings (price and slot are
+      // checked above); bookings are never deleted.
+      allow create: if signedIn() && validNewBooking(bookingId);
+      allow delete: if false;
+    }
+
+    // ------------------------------------------------------------ slot locks
+    // One document per provider/date/start time. `create` only succeeds when
+    // the document does not exist, and updates are denied, so two bookings
+    // can never hold the same slot.
+    match /slotLocks/{lockId} {
+      function lockedBooking() {
+        return getAfter(bookingPath(request.resource.data.bookingId)).data;
+      }
+
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['providerId', 'date', 'startTime', 'endTime', 'bookingId']) &&
+        request.resource.data.bookingId is string &&
+        lockId == lockIdFor(request.resource.data.providerId,
+          request.resource.data.date, request.resource.data.startTime) &&
+        lockedBooking().customerId == request.auth.uid &&
+        lockedBooking().providerId == request.resource.data.providerId &&
+        lockedBooking().slotLockId == lockId &&
+        lockedBooking().slotDate == request.resource.data.date &&
+        lockedBooking().startTime == request.resource.data.startTime &&
+        lockedBooking().endTime == request.resource.data.endTime;
+      allow update: if false;
+      allow delete: if signedIn() &&
+        get(bookingPath(resource.data.bookingId)).data.customerId == request.auth.uid &&
+        getAfter(bookingPath(resource.data.bookingId)).data.get('slotLockId', null) != lockId;
+    }
+
+    // ---------------------------------------------------------------- refunds
+    // Created only in the same transaction that cancels the booking; the
+    // payment backend advances the status.
+    match /refunds/{bookingId} {
+      function cancelledBooking() {
+        return getAfter(bookingPath(bookingId)).data;
+      }
+
+      // `resource == null` lets the owner watch for a refund before it exists.
+      allow get: if signedIn() &&
+        (resource == null || resource.data.customerId == request.auth.uid);
+      allow list: if false;
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['bookingId', 'customerId', 'amount',
+          'cancellationFee', 'percentage', 'method', 'cardLast4',
+          'refundReference', 'reason', 'status', 'createdAt']) &&
+        request.resource.data.customerId == request.auth.uid &&
+        request.resource.data.bookingId == bookingId &&
+        get(bookingPath(bookingId)).data.status in ['pending', 'confirmed'] &&
+        cancelledBooking().customerId == request.auth.uid &&
+        cancelledBooking().status == 'cancelled' &&
+        request.resource.data.amount == cancelledBooking().refundAmount &&
+        request.resource.data.cancellationFee == cancelledBooking().cancellationFee &&
+        request.resource.data.reason == cancelledBooking().cancellationReason &&
+        request.resource.data.percentage is int &&
+        request.resource.data.percentage >= 0 &&
+        request.resource.data.percentage <= 100 &&
+        request.resource.data.refundReference is string &&
+        request.resource.data.refundReference.matches('^REF-[0-9]{6}$') &&
+        request.resource.data.status == 'initiated' &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // --------------------------------------------------------------- receipts
+    match /receipts/{bookingId} {
+      allow get: if signedIn() &&
+        (resource == null ||
+         resource.data.customerId == request.auth.uid ||
+         resource.data.providerId == request.auth.uid);
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // ------------------------------------------------------ reviews/disputes
+    match /reviews/{bookingId} {
+      function reviewedBooking() {
+        return get(bookingPath(bookingId)).data;
+      }
+
+      // The provider's rating total must be rewritten by this very commit
+      // (fresh timestamp) and point at this review, so a review can never
+      // change without the overall rating following it.
+      function ratingTotalMoves(providerId) {
+        return getAfter(/databases/$(database)/documents/ratingStats/$(providerId)).data.lastReviewId == bookingId &&
+          getAfter(/databases/$(database)/documents/ratingStats/$(providerId)).data.updatedAt == request.time;
+      }
+
+      function validReviewContent(data) {
+        return data.rating is int &&
+          data.rating >= 1 &&
+          data.rating <= 5 &&
+          data.comment is string &&
+          data.comment.size() <= 500 &&
+          data.get('tags', []) is list &&
+          data.get('tags', []).size() <= 6 &&
+          data.get('tags', []).hasOnly(['On Time',
+            'Polite & Professional', 'Clean Work', 'Fair Price',
+            'Good Communication', 'Careful with Furniture']) &&
+          (data.get('recommend', null) == null || data.recommend is bool);
+      }
+
+      // Customers read their own review, providers the reviews of their jobs;
+      // admins can list all reviews for monitoring.
+      allow get: if signedIn() &&
+        (resource == null ||
+         resource.data.customerId == request.auth.uid ||
+         resource.data.providerId == request.auth.uid ||
+         isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['bookingId', 'customerId',
+          'providerId', 'customerName', 'serviceName', 'rating', 'tags',
+          'comment', 'recommend', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['bookingId', 'customerId',
+          'providerId', 'rating', 'comment', 'createdAt']) &&
+        request.resource.data.bookingId == bookingId &&
+        request.resource.data.customerId == request.auth.uid &&
+        reviewedBooking().customerId == request.auth.uid &&
+        reviewedBooking().status == 'completed' &&
+        request.resource.data.providerId == reviewedBooking().providerId &&
+        validReviewContent(request.resource.data) &&
+        request.resource.data.get('customerName', '') is string &&
+        request.resource.data.get('customerName', '').size() <= 80 &&
+        request.resource.data.get('serviceName', '') is string &&
+        request.resource.data.get('serviceName', '').size() <= 120 &&
+        request.resource.data.createdAt == request.time &&
+        ratingTotalMoves(reviewedBooking().providerId);
+
+      // Only the customer who wrote it may change the stars, highlights,
+      // feedback and recommendation. Who/what/when it belongs to is fixed.
+      allow update: if signedIn() &&
+        resource.data.customerId == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['bookingId', 'customerId',
+          'providerId', 'customerName', 'serviceName', 'rating', 'tags',
+          'comment', 'recommend', 'createdAt', 'updatedAt']) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['rating', 'tags', 'comment', 'recommend', 'updatedAt']) &&
+        validReviewContent(request.resource.data) &&
+        request.resource.data.updatedAt == request.time &&
+        ratingTotalMoves(resource.data.providerId);
+
+      allow delete: if signedIn() &&
+        resource.data.customerId == request.auth.uid &&
+        ratingTotalMoves(resource.data.providerId);
+    }
+
+    // A provider's overall rating: running total of all customer reviews.
+    // Anyone signed in can read it (it is an aggregate, no personal data).
+    // It can only change in the same commit as the review it counts, and only
+    // by exactly that review's stars: added once, swapped when the customer
+    // edits, removed when the customer deletes. Nobody can set or skew it.
+    match /ratingStats/{providerId} {
+      function reviewDoc(id) {
+        return /databases/$(database)/documents/reviews/$(id);
+      }
+
+      function ownedByMe(review) {
+        return review.customerId == request.auth.uid &&
+          review.providerId == providerId;
+      }
+
+      function tiedToReview() {
+        return request.resource.data.keys().hasOnly(['providerId', 'ratingSum',
+            'ratingCount', 'lastReviewId', 'updatedAt']) &&
+          request.resource.data.providerId == providerId &&
+          request.resource.data.lastReviewId is string &&
+          request.resource.data.ratingSum is int &&
+          request.resource.data.ratingCount is int &&
+          request.resource.data.ratingSum >= 0 &&
+          request.resource.data.ratingCount >= 0 &&
+          request.resource.data.updatedAt == request.time;
+      }
+
+      function isAdd(id) {
+        return !exists(reviewDoc(id)) && existsAfter(reviewDoc(id)) &&
+          ownedByMe(getAfter(reviewDoc(id)).data);
+      }
+
+      function isEdit(id) {
+        return exists(reviewDoc(id)) && existsAfter(reviewDoc(id)) &&
+          ownedByMe(get(reviewDoc(id)).data) &&
+          ownedByMe(getAfter(reviewDoc(id)).data);
+      }
+
+      function isRemove(id) {
+        return exists(reviewDoc(id)) && !existsAfter(reviewDoc(id)) &&
+          ownedByMe(get(reviewDoc(id)).data);
+      }
+
+      allow read: if signedIn();
+      allow create: if signedIn() && tiedToReview() &&
+        isAdd(request.resource.data.lastReviewId) &&
+        request.resource.data.ratingCount == 1 &&
+        request.resource.data.ratingSum ==
+          getAfter(reviewDoc(request.resource.data.lastReviewId)).data.rating;
+      allow update: if signedIn() && tiedToReview() && (
+        (isAdd(request.resource.data.lastReviewId) &&
+          request.resource.data.ratingCount == resource.data.ratingCount + 1 &&
+          request.resource.data.ratingSum == resource.data.ratingSum +
+            getAfter(reviewDoc(request.resource.data.lastReviewId)).data.rating) ||
+        (isEdit(request.resource.data.lastReviewId) &&
+          request.resource.data.ratingCount == resource.data.ratingCount &&
+          request.resource.data.ratingSum == resource.data.ratingSum -
+            get(reviewDoc(request.resource.data.lastReviewId)).data.rating +
+            getAfter(reviewDoc(request.resource.data.lastReviewId)).data.rating) ||
+        (isRemove(request.resource.data.lastReviewId) &&
+          request.resource.data.ratingCount == resource.data.ratingCount - 1 &&
+          request.resource.data.ratingSum == resource.data.ratingSum -
+            get(reviewDoc(request.resource.data.lastReviewId)).data.rating)
+      );
+      allow delete: if false;
+    }
+
+    // Each user can only ever read their own notifications. Writes: the
+    // customer's review notification (created, refreshed on edit, removed on
+    // delete, always in the same commit as the review) and the recipient
+    // flipping `read`.
+    match /notifications/{notificationId} {
+
+    // A quote notice. The booking must change in the same commit (its
+    // quoteUpdatedAt is this request's time), so a notice cannot exist without
+    // a real quote event, and it only goes to the other person on the booking.
+    function quoteNotice(notificationId) {
+      let n = request.resource.data;
+      let b = getAfter(bookingPath(n.bookingId)).data;
+      return n.get('type', null) == 'quote' &&
+        n.keys().hasOnly(['recipientId', 'senderId', 'type', 'bookingId',
+          'title', 'body', 'read', 'createdAt']) &&
+        n.senderId == request.auth.uid &&
+        n.bookingId is string &&
+        notificationId.matches('quote_' + n.bookingId + '_[0-9]+') &&
+        b.get('quoteUpdatedAt', null) == request.time &&
+        ((b.providerId == request.auth.uid && n.recipientId == b.customerId) ||
+         (b.customerId == request.auth.uid && n.recipientId == b.providerId)) &&
+        n.title is string && n.title.size() <= 120 &&
+        n.body is string && n.body.size() <= 300 &&
+        n.read == false &&
+        n.createdAt == request.time;
+    }
+
+      function reviewAfter(bookingId) {
+        return getAfter(/databases/$(database)/documents/reviews/$(bookingId)).data;
+      }
+
+      allow get, list: if signedIn() &&
+        resource.data.recipientId == request.auth.uid;
+      allow create: if signedIn() && quoteNotice(notificationId);
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'rating', 'read', 'createdAt']) &&
+        request.resource.data.type == 'review' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.bookingId is string &&
+        notificationId == 'review_' + request.resource.data.bookingId &&
+        existsAfter(/databases/$(database)/documents/reviews/$(request.resource.data.bookingId)) &&
+        reviewAfter(request.resource.data.bookingId).customerId == request.auth.uid &&
+        request.resource.data.recipientId ==
+          reviewAfter(request.resource.data.bookingId).providerId &&
+        request.resource.data.rating == reviewAfter(request.resource.data.bookingId).rating &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 200 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
+      // A customer tells the provider about a dispute they filed.
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'read', 'createdAt']) &&
+        request.resource.data.type == 'dispute' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.bookingId is string &&
+        notificationId == 'dispute_' + request.resource.data.bookingId &&
+        existsAfter(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)) &&
+        getAfter(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.customerId == request.auth.uid &&
+        request.resource.data.recipientId ==
+          getAfter(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.providerId &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 300 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
+      // The safety desk tells the provider or customer a dispute moved on.
+      allow create: if isAdmin() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'read', 'createdAt']) &&
+        request.resource.data.type == 'dispute' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.bookingId is string &&
+        (
+          (notificationId in ['dispute_' + request.resource.data.bookingId + '_review',
+             'dispute_' + request.resource.data.bookingId + '_resolved'] &&
+           request.resource.data.recipientId ==
+             get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.providerId)
+          ||
+          (notificationId in ['dispute_' + request.resource.data.bookingId + '_customer_review',
+             'dispute_' + request.resource.data.bookingId + '_customer_resolved'] &&
+           request.resource.data.recipientId ==
+             get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.customerId)
+        ) &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 300 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
+      // A provider tells the customer they answered the dispute.
+      allow create, update: if signedIn() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'read', 'createdAt']) &&
+        request.resource.data.type == 'dispute' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.bookingId is string &&
+        notificationId == 'dispute_' + request.resource.data.bookingId + '_response' &&
+        exists(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)) &&
+        get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.providerId == request.auth.uid &&
+        request.resource.data.recipientId ==
+          get(/databases/$(database)/documents/disputes/$(request.resource.data.bookingId)).data.customerId &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 300 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
+      // An admin tells a provider the outcome of their verification.
+      allow create: if isAdmin() &&
+        request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
+          'bookingId', 'title', 'body', 'read', 'createdAt']) &&
+        request.resource.data.type == 'verification' &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.recipientId is string &&
+        request.resource.data.bookingId == '' &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() <= 300 &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && (
+        // The recipient marks it read.
+        (resource.data.recipientId == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) &&
+         request.resource.data.read is bool) ||
+        // The customer who edited their review refreshes it as unread.
+        (resource.data.senderId == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['title', 'body', 'rating', 'read', 'createdAt']) &&
+         existsAfter(/databases/$(database)/documents/reviews/$(resource.data.bookingId)) &&
+         request.resource.data.rating == reviewAfter(resource.data.bookingId).rating &&
+         request.resource.data.title is string &&
+         request.resource.data.title.size() <= 120 &&
+         request.resource.data.body is string &&
+         request.resource.data.body.size() <= 200 &&
+         request.resource.data.read == false &&
+         request.resource.data.createdAt == request.time)
+      );
+      // A dispute notice goes away when the dispute is withdrawn.
+      allow delete: if signedIn() &&
+        resource.data.type == 'dispute' &&
+        (resource.data.senderId == request.auth.uid || resource.data.recipientId == request.auth.uid) &&
+        !existsAfter(/databases/$(database)/documents/disputes/$(resource.data.bookingId));
+      // Removed together with the review it announced.
+      allow delete: if signedIn() &&
+        resource.data.senderId == request.auth.uid &&
+        !existsAfter(/databases/$(database)/documents/reviews/$(resource.data.bookingId));
+    }
+
+    // ------------------------------------------- provider verification (admin)
+    // A provider submits their details and documents; only an admin (a user
+    // whose users/{uid}.role is 'admin', created by the trusted backend, never
+    // by sign-up) can verify or reject. Until verified a provider cannot take
+    // jobs (see providerVerified() in the bookings rules).
+    function isAdmin() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Provider verification documents are hosted on Cloudinary
+    // (https://res.cloudinary.com/dclo5pyll/provider_docs/{uid}/...);
+    // Firebase Storage is not used.
+    function validDocFile(file) {
+      return file is map && file.name is string && file.name.size() > 0 &&
+        file.name.size() <= 200 && file.url is string && file.url.size() > 0 &&
+        file.url.size() <= 2000;
+    }
+
+    function validSubmission(d, uid) {
+      return d.keys().hasOnly(['providerId', 'fullName', 'phone', 'profession',
+          'experienceYears', 'about', 'idType', 'idNumber', 'idFront', 'idBack',
+          'selfie', 'cv', 'certificates', 'experiences', 'status', 'submittedAt']) &&
+        d.keys().hasAll(['providerId', 'fullName', 'phone', 'profession',
+          'experienceYears', 'idType', 'idNumber', 'certificates', 'status',
+          'submittedAt']) &&
+        d.providerId == uid &&
+        d.fullName is string && d.fullName.size() >= 2 && d.fullName.size() <= 80 &&
+        // Sign-up is relaxed for now: only the name is compulsory and every
+        // document is optional (the admin sees what was provided). To make
+        // them compulsory again, require size() >= 9 / > 0 / >= 6 below and
+        // the document maps (see VerificationDraft.requireEverything).
+        d.phone is string && d.phone.size() <= 40 &&
+        d.profession is string && d.profession.size() <= 100 &&
+        d.experienceYears is int && d.experienceYears >= 0 && d.experienceYears <= 80 &&
+        d.get('about', '') is string && d.get('about', '').size() <= 2000 &&
+        d.idType in ['nic', 'passport'] &&
+        d.idNumber is string && d.idNumber.size() <= 20 &&
+        (d.get('idFront', null) == null || validDocFile(d.idFront)) &&
+        (d.get('idBack', null) == null || validDocFile(d.idBack)) &&
+        (d.get('selfie', null) == null || validDocFile(d.selfie)) &&
+        (d.get('cv', null) == null || validDocFile(d.cv)) &&
+        d.certificates is list && d.certificates.size() <= 5 &&
+        (d.certificates.size() < 1 || validDocFile(d.certificates[0])) &&
+        (d.certificates.size() < 2 || validDocFile(d.certificates[1])) &&
+        (d.certificates.size() < 3 || validDocFile(d.certificates[2])) &&
+        (d.certificates.size() < 4 || validDocFile(d.certificates[3])) &&
+        (d.certificates.size() < 5 || validDocFile(d.certificates[4])) &&
+        d.get('experiences', []) is list && d.get('experiences', []).size() <= 5 &&
+        d.status == 'pending' &&
+        d.submittedAt == request.time;
+    }
+
+    match /providerVerifications/{uid} {
+      allow get: if isUser(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if providerSignedIn() && request.auth.uid == uid &&
+        validSubmission(request.resource.data, uid);
+      allow update: if
+        // The provider fixes and resubmits after a rejection.
+        (providerSignedIn() && request.auth.uid == uid &&
+         resource.data.status == 'rejected' &&
+         validSubmission(request.resource.data, uid)) ||
+        // An admin reviews a pending submission.
+        (isAdmin() && resource.data.status == 'pending' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+           ['status', 'providerCode', 'reviewedAt', 'reviewedBy', 'rejectionReason']) &&
+         request.resource.data.reviewedAt == request.time &&
+         request.resource.data.reviewedBy == request.auth.uid &&
+         ((request.resource.data.status == 'verified' &&
+           request.resource.data.providerCode is string &&
+           request.resource.data.providerCode.size() > 0 &&
+           request.resource.data.providerCode.size() <= 20) ||
+          (request.resource.data.status == 'rejected' &&
+           request.resource.data.rejectionReason is string &&
+           request.resource.data.rejectionReason.size() >= 5 &&
+           request.resource.data.rejectionReason.size() <= 300)));
+      allow delete: if false;
+    }
+
+    // Last Provider ID number handed out (HCP-1001, HCP-1002, ...). Only an
+    // admin verifying a provider moves it, and only by exactly one.
+    match /counters/{counterId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && counterId == 'providerIds' &&
+        request.resource.data.keys().hasOnly(['last']) &&
+        request.resource.data.last == 1;
+      allow update: if isAdmin() && counterId == 'providerIds' &&
+        request.resource.data.keys().hasOnly(['last']) &&
+        request.resource.data.last == resource.data.last + 1;
+      allow delete: if false;
+    }
+
+    // Warranty claims. One per booking (the document ID is the booking ID),
+    // filed within 3 days of the job being completed. The customer can edit
+    // or withdraw it only while it is pending. The safety desk (admin) moves
+    // it Pending -> Under Review -> Resolved and records the decision; the
+    // provider can answer until the 24-hour deadline. Photos live in a
+    // subcollection as Base64 text, one document each (a document is limited
+    // to 1 MB).
+    match /disputes/{disputeId} {
+      function disputedBooking() {
+        return get(bookingPath(request.resource.data.bookingId)).data;
+      }
+
+      // Same as the app (Booking.chargeTotal): totalAmount, else estimatedPrice,
+      // else 0. A booking priced on site has null prices (key present).
+      function bookingTotal(booking) {
+        return chargeTotal(booking);
+      }
+
+      function validDisputeContent(data) {
+        return data.reason in ['Service not completed / Damage claim',
+            'Poor work quality', 'Overcharged / Billing issue',
+            'Professional conduct', 'Other'] &&
+          (data.get('tag', null) == null ||
+           data.tag in ['Defective repair', 'Billing issue', 'Property damage']) &&
+          data.description is string &&
+          data.description.size() >= 10 &&
+          data.description.size() <= 1000 &&
+          data.photoCount is int &&
+          data.photoCount >= 0 &&
+          data.photoCount <= 5;
+      }
+
+      // Customer, the provider of the job and the safety desk can read it.
+      // The screen looks the dispute up before one exists, so a missing
+      // document must be readable (it simply comes back empty).
+      allow get: if signedIn() &&
+        (resource == null ||
+         resource.data.customerId == request.auth.uid ||
+         resource.data.providerId == request.auth.uid ||
+         isAdmin());
+      // Profiles list a user's own disputes (queries filter by customerId or
+      // providerId); the safety desk lists them all.
+      allow list: if isAdmin() ||
+        (signedIn() &&
+         (resource.data.customerId == request.auth.uid ||
+          resource.data.providerId == request.auth.uid));
+
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['bookingId', 'customerId',
+          'providerId', 'reason', 'tag', 'description', 'status',
+          'photoCount', 'serviceName', 'customerName', 'providerName',
+          'bookingRef', 'amount', 'createdAt', 'respondDeadline', 'adminNote',
+          'decision', 'refundAmount', 'providerResponse']) &&
+        request.resource.data.bookingId is string &&
+        disputeId == request.resource.data.bookingId &&
+        request.resource.data.customerId == request.auth.uid &&
+        disputedBooking().customerId == request.auth.uid &&
+        request.resource.data.providerId == disputedBooking().providerId &&
+        disputedBooking().status == 'completed' &&
+        disputedBooking().completedAt is timestamp &&
+        request.time < disputedBooking().completedAt + duration.value(3, 'd') &&
+        // Copied from the booking so the safety desk cannot be misled.
+        request.resource.data.serviceName == disputedBooking().serviceName &&
+        request.resource.data.customerName == disputedBooking().customerName &&
+        request.resource.data.providerName == disputedBooking().get('providerName', '') &&
+        request.resource.data.bookingRef is string &&
+        request.resource.data.bookingRef.size() <= 40 &&
+        request.resource.data.amount == bookingTotal(disputedBooking()) &&
+        validDisputeContent(request.resource.data) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.respondDeadline is timestamp &&
+        request.resource.data.respondDeadline > request.time &&
+        request.resource.data.respondDeadline <= request.time + duration.value(25, 'h') &&
+        request.resource.data.get('adminNote', null) == null &&
+        request.resource.data.get('decision', null) == null &&
+        request.resource.data.get('refundAmount', null) == null &&
+        request.resource.data.get('providerResponse', null) == null;
+
+      allow update: if signedIn() && (
+        // The customer edits their own dispute while it is still pending.
+        (resource.data.customerId == request.auth.uid &&
+         resource.data.status == 'pending' &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['reason', 'tag', 'description', 'photoCount', 'updatedAt']) &&
+         validDisputeContent(request.resource.data) &&
+         request.resource.data.updatedAt == request.time) ||
+        // The provider answers before the deadline, until it is decided.
+        (resource.data.providerId == request.auth.uid &&
+         resource.data.status in ['pending', 'under_review'] &&
+         request.time <= resource.data.respondDeadline &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['providerResponse', 'providerRespondedAt', 'updatedAt']) &&
+         request.resource.data.providerResponse is string &&
+         request.resource.data.providerResponse.size() >= 10 &&
+         request.resource.data.providerResponse.size() <= 1000 &&
+         request.resource.data.providerRespondedAt == request.time &&
+         request.resource.data.updatedAt == request.time) ||
+        // The safety desk starts the review (Pending -> Under Review).
+        (isAdmin() &&
+         resource.data.status == 'pending' &&
+         request.resource.data.status == 'under_review' &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'updatedAt']) &&
+         request.resource.data.updatedAt == request.time) ||
+        // ...and decides it (Under Review -> Resolved).
+        (isAdmin() &&
+         resource.data.status == 'under_review' &&
+         request.resource.data.status == 'resolved' &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'decision', 'refundAmount', 'adminNote',
+                     'updatedAt']) &&
+         request.resource.data.decision in ['Full refund approved',
+           'Partial refund approved', 'Claim rejected'] &&
+         request.resource.data.adminNote is string &&
+         request.resource.data.adminNote.size() >= 5 &&
+         request.resource.data.adminNote.size() <= 500 &&
+         ((request.resource.data.decision == 'Claim rejected' &&
+           request.resource.data.get('refundAmount', null) == null) ||
+          (request.resource.data.decision != 'Claim rejected' &&
+           request.resource.data.refundAmount is number &&
+           request.resource.data.refundAmount > 0 &&
+           request.resource.data.refundAmount <=
+             bookingTotal(get(bookingPath(resource.data.bookingId)).data) &&
+           (request.resource.data.decision != 'Full refund approved' ||
+            request.resource.data.refundAmount ==
+              bookingTotal(get(bookingPath(resource.data.bookingId)).data)))) &&
+         request.resource.data.updatedAt == request.time)
+      );
+
+      // Withdrawing is only possible while the dispute is pending.
+      allow delete: if signedIn() &&
+        resource.data.customerId == request.auth.uid &&
+        resource.data.status == 'pending';
+
+      match /photos/{photoId} {
+        function parentPath() {
+          return /databases/$(database)/documents/disputes/$(disputeId);
+        }
+
+        // No dispute yet means no photos yet: reading comes back empty.
+        allow get, list: if signedIn() &&
+          (!exists(parentPath()) ||
+           get(parentPath()).data.customerId == request.auth.uid ||
+           get(parentPath()).data.providerId == request.auth.uid ||
+           isAdmin());
+        // Five fixed slots, only for the customer's own pending dispute.
+        allow create, update: if signedIn() &&
+          photoId in ['p0', 'p1', 'p2', 'p3', 'p4'] &&
+          getAfter(parentPath()).data.customerId == request.auth.uid &&
+          getAfter(parentPath()).data.status == 'pending' &&
+          request.resource.data.keys().hasOnly(['base64', 'mimeType',
+            'sizeBytes', 'createdAt']) &&
+          request.resource.data.base64 is string &&
+          request.resource.data.base64.size() > 0 &&
+          request.resource.data.base64.size() <= 950000 &&
+          request.resource.data.mimeType in ['image/jpeg', 'image/png'] &&
+          request.resource.data.sizeBytes is int &&
+          request.resource.data.createdAt == request.time;
+        allow delete: if signedIn() &&
+          get(parentPath()).data.customerId == request.auth.uid &&
+          get(parentPath()).data.status == 'pending';
+      }
+    }
+  }
+}

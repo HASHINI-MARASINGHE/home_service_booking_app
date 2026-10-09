@@ -1,30 +1,65 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+// Customer shell smoke test (replaces the original Flutter counter template,
+// which no longer matched the app).
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:home_service_bookin_app/screens/customer/bookings/booking_details_screen.dart';
+import 'package:home_service_bookin_app/screens/customer/customer_home_screen.dart';
+import 'package:home_service_bookin_app/services/auth_service.dart';
+import 'package:home_service_bookin_app/theme/app_theme.dart';
+import 'package:home_service_bookin_app/widgets/common/app_bottom_nav.dart';
 
-import 'package:home_service_bookin_app/main.dart';
+import 'support/customer_fakes.dart';
+
+class _Auth extends Fake implements FirebaseAuth {}
+
+class _Db extends Fake implements FirebaseFirestore {}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('bottom navigation keeps detail screens inside each tab', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: CustomerHomeScreen(
+          user: testUser,
+          authService: AuthService(auth: _Auth(), firestore: _Db()),
+          addressService: FakeAddressService([address(isDefault: true)]),
+          bookingService: FakeBookingService(bookings: [booking()]),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final nav = find.byType(AppBottomNav);
+    expect(nav, findsOneWidget);
+    expect(find.text('Bookings'), findsOneWidget);
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.tap(find.text('Bookings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Booking History'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.tap(find.text('AC Deep Clean & Servicing'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BookingDetailsScreen), findsOneWidget);
+    expect(nav, findsOneWidget, reason: 'details stay inside the shell');
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.text('Saved'));
+    await tester.pumpAndSettle();
+    expect(find.text('My Addresses'), findsOneWidget);
+
+    // Returning to Bookings restores the open details screen; tapping the
+    // active tab again pops back to its root.
+    await tester.tap(find.text('Bookings'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BookingDetailsScreen), findsOneWidget);
+    await tester.tap(find.text('Bookings'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BookingDetailsScreen), findsNothing);
+    expect(find.text('Booking History'), findsOneWidget);
   });
 }

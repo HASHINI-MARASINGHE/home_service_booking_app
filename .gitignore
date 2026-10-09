@@ -46,3 +46,12 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Flutter DevTools local settings
+devtools_options.yaml
+
+# Kotlin incremental build cache (Android)
+android/.kotlin/
+
+# Course material and report drafts: submitted separately, not part of the app
+assignment file/

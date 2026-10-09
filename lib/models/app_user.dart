@@ -2,28 +2,46 @@ class AppUser {
   static const customerRole = 'customer';
   static const providerRole = 'provider';
 
+  /// Created only by the trusted backend (tool/seed), never by sign-up.
+  static const adminRole = 'admin';
+
   const AppUser({
     required this.uid,
     required this.name,
     required this.email,
     required this.role,
+    this.photoUrl,
+    this.phone,
   });
 
   final String uid;
   final String name;
   final String email;
   final String role;
+  final String? photoUrl;
+  final String? phone;
 
   factory AppUser.fromMap(String uid, Map<String, dynamic> data) {
     final name = data['name'];
     final email = data['email'];
     final role = data['role'];
+    final photoUrl = data['photoUrl'];
+    final phone = data['phone'];
     if (name is! String ||
         email is! String ||
-        (role != customerRole && role != providerRole)) {
+        (role != customerRole && role != providerRole && role != adminRole) ||
+        (photoUrl != null && photoUrl is! String) ||
+        (phone != null && phone is! String)) {
       throw const FormatException('The user profile is invalid.');
     }
-    return AppUser(uid: uid, name: name, email: email, role: role as String);
+    return AppUser(
+      uid: uid,
+      name: name,
+      email: email,
+      role: role as String,
+      photoUrl: photoUrl as String?,
+      phone: phone as String?,
+    );
   }
 
   Map<String, dynamic> toMap() => {
@@ -31,5 +49,7 @@ class AppUser {
     'name': name,
     'email': email,
     'role': role,
+    'photoUrl': photoUrl,
+    if (phone != null) 'phone': phone,
   };
 }
