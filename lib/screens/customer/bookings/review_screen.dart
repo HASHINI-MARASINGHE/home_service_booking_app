@@ -24,7 +24,7 @@ class ReviewScreen extends StatefulWidget {
 class _ReviewScreenState extends State<ReviewScreen> {
   Stream<Booking?>? _booking;
   Stream<Review?>? _review;
-  Future<Professional?>? _professional;
+  Stream<Professional?>? _professional;
   String? _providerId;
 
   @override
@@ -44,12 +44,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
     });
   }
 
-  Future<Professional?> _professionalFor(Booking booking) {
+  Stream<Professional?> _professionalFor(Booking booking) {
     if (_providerId != booking.providerId || _professional == null) {
       _providerId = booking.providerId;
       _professional = CustomerScope.of(context).bookings
-          .getProfessional(booking.providerId)
-          .catchError((_) => null);
+          .watchProfessional(booking.providerId)
+          .handleError((_) {});
     }
     return _professional!;
   }
@@ -89,8 +89,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 ),
               );
             } else {
-              body = FutureBuilder<Professional?>(
-                future: _professionalFor(booking),
+              body = StreamBuilder<Professional?>(
+                stream: _professionalFor(booking),
                 builder: (context, pro) => _ReviewBody(
                   booking: booking,
                   professional: pro.data,

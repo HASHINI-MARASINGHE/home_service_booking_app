@@ -6,6 +6,7 @@ import '../../models/booking.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_search_bar.dart';
 import '../../widgets/common/app_widgets.dart';
 
@@ -31,7 +32,7 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: 3,
+    length: 2,
     child: Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -39,11 +40,15 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
         title: const Text('Platform monitor'),
         bottom: const TabBar(
           tabs: [
-            Tab(text: 'Overview'),
             Tab(text: 'Customers'),
             Tab(text: 'Bookings'),
           ],
         ),
+      ),
+      bottomNavigationBar: AppBottomNav(
+        items: AppBottomNav.localizedAdminItems(context),
+        selectedIndex: 4,
+        onSelected: (index) => Navigator.of(context).pop(index),
       ),
       body: StreamBuilder<List<Booking>>(
         stream: _bookings,
@@ -59,11 +64,6 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
             final customers = customerSnap.data!;
             return TabBarView(
               children: [
-                _Overview(
-                  service: widget.service,
-                  customers: customers,
-                  bookings: bookings,
-                ),
                 _CustomersTab(customers: customers, bookings: bookings),
                 _BookingsTab(bookings: bookings),
               ],
@@ -97,157 +97,6 @@ class _StatusChip extends StatelessWidget {
 
 String _when(DateTime? date) =>
     date == null ? '—' : '${Formatters.shortDate(date)} · ${Formatters.clock(date)}';
-
-// ----------------------------------------------------------------- overview
-class _Overview extends StatelessWidget {
-  const _Overview({
-    required this.service,
-    required this.customers,
-    required this.bookings,
-  });
-  final AdminService service;
-  final List<AppUser> customers;
-  final List<Booking> bookings;
-
-  @override
-  Widget build(BuildContext context) {
-    final active = bookings.where((b) => b.status.isUpcoming).length;
-    final completed = bookings.where((b) => b.status == BookingStatus.completed);
-    final cancelled = bookings.where(
-      (b) =>
-          b.status == BookingStatus.cancelled ||
-          b.status == BookingStatus.declined,
-    );
-    final revenue = completed.fold<double>(0, (sum, b) => sum + b.chargeTotal);
-    final recent = [...bookings]
-      ..sort(
-        (a, b) => (b.updatedAt ?? b.createdAt ?? DateTime(0)).compareTo(
-          a.updatedAt ?? a.createdAt ?? DateTime(0),
-        ),
-      );
-    final styles = context.textStyles;
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.screen),
-      children: [
-        Row(
-          children: [
-            const Icon(LucideIcons.radio, size: 14, color: AppColors.success),
-            const SizedBox(width: 6),
-            Text('Live · updates automatically', style: styles.caption),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: AppSpacing.sm,
-          crossAxisSpacing: AppSpacing.sm,
-          childAspectRatio: 1.7,
-          children: [
-            _StatCard(
-              icon: LucideIcons.users,
-              label: 'Customers',
-              value: '${customers.length}',
-            ),
-            _StatCard(
-              icon: LucideIcons.calendarCheck,
-              label: 'Total bookings',
-              value: '${bookings.length}',
-            ),
-            _StatCard(
-              icon: LucideIcons.activity,
-              label: 'Active now',
-              value: '$active',
-            ),
-            _StatCard(
-              icon: LucideIcons.circleCheck,
-              label: 'Completed',
-              value: '${completed.length}',
-            ),
-            _StatCard(
-              icon: LucideIcons.circleX,
-              label: 'Cancelled / declined',
-              value: '${cancelled.length}',
-            ),
-            _StatCard(
-              icon: LucideIcons.banknote,
-              label: 'Completed value',
-              value: Formatters.lkr(revenue),
-            ),
-            StreamBuilder<int>(
-              stream: service.watchPendingDisputeCount(),
-              builder: (context, snap) => _StatCard(
-                icon: LucideIcons.triangleAlert,
-                label: 'Open disputes',
-                value: '${snap.data ?? 0}',
-              ),
-            ),
-            StreamBuilder<int>(
-              stream: service.watchPendingCount(),
-              builder: (context, snap) => _StatCard(
-                icon: LucideIcons.shieldCheck,
-                label: 'Verifications waiting',
-                value: '${snap.data ?? 0}',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text('RECENT ACTIVITY', style: styles.caption),
-        const SizedBox(height: AppSpacing.xs),
-        if (recent.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Text(
-              'No bookings yet.',
-              textAlign: TextAlign.center,
-              style: styles.bodySmall,
-            ),
-          ),
-        for (final booking in recent.take(10)) ...[
-          _BookingTile(booking: booking),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-  final IconData icon;
-  final String label, value;
-
-  @override
-  Widget build(BuildContext context) => AppCard(
-    border: Border.all(color: AppColors.borderSubtle),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Icon(icon, size: 20, color: AppColors.brand700),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            value,
-            style: context.textStyles.h2.copyWith(color: AppColors.brand900),
-          ),
-        ),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: context.textStyles.caption,
-        ),
-      ],
-    ),
-  );
-}
 
 // ---------------------------------------------------------------- customers
 class _CustomersTab extends StatefulWidget {
@@ -431,7 +280,7 @@ class _CustomerDetailScreen extends StatelessWidget {
               ),
             ),
           for (final booking in bookings) ...[
-            _BookingTile(booking: booking, showCustomer: false),
+            AdminBookingTile(booking: booking, showCustomer: false),
             const SizedBox(height: AppSpacing.sm),
           ],
         ],
@@ -548,7 +397,7 @@ class _BookingsTabState extends State<_BookingsTab> {
                   itemCount: shown.length,
                   separatorBuilder: (_, _) =>
                       const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (context, i) => _BookingTile(booking: shown[i]),
+                  itemBuilder: (context, i) => AdminBookingTile(booking: shown[i]),
                 ),
         ),
       ],
@@ -556,8 +405,8 @@ class _BookingsTabState extends State<_BookingsTab> {
   }
 }
 
-class _BookingTile extends StatelessWidget {
-  const _BookingTile({required this.booking, this.showCustomer = true});
+class AdminBookingTile extends StatelessWidget {
+  const AdminBookingTile({super.key, required this.booking, this.showCustomer = true});
   final Booking booking;
   final bool showCustomer;
 

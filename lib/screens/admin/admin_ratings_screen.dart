@@ -221,7 +221,7 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
           body: SafeArea(child: content),
           bottomNavigationBar: AppBottomNav(
             items: AppBottomNav.localizedAdminItems(context),
-            selectedIndex: 1,
+            selectedIndex: 2,
             onSelected: (i) => Navigator.of(context).pop(i),
           ),
         );
@@ -749,7 +749,7 @@ class _AdminProviderReviewsScreenState
       ),
       bottomNavigationBar: AppBottomNav(
         items: AppBottomNav.localizedAdminItems(context),
-        selectedIndex: 1,
+        selectedIndex: 2,
         onSelected: (index) => Navigator.of(context).pop(index),
       ),
     );

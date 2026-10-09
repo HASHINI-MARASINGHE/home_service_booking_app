@@ -94,13 +94,14 @@ void main() {
 
   group('admin navigation (Nav/Admin)', () {
     testWidgets(
-      'shows Providers, Ratings, Disputes, Profile with the design icons',
+      'shows Home, Providers, Ratings, Disputes, Profile with the design icons',
       (tester) async {
-        await tester.pumpWidget(host(AppBottomNav.adminItems, 2, (_) {}));
-        for (final label in ['Providers', 'Ratings', 'Disputes', 'Profile']) {
+        await tester.pumpWidget(host(AppBottomNav.adminItems, 3, (_) {}));
+        for (final label in ['Home', 'Providers', 'Ratings', 'Disputes', 'Profile']) {
           expect(find.text(label), findsOneWidget);
         }
         for (final icon in [
+          LucideIcons.house,
           LucideIcons.shieldCheck,
           LucideIcons.star,
           LucideIcons.triangleAlert,

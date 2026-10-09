@@ -57,8 +57,9 @@ class AppBottomNav extends StatelessWidget {
     ];
   }
 
-  /// Admin tabs: Providers, Ratings, Disputes, Profile.
+  /// Admin tabs: Home, Providers, Ratings, Disputes, Profile.
   static const adminItems = [
+    AppNavItem(icon: LucideIcons.house, label: 'Home'),
     AppNavItem(icon: LucideIcons.shieldCheck, label: 'Providers'),
     AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
     AppNavItem(icon: LucideIcons.triangleAlert, label: 'Disputes'),
@@ -71,6 +72,7 @@ class AppBottomNav extends StatelessWidget {
     int pending = 0,
     int disputes = 0,
   }) => [
+    const AppNavItem(icon: LucideIcons.house, label: 'Home'),
     AppNavItem(
       icon: LucideIcons.shieldCheck,
       label: 'Providers',
