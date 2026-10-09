@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,6 +15,7 @@ import '../../services/provider_profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/text_size_controller.dart';
 import '../../widgets/common/app_buttons.dart';
+import '../../widgets/common/app_widgets.dart' show PersonAvatar;
 import '../../widgets/common/homecare_logo.dart';
 import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
@@ -60,6 +62,65 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       .watchRatingStats();
   bool _editing = false;
 
+  // The signed-in user, kept here so a new profile photo shows straight away.
+  late AppUser _user = widget.user;
+  bool _uploadingPhoto = false;
+
+  Future<void> _changePhoto() async {
+    if (_uploadingPhoto) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final image = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 80,
+      );
+      if (image == null || !mounted) return;
+      setState(() => _uploadingPhoto = true);
+      final url = await widget.authService.uploadProfilePhoto(
+        uid: _user.uid,
+        fileBytes: await image.readAsBytes(),
+      );
+      final updated = await widget.authService.updateProfile(
+        uid: _user.uid,
+        name: _user.name,
+        photoUrl: url,
+      );
+      // Customers see the photo through the public listing.
+      await widget.service.publishPhoto(url);
+      if (!mounted) return;
+      setState(() => _user = updated);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Profile photo updated.')),
+      );
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(providerError(error))));
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => StreamBuilder<ProviderProfile>(
     stream: _profile,
@@ -100,7 +161,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       final profile = snapshot.data!;
       if (_editing) {
         return _ProfileEditor(
-          user: widget.user,
+          user: _user,
           profile: profile,
           service: widget.service,
           onClose: () => setState(() => _editing = false),
@@ -109,8 +170,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       return ProviderPage(
         children: [
           _IdentityCard(
-            name: widget.user.name,
-            email: widget.user.email,
+            name: _user.name,
+            email: _user.email,
+            photoUrl: _user.photoUrl,
+            uploadingPhoto: _uploadingPhoto,
+            onChangePhoto: _changePhoto,
             badge: widget.verificationStatus == null
                 ? Text(
                     'Verification: ${profile.verificationStatus}',
@@ -184,10 +248,16 @@ class _IdentityCard extends StatelessWidget {
   const _IdentityCard({
     required this.name,
     required this.email,
+    required this.photoUrl,
+    required this.uploadingPhoto,
+    required this.onChangePhoto,
     required this.badge,
     required this.rating,
   });
   final String name, email;
+  final String? photoUrl;
+  final bool uploadingPhoto;
+  final VoidCallback onChangePhoto;
   final Widget badge, rating;
 
   @override
@@ -200,17 +270,52 @@ class _IdentityCard extends StatelessWidget {
       decoration: _profileCard(),
       child: Column(
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: const BoxDecoration(
-              color: AppColors.brand100,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              LucideIcons.user,
-              size: 40,
-              color: AppColors.brand700,
+          Semantics(
+            button: true,
+            label: 'Change profile photo',
+            child: GestureDetector(
+              key: const ValueKey('change-profile-photo'),
+              onTap: uploadingPhoto ? null : onChangePhoto,
+              child: Stack(
+                children: [
+                  PersonAvatar(name: name, photoUrl: photoUrl, size: 80),
+                  if (uploadingPhoto)
+                    const Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black38,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: AppColors.brand900,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        LucideIcons.camera,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),

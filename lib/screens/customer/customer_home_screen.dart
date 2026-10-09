@@ -276,8 +276,24 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                   onChanged: (text) => setState(() => _query = text),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
-                _SectionHeading(title: l10n.servicesForYourHome),
-                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SectionHeading(title: l10n.servicesForYourHome),
+                    ),
+                    TextButton(
+                      key: const ValueKey('see-all-services'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const Material(child: AllProvidersScreen()),
+                        ),
+                      ),
+                      child: Text(l10n.seeAll),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
                 StreamBuilder<List<Professional>>(
                   stream: _directory,
                   builder: (context, snapshot) {
