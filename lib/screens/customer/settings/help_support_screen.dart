@@ -98,6 +98,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 TextFormField(
                   controller: issueDescCtrl,
                   maxLines: 4,
+                  maxLength: 1000,
                   decoration: InputDecoration(
                     labelText: 'Describe the issue',
                     hintText: 'Provide details so our team can help you promptly...',

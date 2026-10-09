@@ -14,6 +14,7 @@ import '../../services/provider_notification_service.dart';
 import '../../services/provider_profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/text_size_controller.dart';
+import '../../utils/validators.dart';
 import '../../widgets/common/app_buttons.dart';
 import '../../widgets/common/app_widgets.dart' show PersonAvatar;
 import '../../widgets/common/homecare_logo.dart';
@@ -964,8 +965,9 @@ class _ProfileEditorState extends State<_ProfileEditor> {
           _phone,
           'Phone (optional)',
           hint: '+94 77 123 4567',
-          maxLength: 40,
+          maxLength: 16,
           keyboard: TextInputType.phone,
+          validator: Validators.phone,
         ),
         _field(
           _profession,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../models/verification_draft.dart';
 import '../../services/auth_service.dart';
+import '../../utils/validators.dart';
 import '../../services/provider_verification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common/app_widgets.dart';
@@ -211,7 +212,9 @@ class _ProviderRegistrationScreenState
           autofillHints: const [AutofillHints.newPassword],
           textInputAction: TextInputAction.next,
           validator: (value) =>
-              (value ?? '').length < 6 ? 'Use at least 6 characters.' : null,
+              (value ?? '').length < Validators.minPassword
+              ? 'Use at least  characters.'
+              : Validators.password(value),
         ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(

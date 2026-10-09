@@ -1,11 +1,12 @@
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../../theme/customer_home_theme.dart';
+import '../../utils/validators.dart';
 import 'widgets/customer_home_widgets.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -36,6 +37,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _obscurePassword = true;
   bool _saving = false;
   String? _error;
+  String? _nameError, _phoneError, _newEmailError;
 
   bool get _emailChanged =>
       _showEmailChange &&
@@ -129,21 +131,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _save() async {
     if (_saving || !_hasChanges) return;
-    final name = _nameController.text.trim();
-    if (name.isEmpty || name.length > 80) {
-      setState(() => _error = 'Enter a name between 1 and 80 characters.');
-      return;
-    }
-    final phone = _phoneController.text.trim();
-    if (phone.isNotEmpty &&
-        !RegExp(r'^\+?[0-9\s\-()]{7,20}$').hasMatch(phone)) {
-      setState(() => _error = 'Enter a valid phone number (e.g. +94 77 123 4567).');
-      return;
-    }
-    if (_emailChanged &&
-        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-            .hasMatch(_newEmailController.text.trim())) {
-      setState(() => _error = 'Enter a valid email address.');
+    final nameError = Validators.name(_nameController.text, label: 'full name');
+    final phoneError = Validators.phone(_phoneController.text);
+    final emailError = _emailChanged
+        ? Validators.email(_newEmailController.text)
+        : null;
+    if (nameError != null || phoneError != null || emailError != null) {
+      setState(() {
+        _nameError = nameError;
+        _phoneError = phoneError;
+        _newEmailError = emailError;
+        _error = null;
+      });
       return;
     }
     if (_emailChanged && _passwordController.text.isEmpty) {
@@ -172,9 +171,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
       await widget.authService.updateProfile(
         uid: widget.user.uid,
-        name: name,
+        name: _nameController.text.trim(),
         photoUrl: photoUrl,
-        phone: phone,
+        phone: _phoneController.text.trim(),
       );
       final updated = await widget.authService.getUserProfile(widget.user.uid);
       if (!mounted) return;
@@ -262,7 +261,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _nameController,
                 enabled: !_saving,
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(Validators.maxName),
+                ],
+                onChanged: (_) => setState(() => _nameError = null),
                 decoration: InputDecoration(
+                  errorText: _nameError,
                   labelText: 'Full name',
                   hintText: 'e.g. John Doe',
                   prefixIcon: const Icon(Icons.badge_outlined),
@@ -276,7 +280,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _phoneController,
                 enabled: !_saving,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9+s-]')),
+                  LengthLimitingTextInputFormatter(16),
+                ],
+                onChanged: (_) => setState(() => _phoneError = null),
                 decoration: InputDecoration(
+                  errorText: _phoneError,
                   labelText: 'Phone number',
                   hintText: '+94 77 123 4567',
                   prefixIcon: const Icon(Icons.phone_outlined),
@@ -318,7 +328,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   controller: _newEmailController,
                   enabled: !_saving,
                   keyboardType: TextInputType.emailAddress,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(Validators.maxEmail),
+                  ],
+                  onChanged: (_) => setState(() => _newEmailError = null),
                   decoration: InputDecoration(
+                    errorText: _newEmailError,
                     labelText: 'New email',
                     hintText: 'you@example.com',
                     prefixIcon: const Icon(Icons.alternate_email),
