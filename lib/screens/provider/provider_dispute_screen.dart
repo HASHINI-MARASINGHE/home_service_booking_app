@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -6,6 +6,7 @@ import '../../models/dispute.dart';
 import '../../services/app_error.dart';
 import '../../services/dispute_service.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import '../customer/disputes/dispute_screen.dart';
 import '../customer/disputes/dispute_widgets.dart';
@@ -18,11 +19,13 @@ class ProviderDisputeScreen extends StatefulWidget {
     super.key,
     required this.bookingId,
     this.service,
+    this.selectedIndex = 1,
   });
   final String bookingId;
 
   /// Injected by tests; the real service is used otherwise.
   final DisputeService? service;
+  final int selectedIndex;
 
   @override
   State<ProviderDisputeScreen> createState() => _ProviderDisputeScreenState();
@@ -130,6 +133,11 @@ class _ProviderDisputeScreenState extends State<ProviderDisputeScreen> {
           return _body(dispute);
         },
       ),
+    ),
+    bottomNavigationBar: AppBottomNav(
+      items: AppBottomNav.localizedProviderItems(context),
+      selectedIndex: widget.selectedIndex,
+      onSelected: (index) => Navigator.of(context).pop(index),
     ),
   );
 

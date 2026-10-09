@@ -263,7 +263,23 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                         NotificationBell(service: widget.notifications!),
                         const SizedBox(width: AppSpacing.sm),
                       ],
-                      CustomerAvatar(photoUrl: user.photoUrl, radius: 24),
+                      // Opens the Profile tab, like the bottom navigation.
+                      Semantics(
+                        button: true,
+                        label: l10n.navProfile,
+                        excludeSemantics: true,
+                        child: InkResponse(
+                          key: const ValueKey('home-profile-avatar'),
+                          radius: 28,
+                          onTap: () => CustomerScope.of(
+                            context,
+                          ).selectTab(CustomerTab.profile),
+                          child: CustomerAvatar(
+                            photoUrl: user.photoUrl,
+                            radius: 24,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -277,8 +293,24 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                   onChanged: (text) => setState(() => _query = text),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
-                _SectionHeading(title: l10n.servicesForYourHome),
-                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SectionHeading(title: l10n.servicesForYourHome),
+                    ),
+                    TextButton(
+                      key: const ValueKey('see-all-services'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const Material(child: AllProvidersScreen()),
+                        ),
+                      ),
+                      child: Text(l10n.seeAll),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
                 StreamBuilder<List<Professional>>(
                   stream: _directory,
                   builder: (context, snapshot) {

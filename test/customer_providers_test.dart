@@ -6,6 +6,7 @@ import 'package:home_service_bookin_app/models/address.dart';
 import 'package:home_service_bookin_app/models/professional.dart';
 import 'package:home_service_bookin_app/screens/customer/bookings/booking_details_screen.dart';
 import 'package:home_service_bookin_app/screens/customer/customer_home_screen.dart';
+import 'package:home_service_bookin_app/screens/customer/customer_profile_screen.dart';
 import 'package:home_service_bookin_app/screens/customer/providers/all_providers_screen.dart';
 import 'package:home_service_bookin_app/screens/customer/providers/book_service_screen.dart';
 import 'package:home_service_bookin_app/screens/customer/providers/provider_details_screen.dart';
@@ -267,6 +268,31 @@ void main() {
     await tester.tap(find.text('Nuwan Fernando'));
     await tester.pumpAndSettle();
     expect(find.byType(ProviderDetailsScreen), findsOneWidget);
+  });
+
+  testWidgets('the profile icon on the home header opens the Profile tab', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: CustomerHomeScreen(
+          user: testUser,
+          authService: AuthService(auth: _Auth(), firestore: _Db()),
+          addressService: FakeAddressService(),
+          bookingService: FakeBookingService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(CustomerProfileScreen), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('home-profile-avatar')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CustomerProfileScreen), findsOneWidget);
   });
 
   for (final screen in [details(), const AllProvidersScreen()]) {

@@ -46,4 +46,13 @@ class ProviderNotificationService {
 
   Future<void> markRead(String id) =>
       _db.collection('notifications').doc(id).update({'read': true});
+
+  /// Marks every given notification read in one batch.
+  Future<void> markAllRead(Iterable<String> ids) {
+    final batch = _db.batch();
+    for (final id in ids) {
+      batch.update(_db.collection('notifications').doc(id), {'read': true});
+    }
+    return batch.commit();
+  }
 }

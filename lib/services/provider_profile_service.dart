@@ -37,6 +37,19 @@ class ProviderProfileService {
       .snapshots()
       .map((doc) => RatingStats.fromMap(doc.data()));
 
+  /// Copies a new profile photo to the public listing customers see. A
+  /// provider who is not listed yet (not verified) has nothing to update.
+  Future<void> publishPhoto(String photoUrl) async {
+    try {
+      await _db.collection('professionals').doc(_uid).update({
+        'photoUrl': photoUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (error) {
+      if (error.code != 'not-found') rethrow;
+    }
+  }
+
   Future<void> save(ProviderProfile profile, {AppUser? user}) async {
     final uid = _uid;
     if (profile.providerId != uid || (user != null && user.uid != uid)) {

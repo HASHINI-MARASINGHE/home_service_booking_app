@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../../models/app_user.dart';
 import '../../../models/provider_verification.dart';
@@ -6,6 +6,7 @@ import '../../../models/verification_draft.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/provider_verification_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/common/app_bottom_nav.dart';
 import '../../../widgets/common/app_widgets.dart';
 import 'verification_widgets.dart';
 
@@ -162,6 +163,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ],
           ),
         ),
+      ),
+      bottomNavigationBar: AppBottomNav(
+        items: AppBottomNav.localizedProviderItems(context),
+        selectedIndex: 3,
+        onSelected: (i) => Navigator.of(context).pop(),
       ),
     );
   }

@@ -1,17 +1,99 @@
-# HomeCare – Home Service Booking App
+# HomeCare — Home Service Booking App
 
-Flutter app for booking home services in Sri Lanka, with customer and
-provider roles. The backend is **Firebase**: Authentication, Cloud Firestore
-(with security rules acting as the server-side API guard) and Cloud Storage.
+A Flutter app for booking home services in Sri Lanka: a customer finds a
+verified plumber, electrician or cleaner, agrees a price before the work
+starts, tracks the job and keeps a receipt. A provider receives confirmed
+jobs, quotes a price and gets paid. An admin verifies providers and settles
+disputes.
 
-Customer features: saved addresses (add, edit, delete, set default, GPS),
-booking history, booking details with live status, edit booking details
-(address, access notes, phone, issue photos), reschedule with live slot
-availability, cancellation with refund tracking, and digital receipts
-(PDF download/share, rating, dispute reporting).
+Built for **IT3060 Human Computer Interaction**, Milestone 03, group WD_09.
+
+- **Three roles in one app:** customer, service provider, admin.
+- **Languages:** English, Sinhala and Tamil, switchable at any time, plus three
+  text sizes for readability.
+- **Backend:** Firebase Authentication and Cloud Firestore. The Firestore
+  security rules act as the server-side API guard: every price, status change
+  and permission is re-checked on the server, so a modified client cannot skip
+  a step. Images go to **Cloudinary**, not Firebase Storage.
+
+## What the app does
+
+**Customer**
+- Browse and search verified providers by category, and open a provider profile.
+- Book a service: pick a date and a free time slot, choose a saved address, and
+  send the request. Slots are locked in a transaction, so two customers can
+  never take the same one.
+- **Price quotes:** a booking starts with no price. The provider sends a quote,
+  and the customer accepts or declines it. Accepting confirms the job and locks
+  the amount. A revised price needs the customer's approval again.
+- Track live status: Requested, Confirmed, On the way, In progress, Done.
+- Manage a booking: edit details (address, access notes, phone, issue photos),
+  reschedule against live availability, or cancel with the refund rules applied.
+- Saved addresses: add, edit, delete, set a default, pick from GPS.
+- After the job: a digital receipt (download or share as PDF), a star rating and
+  review (which can be edited or deleted), and a dispute with photos if
+  something went wrong.
+- Settings: language, text size, notifications, privacy and security.
+
+**Service provider**
+- Leads dashboard, and jobs split into Requests, Confirmed and History.
+- **Send a quote** for a request, then accept or decline it; **revise the price**
+  of a confirmed job with a reason.
+- Mark a job complete. This is blocked until the customer has approved a price.
+- Earnings for the month and overall.
+- Profile with services, starting price and availability, plus notifications.
+- Cannot take any job until an admin has verified their identity.
+
+**Admin**
+- Review provider verifications: see every document, then verify (which issues a
+  Provider ID such as `HCP-1001` and publishes the public profile) or send back
+  with a reason.
+- Monitor ratings and reviews per provider and per service.
+- Review and resolve disputes, including refund decisions.
+
+## Tech stack
+
+| Layer | Choice |
+| --- | --- |
+| Mobile frontend | Flutter (Dart), one codebase, builds a real APK |
+| Authentication | Firebase Authentication (email and password, three roles) |
+| Database | Cloud Firestore, realtime, offline-tolerant |
+| Server-side rules | `firestore.rules` — validates every write |
+| Image storage | Cloudinary (unsigned upload preset) |
+| PDF receipts | `pdf` + `printing` packages, generated on the device |
+| Design and source control | Figma, GitHub |
 
 Design and data contract: [docs/customer_booking_management.md](docs/customer_booking_management.md).
 Provider workflow: [docs/provider_phase1.md](docs/provider_phase1.md).
+
+## Install the app (no build needed)
+
+1. Download `app-release.apk` from the repository's **Releases** page.
+2. Copy it to an Android phone (Android 6.0 or newer).
+3. Open the file and allow "install from unknown sources" when prompted.
+4. The app needs an internet connection, because it talks to Firebase.
+
+Sign in with one of the test accounts below.
+
+## Run from source
+
+```bash
+flutter pub get
+flutter run                 # a device or emulator must be connected
+```
+
+`lib/firebase_options.dart` already points at the project's Firebase, so no
+extra configuration is needed to run it.
+
+## Build the APK yourself
+
+```bash
+flutter build apk --release
+# output: build/app/outputs/flutter-apk/app-release.apk
+```
+
+The build is signed with the debug key, which is fine for installing and
+demonstrating. A Play Store upload would need a release key.
 
 ## Test accounts
 
@@ -114,18 +196,54 @@ GOOGLE_APPLICATION_CREDENTIALS=path/to/key.json node tool/seed/seed.mjs --produc
 ## Tests
 
 ```bash
-flutter analyze
-flutter test                                   # unit + widget tests
+flutter analyze                 # static analysis: expect "No issues found!"
+flutter test                    # 302 unit and widget tests
+```
 
-# Security rules (Firestore emulator running):
-node tool/customer_rules_test.mjs
+Security rules run against a local Firestore emulator. They replay the exact
+writes the app makes, plus the writes a modified client might try:
 
-# End-to-end in Chrome against the seeded emulators:
+```bash
+firebase emulators:exec --only firestore --project demo-homecare   "node tool/quote_rules_test.mjs && node tool/customer_rules_test.mjs"
+```
+
+- `tool/quote_rules_test.mjs` — 58 checks on the quote and price-approval flow
+- `tool/customer_rules_test.mjs` — 216 checks on bookings, addresses, reviews,
+  receipts, refunds and disputes
+- `tool/provider_rules_test.mjs` — provider workflow (needs the Auth emulator
+  too: add `--only auth,firestore`)
+
+End-to-end in Chrome against the seeded emulators:
+
+```bash
 chromedriver --port=4444
-flutter drive --driver=test_driver/integration_test.dart \
-  --target=integration_test/customer_flows_test.dart -d web-server
+flutter drive --driver=test_driver/integration_test.dart   --target=integration_test/customer_flows_test.dart -d web-server
 ```
 
 The end-to-end test changes the seeded data; run `node seed.mjs --emulator`
 again to reset it.
 
+## Project layout
+
+```
+lib/
+  models/        booking, quote, address, review, dispute, receipt …
+  services/      every Firestore read and write (the only data layer)
+  screens/       auth, onboarding, customer, provider, admin
+  widgets/       shared UI (buttons, cards, status chips, logo)
+  theme/         colours, text styles, spacing (the HomeCare style guide)
+  l10n/          English, Sinhala and Tamil strings
+firestore.rules  server-side rules: the real API guard
+test/            unit and widget tests
+tool/            seed data, rule tests, icon generation
+docs/            design and data contracts
+```
+
+## Updating the app icon
+
+The logo lives at `design/app_icon/homecare_icon_circle_1024.png`. After
+changing it, rebuild every size (needs Python with Pillow and numpy):
+
+```bash
+python tool/generate_app_icons.py design/app_icon/homecare_icon_circle_1024.png
+```

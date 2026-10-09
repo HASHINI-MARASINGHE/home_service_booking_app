@@ -216,7 +216,7 @@ VerificationDraft completeDraft() {
 void main() {
   late DocumentPicker originalPicker;
   // Most tests below cover the strict mode (everything compulsory); the
-  // relaxed group at the end covers today's default.
+  // relaxed group at the end covers the optional mode.
   setUp(() {
     originalPicker = DocumentPicker.instance;
     VerificationDraft.requireEverything = true;

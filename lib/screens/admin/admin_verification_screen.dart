@@ -7,6 +7,7 @@ import '../../services/admin_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_widgets.dart';
 
 /// One provider's submission: everything they sent, with the admin's actions
@@ -241,6 +242,11 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: AppBottomNav(
+        items: AppBottomNav.localizedAdminItems(context),
+        selectedIndex: 1,
+        onSelected: (index) => Navigator.of(context).pop(index),
+      ),
     );
   }
 
@@ -394,7 +400,25 @@ class _DocumentView extends StatelessWidget {
             context: context,
             builder: (_) => Dialog(
               child: InteractiveViewer(
-                child: Image.network(file.url, fit: BoxFit.contain),
+                child: Image.network(
+                  file.url,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : const SizedBox(
+                          height: 200,
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                  errorBuilder: (_, _, _) => Container(
+                    height: 120,
+                    alignment: Alignment.center,
+                    color: AppColors.surfaceLavender,
+                    child: Text(
+                      'Image could not be loaded',
+                      style: AppTypography.caption,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

@@ -711,6 +711,8 @@ class _PhotoGrid extends StatelessWidget {
               Image.network(
                 url,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) =>
+                    progress == null ? child : broken,
                 errorBuilder: (_, _, _) => broken,
               ),
               () => onRemoveUrl(url),

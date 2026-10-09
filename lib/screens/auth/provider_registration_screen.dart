@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../models/verification_draft.dart';
 import '../../services/auth_service.dart';
+import '../../utils/validators.dart';
 import '../../services/provider_verification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common/app_widgets.dart';
@@ -182,7 +183,10 @@ class _ProviderRegistrationScreenState
           key: const ValueKey('register-email'),
           controller: _email,
           enabled: !_busy,
-          decoration: const InputDecoration(labelText: 'Email'),
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            hintText: 'you@example.com',
+          ),
           keyboardType: TextInputType.emailAddress,
           autofillHints: const [AutofillHints.email],
           autocorrect: false,
@@ -198,21 +202,29 @@ class _ProviderRegistrationScreenState
           key: const ValueKey('register-password'),
           controller: _password,
           enabled: !_busy,
-          decoration: const InputDecoration(labelText: 'Password'),
+          decoration: const InputDecoration(
+            labelText: 'Password',
+            hintText: '••••••••',
+          ),
           obscureText: true,
           autocorrect: false,
           enableSuggestions: false,
           autofillHints: const [AutofillHints.newPassword],
           textInputAction: TextInputAction.next,
           validator: (value) =>
-              (value ?? '').length < 6 ? 'Use at least 6 characters.' : null,
+              (value ?? '').length < Validators.minPassword
+              ? 'Use at least  characters.'
+              : Validators.password(value),
         ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(
           key: const ValueKey('register-confirm'),
           controller: _confirm,
           enabled: !_busy,
-          decoration: const InputDecoration(labelText: 'Confirm password'),
+          decoration: const InputDecoration(
+            labelText: 'Confirm password',
+            hintText: '••••••••',
+          ),
           obscureText: true,
           autocorrect: false,
           enableSuggestions: false,

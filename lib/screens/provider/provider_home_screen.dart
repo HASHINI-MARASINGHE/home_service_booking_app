@@ -100,7 +100,17 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     IconButton(
       key: const ValueKey('header-bell'),
       tooltip: l10n.titleNotifications,
-      icon: const Icon(LucideIcons.bell),
+      icon: StreamBuilder<int>(
+        stream: _notificationService.watchUnreadCount(),
+        builder: (context, snapshot) {
+          final unread = snapshot.data ?? 0;
+          return Badge(
+            isLabelVisible: unread > 0,
+            label: Text(unread > 9 ? '9+' : '$unread'),
+            child: const Icon(LucideIcons.bell),
+          );
+        },
+      ),
       onPressed: () => setState(() {
         _section = 3;
         _notifications = true;
@@ -162,19 +172,29 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     ? (_notifications
                           ? ProviderNotificationsScreen(
                               service: _notificationService,
-                              onOpen: (item) {
+                              onOpen: (item) async {
                                 if (item.type == AppNotification.disputeType) {
                                   // A dispute about one of this provider's jobs.
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
+                                  final target =
+                                      await Navigator.of(context).push<int>(
+                                    MaterialPageRoute<int>(
                                       builder: (_) => Theme(
                                         data: ProviderTheme.data,
                                         child: ProviderDisputeScreen(
                                           bookingId: item.bookingId,
+                                          selectedIndex: 3,
                                         ),
                                       ),
                                     ),
                                   );
+                                  if (target != null && mounted) {
+                                    setState(() {
+                                      _section = target;
+                                      _selectedId = null;
+                                      _payment = false;
+                                      _notifications = false;
+                                    });
+                                  }
                                   return;
                                 }
                                 setState(() {
@@ -198,6 +218,12 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                               verification: widget.verification,
                               onOpenNotifications: () =>
                                   setState(() => _notifications = true),
+                              onSelectTab: (index) => setState(() {
+                                _section = index;
+                                _selectedId = null;
+                                _payment = false;
+                                _notifications = false;
+                              }),
                             ))
                     : StreamBuilder<List<Booking>>(
                         stream: _bookings,

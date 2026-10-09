@@ -254,7 +254,8 @@ void main() {
       await tester.pumpWidget(_app(_customerHome(), locale: _si));
       await tester.pumpAndSettle();
       expect(find.text('තහවුරු කළ සේවා සපයන්නන්'), findsOneWidget);
-      expect(find.text('සියල්ල බලන්න'), findsOneWidget);
+      // One "See all" for the services and one for the verified providers.
+      expect(find.text('සියල්ල බලන්න'), findsNWidgets(2));
       expect(find.text('Verified providers'), findsNothing);
       expect(find.text('ජල නළ වැඩ'), findsOneWidget);
       // What users type or what comes from data is never translated.

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -13,13 +14,19 @@ import '../../services/provider_notification_service.dart';
 import '../../services/provider_profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/text_size_controller.dart';
+import '../../utils/validators.dart';
 import '../../widgets/common/app_buttons.dart';
+import '../../widgets/common/app_widgets.dart' show PersonAvatar;
 import '../../widgets/common/homecare_logo.dart';
 import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import '../auth/logout_button.dart';
+import 'provider_support_screens.dart';
 import '../customer/settings/language_settings_screen.dart';
+import '../customer/settings/notification_settings_screen.dart';
+import '../customer/settings/privacy_security_screen.dart';
 import '../customer/settings/text_size_settings_screen.dart';
+import '../disputes/my_disputes_screen.dart';
 import 'provider_theme.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
@@ -33,6 +40,7 @@ class ProviderProfileScreen extends StatefulWidget {
     this.verificationStatus,
     this.verification,
     this.onOpenVerification,
+    this.onSelectTab,
   });
   final AppUser user;
   final AuthService authService;
@@ -47,6 +55,7 @@ class ProviderProfileScreen extends StatefulWidget {
   final VerificationStatus? verificationStatus;
   final ProviderVerification? verification;
   final VoidCallback? onOpenVerification;
+  final ValueChanged<int>? onSelectTab;
   @override
   State<ProviderProfileScreen> createState() => _ProviderProfileScreenState();
 }
@@ -56,6 +65,65 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   late final Stream<RatingStats?> _ratingStats = widget.service
       .watchRatingStats();
   bool _editing = false;
+
+  // The signed-in user, kept here so a new profile photo shows straight away.
+  late AppUser _user = widget.user;
+  bool _uploadingPhoto = false;
+
+  Future<void> _changePhoto() async {
+    if (_uploadingPhoto) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final image = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 80,
+      );
+      if (image == null || !mounted) return;
+      setState(() => _uploadingPhoto = true);
+      final url = await widget.authService.uploadProfilePhoto(
+        uid: _user.uid,
+        fileBytes: await image.readAsBytes(),
+      );
+      final updated = await widget.authService.updateProfile(
+        uid: _user.uid,
+        name: _user.name,
+        photoUrl: url,
+      );
+      // Customers see the photo through the public listing.
+      await widget.service.publishPhoto(url);
+      if (!mounted) return;
+      setState(() => _user = updated);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Profile photo updated.')),
+      );
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(providerError(error))));
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => StreamBuilder<ProviderProfile>(
@@ -97,7 +165,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       final profile = snapshot.data!;
       if (_editing) {
         return _ProfileEditor(
-          user: widget.user,
+          user: _user,
           profile: profile,
           service: widget.service,
           onClose: () => setState(() => _editing = false),
@@ -106,8 +174,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       return ProviderPage(
         children: [
           _IdentityCard(
-            name: widget.user.name,
-            email: widget.user.email,
+            name: _user.name,
+            email: _user.email,
+            photoUrl: _user.photoUrl,
+            uploadingPhoto: _uploadingPhoto,
+            onChangePhoto: _changePhoto,
             badge: widget.verificationStatus == null
                 ? Text(
                     'Verification: ${profile.verificationStatus}',
@@ -146,7 +217,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             available: profile.availability,
             onAdd: () => setState(() => _editing = true),
           ),
-          const _PreferencesCard(),
+          _ProviderMenuSections(
+            user: widget.user,
+            authService: widget.authService,
+            onSelectTab: widget.onSelectTab,
+          ),
           AppPrimaryButton(
             label: 'Edit Profile',
             icon: LucideIcons.pencil,
@@ -179,10 +254,16 @@ class _IdentityCard extends StatelessWidget {
   const _IdentityCard({
     required this.name,
     required this.email,
+    required this.photoUrl,
+    required this.uploadingPhoto,
+    required this.onChangePhoto,
     required this.badge,
     required this.rating,
   });
   final String name, email;
+  final String? photoUrl;
+  final bool uploadingPhoto;
+  final VoidCallback onChangePhoto;
   final Widget badge, rating;
 
   @override
@@ -195,17 +276,52 @@ class _IdentityCard extends StatelessWidget {
       decoration: _profileCard(),
       child: Column(
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: const BoxDecoration(
-              color: AppColors.brand100,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              LucideIcons.user,
-              size: 40,
-              color: AppColors.brand700,
+          Semantics(
+            button: true,
+            label: 'Change profile photo',
+            child: GestureDetector(
+              key: const ValueKey('change-profile-photo'),
+              onTap: uploadingPhoto ? null : onChangePhoto,
+              child: Stack(
+                children: [
+                  PersonAvatar(name: name, photoUrl: photoUrl, size: 80),
+                  if (uploadingPhoto)
+                    const Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black38,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: AppColors.brand900,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        LucideIcons.camera,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -525,6 +641,7 @@ class _NotificationsEntryState extends State<_NotificationsEntry> {
     },
   );
 }
+
 
 /// The provider's details as a list of rows, like "Phone 0721515123".
 class _CredentialsCard extends StatelessWidget {
@@ -847,12 +964,15 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         _field(
           _phone,
           'Phone (optional)',
-          maxLength: 40,
+          hint: '+94 77 123 4567',
+          maxLength: 16,
           keyboard: TextInputType.phone,
+          validator: Validators.phone,
         ),
         _field(
           _profession,
           'Profession',
+          hint: 'e.g. Plumber, Electrician',
           maxLength: 100,
           validator: (value) => value == null || value.trim().isEmpty
               ? 'Enter your profession.'
@@ -861,6 +981,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         _field(
           _experience,
           'Years of experience',
+          hint: 'e.g. 5',
           keyboard: TextInputType.number,
           validator: (value) {
             final years = int.tryParse(value?.trim() ?? '');
@@ -869,10 +990,17 @@ class _ProfileEditorState extends State<_ProfileEditor> {
                 : null;
           },
         ),
-        _field(_about, 'About', maxLength: 2000, lines: 4),
+        _field(
+          _about,
+          'About',
+          hint: 'Tell customers about your skills and experience',
+          maxLength: 2000,
+          lines: 4,
+        ),
         _field(
           _services,
           'Services (separate with commas)',
+          hint: 'e.g. Pipe Repair, Tap Installation',
           lines: 2,
           validator: (value) {
             final services = (value ?? '')
@@ -887,6 +1015,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         _field(
           _pricing,
           'Starting price in LKR (optional)',
+          hint: 'e.g. 2500',
           keyboard: const TextInputType.numberWithOptions(decimal: true),
           validator: (value) {
             if (value == null || value.trim().isEmpty) return null;
@@ -930,6 +1059,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   Widget _field(
     TextEditingController controller,
     String label, {
+    String? hint,
     int? maxLength,
     int lines = 1,
     TextInputType? keyboard,
@@ -939,7 +1069,10 @@ class _ProfileEditorState extends State<_ProfileEditor> {
     child: TextFormField(
       controller: controller,
       enabled: !_saving,
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+      ),
       maxLength: maxLength,
       maxLines: lines,
       keyboardType: keyboard,
@@ -948,21 +1081,64 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   );
 }
 
-/// Language and text size, with the same layout as the customer's profile.
-/// The two screens they open are shared with the customer app, and both
-/// settings apply to the whole app straight away.
-class _PreferencesCard extends StatelessWidget {
-  const _PreferencesCard();
+/// Categorized profile sections (Account & Work, Preferences, Security, Support, Legal).
+class _ProviderMenuSections extends StatelessWidget {
+  const _ProviderMenuSections({
+    required this.user,
+    required this.authService,
+    this.onSelectTab,
+  });
+
+  final AppUser user;
+  final AuthService authService;
+  final ValueChanged<int>? onSelectTab;
 
   void _open(BuildContext context, Widget screen) => Navigator.of(context).push(
     MaterialPageRoute<void>(
-      // Keep the HomeCare bar on top, like every other page.
       builder: (_) => Theme(
         data: ProviderTheme.data,
         child: BrandShell(backdrop: true, child: screen),
       ),
     ),
   );
+
+  void _showPersonalInfoDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Personal Information'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(
+              label: 'Full Name',
+              value: user.name.isEmpty ? 'Not set' : user.name,
+            ),
+            const Divider(height: 18),
+            _InfoRow(
+              label: 'Email',
+              value: user.email.isEmpty ? 'Not set' : user.email,
+            ),
+            const Divider(height: 18),
+            _InfoRow(
+              label: 'Phone',
+              value: (user.phone == null || user.phone!.isEmpty)
+                  ? 'Not set'
+                  : user.phone!,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -972,92 +1148,377 @@ class _PreferencesCard extends StatelessWidget {
     ]),
     builder: (context, _) {
       final code = LocaleController.instance.locale.languageCode;
-      final si = code == 'si';
-      final ta = code == 'ta';
-      final language = ta ? 'தமிழ்' : (si ? 'සිංහල' : 'English');
-      final size = switch (TextSizeController.instance.size) {
-        AppTextSize.normal => ta ? 'இயல்பானது' : (si ? 'සාමාන්‍ය' : 'Normal'),
-        AppTextSize.large => ta ? 'பெரியது' : (si ? 'විශාල' : 'Large'),
+      final isSinhala = code == 'si';
+      final isTamil = code == 'ta';
+      final languageLabel = isTamil ? 'தமிழ்' : (isSinhala ? 'සිංහල' : 'English');
+      final sizeLabel = switch (TextSizeController.instance.size) {
+        AppTextSize.normal => isTamil ? 'இயல்பானது' : (isSinhala ? 'සාමාන්‍ය' : 'Normal'),
+        AppTextSize.large => isTamil ? 'பெரியது' : (isSinhala ? 'විශාල' : 'Large'),
         AppTextSize.extraLarge =>
-          ta ? 'மிகப் பெரியது' : (si ? 'ඉතා විශාල' : 'Extra large'),
+          isTamil ? 'மிகப் பெரியது' : (isSinhala ? 'ඉතා විශාල' : 'Extra Large'),
       };
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 10),
-            child: Text(
-              ta
-                  ? 'விருப்பங்கள் / அமைப்புகள்'
-                  : (si ? 'මනාප සහ සැකසුම්' : 'PREFERENCES / SETTINGS'),
-              style: const TextStyle(
-                color: ProviderTheme.muted,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+          // 1. ACCOUNT & WORK
+          _SectionHeading(
+            title: isTamil
+                ? 'கணக்கு மற்றும் வேலை'
+                : (isSinhala ? 'ගිණුම සහ සේවා' : 'ACCOUNT & WORK'),
           ),
-          ProviderCard(
-            // The rows paint their ink on the nearest Material; the card
-            // around them has a background, so give them a clear one.
-            child: Material(
-              type: MaterialType.transparency,
-              child: Column(
-                children: [
-                  _PreferenceRow(
-                    key: const ValueKey('profile-nav-language'),
-                    icon: Icons.translate_rounded,
-                    title: ta ? 'மொழி' : (si ? 'භාෂාව' : 'Language'),
-                    value: language,
-                    onTap: () => _open(context, const LanguageSettingsScreen()),
-                  ),
-                  const Divider(height: 1),
-                  _PreferenceRow(
-                    key: const ValueKey('profile-nav-text-size'),
-                    icon: Icons.format_size_rounded,
-                    title: ta
-                        ? 'எழுத்து அளவு'
-                        : (si ? 'අකුරු ප්‍රමාණය' : 'Text size'),
-                    value: size,
-                    onTap: () => _open(context, const TextSizeSettingsScreen()),
-                  ),
-                ],
+          _ProfileGroupCard(
+            children: [
+              _ActionTile(
+                icon: Icons.person_outline,
+                title: isTamil
+                    ? 'தனிப்பட்ட தகவல்'
+                    : (isSinhala ? 'පුද්ගලික තොරතුරු' : 'Personal Information'),
+                subtitle: isTamil
+                    ? 'பெயர், மின்னஞ்சல், தொலைபேசி'
+                    : (isSinhala ? 'නම, ඊමේල්, දුරකථන අංකය' : 'Name, email, phone number'),
+                onTap: () => _showPersonalInfoDialog(context),
               ),
-            ),
+              const Divider(height: 1, indent: 72, color: AppColors.borderSubtle),
+              _ActionTile(
+                key: const ValueKey('profile-nav-disputes'),
+                icon: Icons.gavel_outlined,
+                title: isTamil
+                    ? 'எனது சர்ச்சைகள்'
+                    : (isSinhala ? 'මගේ ආරවුල්' : 'My Disputes'),
+                subtitle: isTamil
+                    ? 'சர்ச்சைகளின் நிலையை காண்க'
+                    : (isSinhala ? 'ඔබේ ආරවුල්වල තත්ත්වය බලන්න' : 'Track the status of your disputes'),
+                onTap: () async {
+                  final target = await Navigator.of(context).push<int>(
+                    MaterialPageRoute<int>(
+                      builder: (_) => Theme(
+                        data: ProviderTheme.data,
+                        child: const BrandShell(
+                          child: MyDisputesScreen(asProvider: true),
+                        ),
+                      ),
+                    ),
+                  );
+                  if (target != null) {
+                    onSelectTab?.call(target);
+                  }
+                },
+              ),
+              const Divider(height: 1, indent: 72, color: AppColors.borderSubtle),
+              _ActionTile(
+                icon: Icons.account_balance_wallet_outlined,
+                title: isTamil
+                    ? 'வருமானம் மற்றும் பணம் பெறுதல்'
+                    : (isSinhala ? 'ඉපැයීම් සහ ගෙවීම්' : 'Earnings & Payouts'),
+                subtitle: isTamil
+                    ? 'வருமானம் மற்றும் கணக்கு விவரங்கள்'
+                    : (isSinhala ? 'ආදායම සහ ගිණුම් විස්තර' : 'Income overview and payout details'),
+                onTap: () => onSelectTab?.call(2),
+              ),
+            ],
           ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // 2. PREFERENCES / SETTINGS
+          _SectionHeading(
+            title: isTamil
+                ? 'விருப்பங்கள் / அமைப்புகள்'
+                : (isSinhala ? 'මනාප සහ සැකසුම්' : 'PREFERENCES / SETTINGS'),
+          ),
+          _ProfileGroupCard(
+            children: [
+              _ActionTile(
+                key: const ValueKey('profile-nav-language'),
+                icon: Icons.translate_rounded,
+                title: isTamil ? 'மொழி' : (isSinhala ? 'භාෂාව' : 'Language'),
+                subtitle: languageLabel,
+                badge: languageLabel,
+                onTap: () => _open(context, const LanguageSettingsScreen()),
+              ),
+              const Divider(height: 1, indent: 72, color: AppColors.borderSubtle),
+              _ActionTile(
+                key: const ValueKey('profile-nav-text-size'),
+                icon: Icons.format_size_rounded,
+                title: isTamil
+                    ? 'எழுத்து அளவு'
+                    : (isSinhala ? 'අකුරු ප්‍රමාණය' : 'Text Size / Accessibility'),
+                subtitle: '$sizeLabel text scale',
+                badge: sizeLabel,
+                onTap: () => _open(context, const TextSizeSettingsScreen()),
+              ),
+              const Divider(height: 1, indent: 72, color: AppColors.borderSubtle),
+              _ActionTile(
+                icon: Icons.notifications_none_rounded,
+                title: isTamil
+                    ? 'அறிவிப்புகள்'
+                    : (isSinhala ? 'දැනුම්දීම්' : 'Notifications'),
+                subtitle: isTamil
+                    ? 'புதிய வேலைகள் மற்றும் புதுப்பிப்புகள்'
+                    : (isSinhala ? 'නව රැකියා සහ සේවා යාවත්කාලීන' : 'Job leads, booking alerts, updates'),
+                onTap: () => _open(context, const NotificationSettingsScreen()),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // 3. SECURITY & PRIVACY
+          _SectionHeading(
+            title: isTamil
+                ? 'பாதுகாப்பு மற்றும் தனியுரிமை'
+                : (isSinhala ? 'ආරක්ෂාව සහ පෞද්ගලිකත්වය' : 'SECURITY & PRIVACY'),
+          ),
+          _ProfileGroupCard(
+            children: [
+              _ActionTile(
+                icon: Icons.security_outlined,
+                title: isTamil
+                    ? 'தனியுரிமை மற்றும் பாதுகாப்பு'
+                    : (isSinhala ? 'පෞද්ගලිකත්වය සහ ආරක්ෂාව' : 'Privacy & Security'),
+                subtitle: isTamil
+                    ? 'கடவுச்சொல் மாற்றுதல், பாதுகாப்பு'
+                    : (isSinhala ? 'මුරපදය වෙනස් කිරීම සහ ආරක්ෂාව' : 'Change password, login security'),
+                onTap: () => _open(
+                  context,
+                  PrivacySecurityScreen(
+                    authService: authService,
+                    userEmail: user.email,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // 4. SUPPORT
+          _SectionHeading(
+            title: isTamil ? 'ஆதரவு' : (isSinhala ? 'සහාය' : 'SUPPORT'),
+          ),
+          _ProfileGroupCard(
+            children: [
+              _ActionTile(
+                icon: Icons.help_outline_rounded,
+                title: isTamil
+                    ? 'உதவி மற்றும் ஆதரவு'
+                    : (isSinhala ? 'උදව් සහ සහාය' : 'Help & Support'),
+                subtitle: isTamil
+                    ? 'வழிகாட்டிகள் மற்றும் கொள்கைகள்'
+                    : (isSinhala ? 'සේවා මාර්ගෝපදේශ සහ ප්‍රතිපත්ති' : 'Provider guides & policy help'),
+                onTap: () => _open(context, const ProviderHelpSupportScreen()),
+              ),
+              const Divider(height: 1, indent: 72, color: AppColors.borderSubtle),
+              _ActionTile(
+                icon: Icons.headset_mic_outlined,
+                title: isTamil
+                    ? 'ஆதரவை தொடர்பு கொள்ளவும்'
+                    : (isSinhala ? 'සහාය සේවාව අමතන්න' : 'Contact Support'),
+                subtitle: isTamil
+                    ? 'நேரடி அழைப்பு 1344 அல்லது மின்னஞ்சல்'
+                    : (isSinhala ? 'ක්ෂණික දුරකථන 1344 හෝ ඊමේල්' : 'Direct hotline 1344 or email'),
+                onTap: () => _open(context, const ProviderContactSupportScreen()),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // 5. LEGAL
+          _SectionHeading(
+            title: isTamil ? 'சட்டப்பூர்வ' : (isSinhala ? 'නෛතික' : 'LEGAL'),
+          ),
+          _ProfileGroupCard(
+            children: [
+              _ActionTile(
+                icon: Icons.description_outlined,
+                title: isTamil
+                    ? 'விதிமுறைகள் மற்றும் நிபந்தனைகள்'
+                    : (isSinhala ? 'නියමයන් සහ කොන්දේසි' : 'Terms & Conditions'),
+                subtitle: isTamil
+                    ? 'சேவை ஒப்பந்தங்கள் மற்றும் விதிகள்'
+                    : (isSinhala ? 'සේවා ගිවිසුම් සහ කොන්දේසි' : 'Provider service agreement'),
+                onTap: () => _open(context, const ProviderTermsScreen()),
+              ),
+              const Divider(height: 1, indent: 72, color: AppColors.borderSubtle),
+              _ActionTile(
+                icon: Icons.privacy_tip_outlined,
+                title: isTamil
+                    ? 'தனியுரிமைக் கொள்கை'
+                    : (isSinhala ? 'පෞද්ගලිකත්ව ප්‍රතිපත්තිය' : 'Privacy Policy'),
+                subtitle: isTamil
+                    ? 'வழங்குநர் தரவு பாதுகாப்பு'
+                    : (isSinhala ? 'දත්ත ආරක්ෂණ ප්‍රතිපත්තිය' : 'How we safeguard provider data'),
+                onTap: () => _open(context, const ProviderPrivacyPolicyScreen()),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
         ],
       );
     },
   );
 }
 
-class _PreferenceRow extends StatelessWidget {
-  const _PreferenceRow({
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: AppColors.ink3,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileGroupCard extends StatelessWidget {
+  const _ProfileGroupCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.borderSubtle),
+        boxShadow: AppShadows.soft,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: children),
+      ),
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
     super.key,
     required this.icon,
     required this.title,
-    required this.value,
+    required this.subtitle,
+    this.badge,
     required this.onTap,
   });
 
   final IconData icon;
-  final String title, value;
+  final String title;
+  final String subtitle;
+  final String? badge;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    onTap: onTap,
-    leading: CircleAvatar(
-      radius: 20,
-      backgroundColor: ProviderTheme.tealLight,
-      child: Icon(icon, color: ProviderTheme.teal, size: 22),
-    ),
-    title: Text(title, style: Theme.of(context).textTheme.titleMedium),
-    subtitle: Text(value, style: const TextStyle(color: ProviderTheme.muted)),
-    trailing: const Icon(
-      Icons.chevron_right_rounded,
-      color: ProviderTheme.muted,
-    ),
-  );
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: const BoxDecoration(
+            color: AppColors.brand100,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: AppColors.brand700, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            subtitle,
+            style: const TextStyle(
+              color: AppColors.ink3,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (badge != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.brand100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badge!,
+                  style: const TextStyle(
+                    color: AppColors.brand700,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.ink3,
+              size: 18,
+            ),
+          ],
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 95,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.ink3,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

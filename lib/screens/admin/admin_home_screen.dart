@@ -12,7 +12,9 @@ import '../../widgets/common/app_bottom_nav.dart';
 import '../../widgets/common/app_search_bar.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../auth/logout_button.dart';
+import 'admin_dashboard_screen.dart';
 import 'admin_disputes_screen.dart';
+import 'admin_monitor_screen.dart';
 import 'admin_ratings_screen.dart';
 import 'admin_verification_screen.dart';
 import '../../widgets/common/homecare_logo.dart';
@@ -76,10 +78,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     _tab == 0
-                        ? 'Providers'
+                        ? 'Home'
                         : _tab == 1
-                        ? 'Ratings'
+                        ? 'Providers'
                         : _tab == 2
+                        ? 'Ratings'
+                        : _tab == 3
                         ? 'Disputes'
                         : 'Profile',
                     style: const TextStyle(
@@ -100,33 +104,33 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
             body: SafeArea(
               child: _tab == 0
-                  ? AdminProvidersScreen(service: _service)
+                  ? AdminDashboardScreen(service: _service)
                   : _tab == 1
-                  ? AdminRatingsScreen(service: _service)
+                  ? AdminProvidersScreen(
+                      service: _service,
+                      onSelectTab: (index) => setState(() => _tab = index),
+                    )
                   : _tab == 2
-                  ? AdminDisputesScreen(service: _service)
+                  ? AdminRatingsScreen(service: _service)
+                  : _tab == 3
+                  ? AdminDisputesScreen(
+                      service: _service,
+                      onSelectTab: (index) => setState(() => _tab = index),
+                    )
                   : AdminProfileScreen(
                       user: widget.user,
                       authService: widget.authService,
                       service: _service,
-                      onNavigateToRatings: () => setState(() => _tab = 1),
+                      onNavigateToRatings: () => setState(() => _tab = 2),
+                      onSelectTab: (index) => setState(() => _tab = index),
                     ),
             ),
             bottomNavigationBar: AppBottomNav(
-              items: [
-                AppNavItem(
-                  icon: LucideIcons.shieldCheck,
-                  label: 'Providers',
-                  badge: pending,
-                ),
-                const AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
-                AppNavItem(
-                  icon: LucideIcons.triangleAlert,
-                  label: 'Disputes',
-                  badge: disputes,
-                ),
-                const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
-              ],
+              items: AppBottomNav.localizedAdminItems(
+                context,
+                pending: pending,
+                disputes: disputes,
+              ),
               selectedIndex: _tab,
               onSelected: (index) => setState(() => _tab = index),
             ),
@@ -139,8 +143,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
 /// Pending / verified / rejected provider submissions.
 class AdminProvidersScreen extends StatefulWidget {
-  const AdminProvidersScreen({super.key, required this.service});
+  const AdminProvidersScreen({
+    super.key,
+    required this.service,
+    this.onSelectTab,
+  });
   final AdminService service;
+  final ValueChanged<int>? onSelectTab;
 
   @override
   State<AdminProvidersScreen> createState() => _AdminProvidersScreenState();
@@ -367,14 +376,20 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                           separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
                           itemBuilder: (context, i) => _ProviderTile(
                             submission: filteredItems[i],
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => AdminVerificationScreen(
-                                  service: widget.service,
-                                  submission: filteredItems[i],
+                            onTap: () async {
+                              final target =
+                                  await Navigator.of(context).push<int>(
+                                MaterialPageRoute<int>(
+                                  builder: (_) => AdminVerificationScreen(
+                                    service: widget.service,
+                                    submission: filteredItems[i],
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                              if (target != null && target != 1) {
+                                widget.onSelectTab?.call(target);
+                              }
+                            },
                           ),
                         ),
                 ),
@@ -555,8 +570,10 @@ class AdminProfileScreen extends StatelessWidget {
     required this.authService,
     required this.service,
     this.onNavigateToRatings,
+    this.onSelectTab,
   });
 
+  final ValueChanged<int>? onSelectTab;
   final AppUser user;
   final AuthService authService;
   final AdminService service;
@@ -683,6 +700,62 @@ class AdminProfileScreen extends StatelessWidget {
             );
           }
         },
+      ),
+      const SizedBox(height: AppSpacing.md),
+      AppCard(
+        key: const ValueKey('open-monitor'),
+        onTap: () async {
+          final target = await Navigator.of(context).push<int>(
+            MaterialPageRoute<int>(
+              builder: (_) => AdminMonitorScreen(service: service),
+            ),
+          );
+          if (target != null && target != 4) onSelectTab?.call(target);
+        },
+        padding: const EdgeInsets.all(AppSpacing.md),
+        border: Border.all(color: AppColors.borderSubtle),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.brand100,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: const Icon(
+                LucideIcons.activity,
+                size: 20,
+                color: AppColors.brand700,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Platform Monitor',
+                    style: context.textStyles.label.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    'Live customers, bookings and activity',
+                    style: context.textStyles.caption.copyWith(
+                      color: AppColors.ink3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              LucideIcons.chevronRight,
+              size: 20,
+              color: AppColors.ink3,
+            ),
+          ],
+        ),
       ),
       const SizedBox(height: AppSpacing.lg),
       LogoutButton(authService: authService),

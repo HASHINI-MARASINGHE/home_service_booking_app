@@ -32,7 +32,7 @@ class BookingDetailsScreen extends StatefulWidget {
 
 class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   Stream<Booking?>? _booking;
-  Future<Professional?>? _professional;
+  Stream<Professional?>? _professional;
   String? _providerId;
 
   @override
@@ -48,12 +48,12 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     _providerId = null;
   });
 
-  Future<Professional?> _professionalFor(Booking booking) {
+  Stream<Professional?> _professionalFor(Booking booking) {
     if (_providerId != booking.providerId || _professional == null) {
       _providerId = booking.providerId;
       _professional = CustomerScope.of(context).bookings
-          .getProfessional(booking.providerId)
-          .catchError((_) => null);
+          .watchProfessional(booking.providerId)
+          .handleError((_) {});
     }
     return _professional!;
   }
@@ -94,13 +94,13 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               ),
             );
           } else {
-            body = FutureBuilder<Professional?>(
-              future: _professionalFor(booking),
+            body = StreamBuilder<Professional?>(
+              stream: _professionalFor(booking),
               builder: (context, pro) => _Details(
                 booking: booking,
                 professional: pro.data,
                 loadingProfessional:
-                    pro.connectionState != ConnectionState.done,
+                    pro.connectionState == ConnectionState.waiting,
                 onPush: _push,
               ),
             );

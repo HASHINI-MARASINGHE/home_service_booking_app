@@ -8,6 +8,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../../widgets/common/empty_state.dart';
 import 'bookings/booking_details_screen.dart';
+import 'disputes/dispute_screen.dart';
 
 /// The bell on the customer's Home screen, with the number of unread
 /// notifications. Opens [CustomerNotificationsScreen].
@@ -71,11 +72,30 @@ class _CustomerNotificationsScreenState
       }
     }
     if (!mounted || item.bookingId.isEmpty) return;
+    if (item.type == AppNotification.disputeType) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DisputeScreen(bookingId: item.bookingId),
+        ),
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BookingDetailsScreen(bookingId: item.bookingId),
       ),
     );
+  }
+
+  Future<void> _markRead(List<AppNotification> items) async {
+    try {
+      await widget.service.markAllRead(items.map((n) => n.id));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not mark as read. Try again.')),
+      );
+    }
   }
 
   @override
@@ -105,22 +125,58 @@ class _CustomerNotificationsScreenState
                     child: EmptyState(
                       icon: LucideIcons.bell,
                       title: 'No notifications yet',
-                      message: 'Quotes from your providers will show here.',
+                      message:
+                          'Quotes and dispute updates from your providers will show here.',
                     ),
                   );
                 }
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screen,
-                    AppSpacing.xs,
-                    AppSpacing.screen,
-                    AppSpacing.xxl,
-                  ),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (context, i) =>
-                      _Tile(item: items[i], onTap: () => _open(items[i])),
+                final unread = items.where((n) => !n.read).toList();
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.screen,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              unread.isEmpty
+                                  ? 'All caught up'
+                                  : '${unread.length} unread',
+                              style: AppTypography.caption,
+                            ),
+                          ),
+                          TextButton.icon(
+                            key: const ValueKey('mark-all-read'),
+                            onPressed: unread.isEmpty
+                                ? null
+                                : () => _markRead(unread),
+                            icon: const Icon(LucideIcons.checkCheck, size: 18),
+                            label: const Text('Mark all as read'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.screen,
+                          AppSpacing.xs,
+                          AppSpacing.screen,
+                          AppSpacing.xxl,
+                        ),
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: AppSpacing.sm),
+                        itemBuilder: (context, i) => _Tile(
+                          item: items[i],
+                          onTap: () => _open(items[i]),
+                          onMarkRead: () => _markRead([items[i]]),
+                        ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -132,10 +188,14 @@ class _CustomerNotificationsScreenState
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.item, required this.onTap});
+  const _Tile({
+    required this.item,
+    required this.onTap,
+    required this.onMarkRead,
+  });
 
   final AppNotification item;
-  final VoidCallback onTap;
+  final VoidCallback onTap, onMarkRead;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -152,7 +212,9 @@ class _Tile extends StatelessWidget {
           IconTile(
             icon: item.type == AppNotification.quoteType
                 ? LucideIcons.receipt
-                : LucideIcons.bell,
+                : item.type == AppNotification.disputeType
+                    ? LucideIcons.triangleAlert
+                    : LucideIcons.bell,
             size: 40,
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -181,15 +243,33 @@ class _Tile extends StatelessWidget {
             ),
           ),
           if (!item.read)
-            Container(
-              key: const ValueKey('unread-dot'),
-              margin: const EdgeInsets.only(top: 6, left: AppSpacing.xs),
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
+            Column(
+              children: [
+                Container(
+                  key: const ValueKey('unread-dot'),
+                  margin: const EdgeInsets.only(
+                    top: 6,
+                    left: AppSpacing.xs,
+                    bottom: 2,
+                  ),
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                IconButton(
+                  key: const ValueKey('mark-read'),
+                  tooltip: 'Mark as read',
+                  onPressed: onMarkRead,
+                  icon: const Icon(
+                    LucideIcons.check,
+                    size: 18,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ],
             ),
         ],
       ),
