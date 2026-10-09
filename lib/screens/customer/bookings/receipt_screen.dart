@@ -10,6 +10,7 @@ import '../../../utils/formatters.dart';
 import '../../../widgets/common/app_widgets.dart';
 import '../../../widgets/common/review_widgets.dart';
 import '../customer_scope.dart';
+import '../settings/payment_methods_screen.dart';
 import '../disputes/dispute_screen.dart';
 import 'review_screen.dart';
 
@@ -33,11 +34,35 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
 
   Future<(Booking?, Receipt?)> _load() async {
     final service = CustomerScope.of(context).bookings;
-    final results = await Future.wait([
-      service.watchBooking(widget.bookingId).first,
-      service.getReceipt(widget.bookingId),
-    ]);
-    return (results[0] as Booking?, results[1] as Receipt?);
+    final booking = await service.watchBooking(widget.bookingId).first;
+    // A receipt exists only once the job is completed and signed off.
+    if (booking == null || booking.status != BookingStatus.completed) {
+      return (booking, null);
+    }
+    final issued = await service.getReceipt(widget.bookingId);
+    if (issued != null) return (booking, issued);
+    final pro = await service
+        .getProfessional(booking.providerId)
+        .catchError((_) => null);
+    final card = booking.cardLast4 == null
+        ? await loadDefaultPaymentCard()
+        : null;
+    return (
+      booking,
+      Receipt.fromBooking(
+        booking,
+        pro,
+        fallbackCardBrand: card?.brand,
+        fallbackCardLast4: card?.last4,
+      ),
+    );
+  }
+
+  // Block body: setState must not return the Future being assigned.
+  void _reload() {
+    setState(() {
+      _data = _load();
+    });
   }
 
   Future<void> _export(Receipt receipt, {required bool share}) async {
@@ -80,10 +105,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
           );
           Widget body;
           if (snapshot.hasError) {
-            body = ErrorState(
-              error: snapshot.error!,
-              onRetry: () => setState(() => _data = _load()),
-            );
+            body = ErrorState(error: snapshot.error!, onRetry: _reload);
           } else if (snapshot.connectionState != ConnectionState.done) {
             body = const LoadingState(message: 'Fetching your receipt…');
           } else if (snapshot.data!.$1 == null) {
@@ -91,7 +113,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
               error: StateError('This booking could not be found.'),
             );
           } else if (receipt == null) {
-            body = _NotIssued(onRetry: () => setState(() => _data = _load()));
+            body = _NotIssued(onRetry: _reload);
           } else {
             body = _ReceiptBody(
               booking: snapshot.data!.$1!,
@@ -169,7 +191,17 @@ class _ReceiptBody extends StatelessWidget {
     final date = r.serviceDate ?? booking.scheduledAt;
     final start = r.startTime.isNotEmpty ? r.startTime : booking.startTime;
     final end = r.endTime.isNotEmpty ? r.endTime : booking.endTime;
-    final firstName = r.providerName.trim().split(' ').first;
+    final providerName = r.providerName.trim().isNotEmpty
+        ? r.providerName.trim()
+        : (booking.providerName ?? '').trim();
+    final firstName = providerName.split(' ').first;
+    final reference = r.bookingReference.isNotEmpty
+        ? r.bookingReference
+        : booking.displayReference;
+    final hasPayment =
+        r.paymentMethod.isNotEmpty ||
+        r.cardLast4 != null ||
+        r.paymentStatus.isNotEmpty;
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screen,
@@ -178,56 +210,55 @@ class _ReceiptBody extends StatelessWidget {
         AppSpacing.xxl,
       ),
       children: [
-        if (r.signedOffAt != null) ...[
-          AppCard(
-            color: AppColors.successSoft,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const IconTile(
-                  icon: LucideIcons.shieldCheck,
-                  circle: true,
-                  size: 34,
-                  color: Colors.white,
-                  background: AppColors.success,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            const TextSpan(text: 'Job Completed & Signed Off '),
-                            TextSpan(
-                              text: '• VERIFIED',
-                              style: AppTypography.overline.copyWith(
-                                color: AppColors.success,
-                              ),
+        AppCard(
+          color: AppColors.successSoft,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const IconTile(
+                icon: LucideIcons.shieldCheck,
+                circle: true,
+                size: 34,
+                color: Colors.white,
+                background: AppColors.success,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'Job Completed & Signed Off '),
+                          TextSpan(
+                            text: '• VERIFIED',
+                            style: AppTypography.overline.copyWith(
+                              color: AppColors.successText,
                             ),
-                          ],
-                        ),
-                        style: AppTypography.subtitle.copyWith(
-                          color: AppColors.success,
-                        ),
+                          ),
+                        ],
                       ),
+                      style: AppTypography.subtitle.copyWith(
+                        color: AppColors.successText,
+                      ),
+                    ),
+                    if (r.signedOffAt != null)
                       Text(
                         'Customer digital sign-off completed on '
                         '${Formatters.shortDate(r.signedOffAt!.toLocal())}, '
                         '${Formatters.clock(r.signedOffAt!.toLocal())}.',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.success,
+                          color: AppColors.successText,
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.md),
-        ],
+        ),
+        const SizedBox(height: AppSpacing.md),
         AppCard(
           child: Column(
             children: [
@@ -252,9 +283,9 @@ class _ReceiptBody extends StatelessWidget {
                       Text('BOOKING REF', style: AppTypography.overline),
                       const SizedBox(height: 2),
                       StatusPill(
-                        label: '#${r.bookingReference}',
-                        color: AppColors.primary,
-                        background: AppColors.successSoft,
+                        label: '#$reference',
+                        color: AppColors.infoText,
+                        background: AppColors.infoSoft,
                       ),
                     ],
                   ),
@@ -300,7 +331,7 @@ class _ReceiptBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   PersonAvatar(
-                    name: r.providerName,
+                    name: providerName,
                     photoUrl: r.providerPhotoUrl,
                     size: 50,
                     verified: true,
@@ -326,7 +357,8 @@ class _ReceiptBody extends StatelessWidget {
                               ),
                           ],
                         ),
-                        Text(r.providerName, style: AppTypography.title),
+                        if (providerName.isNotEmpty)
+                          Text(providerName, style: AppTypography.title),
                         if (r.providerTitle.isNotEmpty)
                           Text(r.providerTitle, style: AppTypography.caption),
                       ],
@@ -359,8 +391,13 @@ class _ReceiptBody extends StatelessWidget {
                             'BILLED & SERVICED AT',
                             style: AppTypography.overline,
                           ),
-                          Text(r.customerName, style: AppTypography.subtitle),
-                          Text(r.serviceAddress, style: AppTypography.caption),
+                          if (r.customerName.isNotEmpty)
+                            Text(r.customerName, style: AppTypography.subtitle),
+                          if (r.serviceAddress.isNotEmpty)
+                            Text(
+                              r.serviceAddress,
+                              style: AppTypography.caption,
+                            ),
                         ],
                       ),
                     ),
@@ -388,8 +425,8 @@ class _ReceiptBody extends StatelessWidget {
                     label:
                         '${r.lineItems.length} Item'
                         '${r.lineItems.length == 1 ? '' : 's'}',
-                    color: AppColors.primary,
-                    background: AppColors.successSoft,
+                    color: AppColors.infoText,
+                    background: AppColors.infoSoft,
                   ),
                 ],
               ),
@@ -412,7 +449,7 @@ class _ReceiptBody extends StatelessWidget {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Text(
-                        Formatters.lkr(item.amount),
+                        item.amount > 0 ? Formatters.lkr(item.amount) : '—',
                         style: AppTypography.bodyStrong,
                       ),
                     ],
@@ -425,8 +462,9 @@ class _ReceiptBody extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: AppColors.successSoft,
+                  color: AppColors.primaryTint,
                   borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.primarySoft),
                 ),
                 child: Row(
                   children: [
@@ -470,123 +508,120 @@ class _ReceiptBody extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.md),
-        AppCard(
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  if (r.cardLast4 != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceLavenderDeep,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'VISA',
-                        style: AppTypography.label.copyWith(
-                          color: AppColors.navy,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+        if (hasPayment) ...[
+          const SizedBox(height: AppSpacing.md),
+          AppCard(
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    IconTile(
+                      icon: r.cardLast4 != null
+                          ? LucideIcons.creditCard
+                          : LucideIcons.wallet,
+                      size: 40,
                     ),
                     const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            r.cardLast4 != null
+                                ? '${r.cardBrand ?? 'Card'} ending in •• ${r.cardLast4}'
+                                : r.paymentMethod.toLowerCase() == 'cash'
+                                ? 'Cash on Service'
+                                : r.paymentMethod.isNotEmpty
+                                ? _titleCase(r.paymentMethod)
+                                : 'Pay after the service',
+                            style: AppTypography.subtitle,
+                          ),
+                          if (_paymentCaption(r).isNotEmpty)
+                            Text(
+                              _paymentCaption(r),
+                              style: AppTypography.caption,
+                            ),
+                        ],
+                      ),
+                    ),
+                    const Icon(LucideIcons.lock, color: AppColors.primary),
                   ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+                if (r.paymentNote.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceLavender,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          r.cardLast4 == null
-                              ? _titleCase(r.paymentMethod)
-                              : 'Visa ending in •• ${r.cardLast4}',
-                          style: AppTypography.subtitle,
+                        const Icon(
+                          LucideIcons.banknote,
+                          size: 18,
+                          color: AppColors.primary,
                         ),
-                        Text(
-                          r.paymentStatus == 'paid'
-                              ? 'Escrow settlement complete'
-                              : _titleCase(r.paymentStatus),
-                          style: AppTypography.caption,
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            r.paymentNote,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.body,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(LucideIcons.lock, color: AppColors.primary),
                 ],
-              ),
-              if (r.paymentNote.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.sm),
+              ],
+            ),
+          ),
+        ],
+        if (r.receiptNumber.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          AppCard(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              children: [
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceLavender,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    boxShadow: AppShadows.soft,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        LucideIcons.banknote,
-                        size: 18,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Expanded(
-                        child: Text(
-                          r.paymentNote,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.body,
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: QrImageView(
+                    data: r.verificationPayload,
+                    size: 130,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: AppColors.navy,
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: AppColors.navy,
+                    ),
+                    semanticsLabel: 'Receipt verification QR code',
                   ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Receipt Verification Code',
+                  style: AppTypography.subtitle,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Scan to verify this HomeCare receipt, its booking reference '
+                  'and the amount paid.',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.caption,
                 ),
               ],
-            ],
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        AppCard(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  boxShadow: AppShadows.soft,
-                ),
-                child: QrImageView(
-                  data: r.verificationPayload,
-                  size: 130,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: AppColors.navy,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: AppColors.navy,
-                  ),
-                  semanticsLabel: 'Receipt verification QR code',
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text('Receipt Verification Code', style: AppTypography.subtitle),
-              const SizedBox(height: 2),
-              Text(
-                'Scan to verify this HomeCare receipt, its booking reference '
-                'and the amount paid.',
-                textAlign: TextAlign.center,
-                style: AppTypography.caption,
-              ),
-            ],
-          ),
-        ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
@@ -687,6 +722,20 @@ class _ReceiptBody extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  static String _paymentCaption(Receipt r) {
+    final status = r.paymentStatus.isEmpty
+        ? ''
+        : r.paymentStatus != 'paid'
+        ? _titleCase(r.paymentStatus)
+        : r.cardLast4 != null && !r.cardIsDefault
+        ? 'Escrow settlement complete'
+        : 'Paid';
+    return [
+      if (r.cardIsDefault) 'Default card on file',
+      status,
+    ].where((part) => part.isNotEmpty).join(' • ');
   }
 
   static String _titleCase(String text) => text.isEmpty

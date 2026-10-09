@@ -19,9 +19,9 @@ class TextSizeSettingsScreen extends StatelessWidget {
             LocaleController.instance.locale.languageCode == 'si';
 
         return Scaffold(
-          backgroundColor: CustomerHomeTheme.background,
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
-            backgroundColor: CustomerHomeTheme.background,
+            backgroundColor: Colors.transparent,
             foregroundColor: CustomerHomeTheme.primaryDark,
             elevation: 0,
             title: Text(

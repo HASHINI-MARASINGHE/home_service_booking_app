@@ -123,15 +123,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             if (!didPop) _handleBack();
           },
           child: BrandShell(
+            backdrop: true,
             child: Scaffold(
-              backgroundColor: AppColors.bg,
+              backgroundColor: Colors.transparent,
               body: IndexedStack(
                 index: _selectedIndex,
                 children: [
                   _tab(
                     CustomerTab.home,
                     ColoredBox(
-                      color: AppColors.bg,
+                      color: Colors.transparent,
                       child: _CustomerHomeContent(
                         user: _currentUser,
                         notifications: _notifications,
@@ -176,7 +177,7 @@ class _TabNavigator extends StatelessWidget {
       settings: settings,
       // Home/Profile were written as Scaffold bodies; give them a Material
       // ancestor for text styles and ink now that they live in a route.
-      builder: (_) => Material(color: AppColors.bg, child: root),
+      builder: (_) => Material(color: Colors.transparent, child: root),
     ),
   );
 }

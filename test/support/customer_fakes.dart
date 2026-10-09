@@ -70,6 +70,9 @@ Booking booking({
   String? quoteNote,
   List<QuoteEntry> quoteHistory = const [],
   bool noPrice = false,
+  // A booking made in the app records no card or payment method.
+  bool noCard = false,
+  DateTime? completedAt,
 }) {
   final date = DateTime(2025, 11, 10 + daysAhead);
   return Booking(
@@ -97,9 +100,10 @@ Booking booking({
     endAt: BookingPolicy.colomboInstant(date, '12:00'),
     totalAmount: noPrice ? null : 5500,
     serviceFee: 200,
-    paymentMethod: 'card',
-    cardLast4: '8821',
+    paymentMethod: noCard ? null : 'card',
+    cardLast4: noCard ? null : '8821',
     paymentStatus: paymentStatus,
+    completedAt: completedAt,
     lineItems: noPrice
         ? const []
         : const [

@@ -399,8 +399,19 @@ class CustomerBookingService {
   /// Accepts the quote the customer is looking at. [shownAmount] is that
   /// quote's price: if the provider changed it in the meantime the accept is
   /// refused, so nobody agrees to a price they have not seen.
-  Future<void> acceptQuote(String bookingId, double shownAmount) =>
-      _answer(bookingId, shownAmount, accept: true);
+  Future<void> acceptQuote(
+    String bookingId,
+    double shownAmount, {
+    String? paymentMethod,
+    String? cardLast4,
+  }) =>
+      _answer(
+        bookingId,
+        shownAmount,
+        accept: true,
+        paymentMethod: paymentMethod,
+        cardLast4: cardLast4,
+      );
 
   /// Declines the quote the customer is looking at. The provider can send a
   /// new one (or, for a revision, the earlier accepted price still stands).
@@ -411,6 +422,8 @@ class CustomerBookingService {
     String bookingId,
     double shownAmount, {
     required bool accept,
+    String? paymentMethod,
+    String? cardLast4,
   }) async {
     final uid = _uid;
     await _db.runTransaction((tx) async {
@@ -427,6 +440,8 @@ class CustomerBookingService {
       );
       tx.update(snapshot.reference, {
         ...change.fields,
+        if (accept && paymentMethod != null) 'paymentMethod': paymentMethod,
+        if (accept && cardLast4 != null) 'cardLast4': cardLast4,
         if (change.confirmsJob) 'acceptedAt': FieldValue.serverTimestamp(),
         'quoteUpdatedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -618,6 +633,99 @@ class CustomerBookingService {
     });
     // Removed photos simply stop being referenced (unsigned Cloudinary
     // uploads can't be deleted from the app).
+  }
+
+  // ---------------------------------------------------------------------
+  // Payment confirmation & sign-off
+  // ---------------------------------------------------------------------
+
+  /// Customer signs off on satisfactory service completion and confirms payment.
+  /// This transitions the booking's paymentStatus from 'unpaid' / 'escrow' to 'paid',
+  /// allowing the earnings to be credited to the provider.
+  Future<void> confirmPayment(
+    String bookingId, {
+    String? paymentMethod,
+    String? cardLast4,
+  }) async {
+    final uid = _uid;
+    await _db.runTransaction((tx) async {
+      final snapshot = await tx.get(_booking(bookingId));
+      final data = snapshot.data();
+      if (data == null) throw StateError('This booking no longer exists.');
+      final current = Booking.fromMap(snapshot.id, data);
+      if (current.customerId != uid) {
+        throw StateError('You can only confirm payments for your own bookings.');
+      }
+      if (current.status != BookingStatus.completed) {
+        throw StateError('The service has not been marked complete yet.');
+      }
+      if (current.paymentStatus == 'paid') {
+        throw StateError('Payment for this booking has already been completed.');
+      }
+
+      final chosenMethod = paymentMethod ?? current.paymentMethod ?? 'cash';
+      final chosenCard = cardLast4 ?? current.cardLast4;
+
+      tx.update(snapshot.reference, {
+        'paymentStatus': 'paid',
+        'paymentMethod': chosenMethod,
+        if (chosenCard != null) 'cardLast4': chosenCard,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Also create a receipt record if one does not exist
+      final receiptRef = _db.collection('receipts').doc(bookingId);
+      final receiptSnap = await tx.get(receiptRef);
+      if (!receiptSnap.exists) {
+        final total = current.chargeTotal;
+        final year = now().year;
+        final tail = (current.id.length > 4
+                ? current.id.substring(current.id.length - 4)
+                : current.id)
+            .toUpperCase();
+        final receiptNumber = 'INV-$year-$tail';
+
+        tx.set(receiptRef, {
+          'bookingId': current.id,
+          'customerId': current.customerId,
+          'providerId': current.providerId,
+          'receiptNumber': receiptNumber,
+          'bookingReference': current.displayReference,
+          'issuedAt': FieldValue.serverTimestamp(),
+          'signedOffAt': FieldValue.serverTimestamp(),
+          'serviceDate': current.scheduledAt != null
+              ? Timestamp.fromDate(current.scheduledAt!)
+              : null,
+          'startTime': current.startTime ?? '',
+          'endTime': current.endTime ?? '',
+          'providerName': current.providerName ?? '',
+          'providerTitle': '',
+          'customerName': current.customerName,
+          'serviceAddress': current.address,
+          'lineItems': [
+            for (final item in current.lineItems.isNotEmpty
+                ? current.lineItems
+                : [
+                    BookingLineItem(
+                      label: current.serviceName,
+                      detail: current.quoteNote ?? '',
+                      amount: total,
+                    )
+                  ])
+              item.toMap(),
+          ],
+          'totalAmount': total,
+          'paymentMethod': chosenMethod,
+          'cardLast4': chosenCard,
+          'paymentStatus': 'paid',
+          'paymentNote': chosenMethod == 'card'
+              ? 'Paid securely via card.'
+              : 'Paid in cash to provider upon service completion.',
+          'verificationCode':
+              'HOMECARE|$receiptNumber|${current.displayReference}|${total.round()}',
+        });
+      }
+    });
   }
 
   // ---------------------------------------------------------------------

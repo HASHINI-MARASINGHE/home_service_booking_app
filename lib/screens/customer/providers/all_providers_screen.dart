@@ -54,7 +54,7 @@ class _AllProvidersScreenState extends State<AllProvidersScreen> {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: CustomerHomeTheme.background,
+    color: Colors.transparent,
     child: SafeArea(
       bottom: false,
       child: Column(

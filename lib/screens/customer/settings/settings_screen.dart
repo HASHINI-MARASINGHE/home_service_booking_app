@@ -58,9 +58,9 @@ class SettingsScreen extends StatelessWidget {
             : (isSinhala ? 'සැකසුම්' : 'Settings');
 
         return Scaffold(
-          backgroundColor: CustomerHomeTheme.background,
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
-            backgroundColor: CustomerHomeTheme.background,
+            backgroundColor: Colors.transparent,
             foregroundColor: CustomerHomeTheme.primaryDark,
             elevation: 0,
             title: Text(

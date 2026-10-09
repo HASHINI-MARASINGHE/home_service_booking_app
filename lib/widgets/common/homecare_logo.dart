@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import 'app_backdrop.dart';
 
 /// The two blues of the HomeCare logo (top left to bottom right).
 const _tileStart = Color(0xFF2F6BD1);
@@ -293,16 +294,32 @@ class BrandBar extends StatelessWidget {
 /// and bottom navigation), so the logo is on every page of a role without
 /// each screen having to add it.
 class BrandShell extends StatelessWidget {
-  const BrandShell({super.key, required this.child});
+  const BrandShell({super.key, required this.child, this.backdrop = false});
 
   final Widget child;
 
+  /// Draws the HomeCare background behind the bar and the page (customer and
+  /// provider pages). Pages in the shell then let it show through.
+  final bool backdrop;
+
   @override
-  Widget build(BuildContext context) => Material(
-    color: AppColors.bg,
+  Widget build(BuildContext context) {
+    final shell = _shell(context);
+    if (!backdrop) return shell;
+    return Theme(
+      data: backdropTheme(Theme.of(context)),
+      child: AppBackdrop(child: shell),
+    );
+  }
+
+  Widget _shell(BuildContext context) => Material(
+    color: backdrop ? Colors.transparent : AppColors.bg,
     child: Column(
       children: [
-        SafeArea(bottom: false, child: const BrandBar()),
+        SafeArea(
+          bottom: false,
+          child: BrandBar(color: backdrop ? Colors.transparent : AppColors.bg),
+        ),
         // The bar already sits below the status bar; the page must not leave
         // a second gap for it.
         Expanded(

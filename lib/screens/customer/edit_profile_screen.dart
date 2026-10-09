@@ -202,10 +202,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (shouldDiscard) Navigator.pop(context);
     },
     child: Scaffold(
-      backgroundColor: CustomerHomeTheme.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Edit profile'),
-        backgroundColor: CustomerHomeTheme.background,
+        backgroundColor: Colors.transparent,
         foregroundColor: CustomerHomeTheme.primaryDark,
         elevation: 0,
       ),

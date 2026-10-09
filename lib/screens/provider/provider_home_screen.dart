@@ -134,6 +134,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             if (!didPop) _back();
           },
           child: BrandShell(
+            backdrop: true,
             child: Scaffold(
               appBar: AppBar(
                 // The four tab pages: title on the left, then the bell and the

@@ -959,7 +959,7 @@ class _PreferencesCard extends StatelessWidget {
       // Keep the HomeCare bar on top, like every other page.
       builder: (_) => Theme(
         data: ProviderTheme.data,
-        child: BrandShell(child: screen),
+        child: BrandShell(backdrop: true, child: screen),
       ),
     ),
   );
