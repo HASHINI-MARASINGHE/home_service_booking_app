@@ -93,6 +93,11 @@ service cloud.firestore {
           validAddress(request.resource.data) &&
           request.resource.data.createdAt == resource.data.createdAt;
       }
+
+      // ------------------------------------------------ saved payment methods
+      match /paymentMethods/{paymentMethodId} {
+        allow read, write: if isUser(uid);
+      }
     }
 
     // ------------------------------------------- read-only catalog data
@@ -324,7 +329,9 @@ service cloud.firestore {
         (accepting
           ? (changedKeys().hasOnly(['status', 'acceptedAt', 'quoteStatus',
                'acceptedAmount', 'totalAmount', 'laborCharge', 'quoteHistory',
-               'quoteUpdatedAt', 'updatedAt']) &&
+               'quoteUpdatedAt', 'updatedAt', 'paymentMethod', 'cardLast4']) &&
+             (!('paymentMethod' in changedKeys()) || n.paymentMethod in ['card', 'cash']) &&
+             (!('cardLast4' in changedKeys()) || (n.cardLast4 is string && n.cardLast4.size() == 4)) &&
              n.acceptedAmount == b.quotedAmount &&
              n.totalAmount == b.quotedAmount &&
              n.laborCharge == b.quotedAmount &&
