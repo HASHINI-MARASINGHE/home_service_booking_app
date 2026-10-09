@@ -132,10 +132,12 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
               controller: _tabs,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: AppColors.muted,
-              indicatorColor: AppColors.primary,
-              labelStyle: AppTypography.label,
+              labelColor: AppColors.brand900,
+              unselectedLabelColor: AppColors.ink3,
+              indicatorColor: AppColors.brand700,
+              indicatorWeight: 2.5,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
               tabs: [
                 Tab(text: 'All (${filteredAll.length})'),
                 for (final cat in ServiceCategory.all)
@@ -190,7 +192,31 @@ class _AdminRatingsScreenState extends State<AdminRatingsScreen>
 
       if (widget.standalone) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Ratings & Reviews')),
+          backgroundColor: AppColors.bg,
+          appBar: AppBar(
+            backgroundColor: AppColors.surface,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              icon: const Icon(LucideIcons.arrowLeft, color: AppColors.ink),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: const Text(
+              'Ratings & Reviews',
+              style: TextStyle(
+                color: AppColors.brand900,
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+              ),
+            ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1),
+              child: Container(
+                color: AppColors.borderSubtle,
+                height: 1,
+              ),
+            ),
+          ),
           body: SafeArea(child: content),
         );
       }
@@ -215,12 +241,20 @@ class _SummaryBar extends StatelessWidget {
     );
 
     return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(
+      margin: const EdgeInsets.fromLTRB(
         AppSpacing.screen,
-        AppSpacing.sm,
+        AppSpacing.xs,
         AppSpacing.screen,
-        AppSpacing.sm,
+        AppSpacing.xs,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.borderSubtle),
       ),
       child: Row(
         children: [
@@ -228,21 +262,21 @@ class _SummaryBar extends StatelessWidget {
             icon: LucideIcons.users,
             label: 'Providers',
             value: '${professionals.length}',
-            color: AppColors.primary,
+            color: AppColors.brand700,
           ),
           _divider(),
           _StatTile(
             icon: LucideIcons.star,
             label: 'Avg Rating',
             value: avgAll == null ? '—' : avgAll.toStringAsFixed(1),
-            color: AppColors.star,
+            color: AppColors.accent700,
           ),
           _divider(),
           _StatTile(
             icon: LucideIcons.messageSquare,
             label: 'Reviews',
             value: '$totalReviews',
-            color: AppColors.primaryDark,
+            color: AppColors.brand900,
           ),
           _divider(),
           _StatTile(
@@ -258,9 +292,9 @@ class _SummaryBar extends StatelessWidget {
 
   Widget _divider() => Container(
     width: 1,
-    height: 36,
-    color: AppColors.border,
-    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+    height: 32,
+    color: AppColors.borderSubtle,
+    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
   );
 }
 
@@ -283,16 +317,24 @@ class _StatTile extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 13, color: color),
+            Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
             Text(
               value,
-              style: AppTypography.title.copyWith(color: color, fontSize: 16),
+              style: TextStyle(
+                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 2),
-        Text(label, style: AppTypography.caption, textAlign: TextAlign.center),
+        Text(
+          label,
+          style: context.textStyles.caption.copyWith(fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
       ],
     ),
   );
@@ -363,16 +405,26 @@ class _ProviderRatingCard extends StatelessWidget {
               AdminProviderReviewsScreen(professional: p, service: service),
         ),
       ),
+      border: Border.all(color: AppColors.borderSubtle),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              PersonAvatar(
-                name: p.name,
-                photoUrl: p.photoUrl,
-                size: 46,
-                verified: true,
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.brand100,
+                    width: 2,
+                  ),
+                ),
+                child: PersonAvatar(
+                  name: p.name,
+                  photoUrl: p.photoUrl,
+                  size: 46,
+                  verified: true,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -381,21 +433,26 @@ class _ProviderRatingCard extends StatelessWidget {
                   children: [
                     Text(
                       p.name,
-                      style: AppTypography.title,
+                      style: context.textStyles.label.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       p.specialty.isEmpty ? 'Service Provider' : p.specialty,
-                      style: AppTypography.caption,
+                      style: context.textStyles.caption.copyWith(
+                        color: AppColors.ink2,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (p.providerCode != null)
                       Text(
                         p.providerCode!,
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.primary,
+                        style: context.textStyles.caption.copyWith(
+                          color: AppColors.brand700,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -418,7 +475,7 @@ class _ProviderRatingCard extends StatelessWidget {
               const Icon(
                 LucideIcons.chevronRight,
                 size: 16,
-                color: AppColors.muted,
+                color: AppColors.ink3,
               ),
             ],
           ),
@@ -454,16 +511,22 @@ class _RatingBadge extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: AppColors.surfaceLavender,
+          color: AppColors.surfaceAlt,
           borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.borderSubtle),
         ),
-        child: Text('No ratings', style: AppTypography.caption),
+        child: Text(
+          'No ratings',
+          style: context.textStyles.caption.copyWith(
+            color: AppColors.ink3,
+          ),
+        ),
       );
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.warningSoft,
+        color: AppColors.accent100,
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
@@ -472,12 +535,12 @@ class _RatingBadge extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.star_rounded, size: 14, color: AppColors.star),
+              const Icon(Icons.star_rounded, size: 16, color: AppColors.accent700),
               const SizedBox(width: 3),
               Text(
                 average!.toStringAsFixed(1),
-                style: AppTypography.bodyStrong.copyWith(
-                  color: AppColors.warning,
+                style: context.textStyles.label.copyWith(
+                  color: AppColors.accent700,
                   fontSize: 15,
                 ),
               ),
@@ -485,7 +548,10 @@ class _RatingBadge extends StatelessWidget {
           ),
           Text(
             '$count ${count == 1 ? 'review' : 'reviews'}',
-            style: AppTypography.caption.copyWith(fontSize: 14),
+            style: context.textStyles.caption.copyWith(
+              color: AppColors.ink2,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -502,15 +568,16 @@ class _ServiceChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(
-      color: faded ? AppColors.surfaceLavender : AppColors.primaryTint,
+      color: faded ? AppColors.surfaceAlt : AppColors.brand100,
       borderRadius: AppRadius.chip,
+      border: Border.all(color: AppColors.borderSubtle),
     ),
     child: Text(
       label,
-      style: AppTypography.caption.copyWith(
-        color: faded ? AppColors.muted : AppColors.primaryDark,
+      style: context.textStyles.caption.copyWith(
+        color: faded ? AppColors.ink3 : AppColors.brand700,
         fontWeight: FontWeight.w600,
-        fontSize: 14,
+        fontSize: 12,
       ),
     ),
   );
@@ -546,7 +613,31 @@ class _AdminProviderReviewsScreenState
   Widget build(BuildContext context) {
     final p = widget.professional;
     return Scaffold(
-      appBar: AppBar(title: Text(p.name)),
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft, color: AppColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          p.name,
+          style: const TextStyle(
+            color: AppColors.brand900,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: AppColors.borderSubtle,
+            height: 1,
+          ),
+        ),
+      ),
       body: SafeArea(
         child: StreamBuilder<RatingStats?>(
           stream: _stats,

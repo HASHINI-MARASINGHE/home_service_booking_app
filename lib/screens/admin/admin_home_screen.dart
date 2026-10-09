@@ -50,51 +50,88 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       builder: (context, disputeSnapshot) {
         final pending = snapshot.data ?? 0;
         final disputes = disputeSnapshot.data ?? 0;
-        return BrandShell(child: Scaffold(
-          appBar: AppBar(
-            title: Text(
-              _tab == 0
-                  ? 'Providers'
+        return BrandShell(
+          child: Scaffold(
+            backgroundColor: AppColors.bg,
+            appBar: AppBar(
+              backgroundColor: AppColors.surface,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              centerTitle: false,
+              title: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.brand100,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: const Icon(
+                      LucideIcons.shieldCheck,
+                      size: 18,
+                      color: AppColors.brand700,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    _tab == 0
+                        ? 'Providers'
+                        : _tab == 1
+                        ? 'Ratings'
+                        : _tab == 2
+                        ? 'Disputes'
+                        : 'Profile',
+                    style: const TextStyle(
+                      color: AppColors.brand900,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(1),
+                child: Container(
+                  color: AppColors.borderSubtle,
+                  height: 1,
+                ),
+              ),
+            ),
+            body: SafeArea(
+              child: _tab == 0
+                  ? AdminProvidersScreen(service: _service)
                   : _tab == 1
-                  ? 'Ratings'
+                  ? AdminRatingsScreen(service: _service)
                   : _tab == 2
-                  ? 'Disputes'
-                  : 'Profile',
+                  ? AdminDisputesScreen(service: _service)
+                  : AdminProfileScreen(
+                      user: widget.user,
+                      authService: widget.authService,
+                      service: _service,
+                      onNavigateToRatings: () => setState(() => _tab = 1),
+                    ),
+            ),
+            bottomNavigationBar: AppBottomNav(
+              items: [
+                AppNavItem(
+                  icon: LucideIcons.shieldCheck,
+                  label: 'Providers',
+                  badge: pending,
+                ),
+                const AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
+                AppNavItem(
+                  icon: LucideIcons.triangleAlert,
+                  label: 'Disputes',
+                  badge: disputes,
+                ),
+                const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
+              ],
+              selectedIndex: _tab,
+              onSelected: (index) => setState(() => _tab = index),
             ),
           ),
-          body: SafeArea(
-            child: _tab == 0
-                ? AdminProvidersScreen(service: _service)
-                : _tab == 1
-                ? AdminRatingsScreen(service: _service)
-                : _tab == 2
-                ? AdminDisputesScreen(service: _service)
-                : AdminProfileScreen(
-                    user: widget.user,
-                    authService: widget.authService,
-                    service: _service,
-                    onNavigateToRatings: () => setState(() => _tab = 1),
-                  ),
-          ),
-          bottomNavigationBar: AppBottomNav(
-            items: [
-              AppNavItem(
-                icon: LucideIcons.shieldCheck,
-                label: 'Providers',
-                badge: pending,
-              ),
-              const AppNavItem(icon: LucideIcons.star, label: 'Ratings'),
-              AppNavItem(
-                icon: LucideIcons.triangleAlert,
-                label: 'Disputes',
-                badge: disputes,
-              ),
-              const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
-            ],
-            selectedIndex: _tab,
-            onSelected: (index) => setState(() => _tab = index),
-          ),
-        ));
+        );
       },
     ),
   );
@@ -168,6 +205,20 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
         child: SizedBox(
           width: double.infinity,
           child: SegmentedButton<VerificationStatus>(
+            style: SegmentedButton.styleFrom(
+              backgroundColor: AppColors.surfaceAlt,
+              selectedBackgroundColor: AppColors.brand900,
+              selectedForegroundColor: Colors.white,
+              foregroundColor: AppColors.ink2,
+              side: const BorderSide(color: AppColors.borderSubtle),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
             segments: const [
               ButtonSegment(
                 value: VerificationStatus.pending,
@@ -221,17 +272,38 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Text(
-                    switch (_filter) {
-                      VerificationStatus.pending =>
-                        'No providers are waiting for verification.',
-                      VerificationStatus.verified =>
-                        'No verified providers yet.',
-                      _ => 'No rejected submissions.',
-                    },
-                    key: const ValueKey('admin-empty'),
-                    textAlign: TextAlign.center,
-                    style: AppTypography.body,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.brand100,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: const Icon(
+                          LucideIcons.shieldCheck,
+                          size: 28,
+                          color: AppColors.brand700,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        switch (_filter) {
+                          VerificationStatus.pending =>
+                            'No providers are waiting for verification.',
+                          VerificationStatus.verified =>
+                            'No verified providers yet.',
+                          _ => 'No rejected submissions.',
+                        },
+                        key: const ValueKey('admin-empty'),
+                        textAlign: TextAlign.center,
+                        style: context.textStyles.bodySmall.copyWith(
+                          color: AppColors.ink2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -270,12 +342,14 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                                 const Icon(
                                   LucideIcons.searchX,
                                   size: 40,
-                                  color: AppColors.muted,
+                                  color: AppColors.ink3,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
                                   'No providers match your search or filter.',
-                                  style: AppTypography.body,
+                                  style: context.textStyles.bodySmall.copyWith(
+                                    color: AppColors.ink2,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -330,13 +404,23 @@ class _ProviderTile extends StatelessWidget {
     return AppCard(
       key: ValueKey('provider-tile-${s.uid}'),
       onTap: onTap,
+      border: Border.all(color: AppColors.borderSubtle),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              PersonAvatar(name: s.fullName, size: 48),
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.brand100,
+                    width: 2,
+                  ),
+                ),
+                child: PersonAvatar(name: s.fullName, size: 48),
+              ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
@@ -346,7 +430,10 @@ class _ProviderTile extends StatelessWidget {
                       s.fullName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.title,
+                      style: context.textStyles.label.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -354,13 +441,19 @@ class _ProviderTile extends StatelessWidget {
                       '${s.experienceYears} yr${s.experienceYears == 1 ? '' : 's'}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.body,
+                      style: context.textStyles.bodySmall.copyWith(
+                        color: AppColors.ink2,
+                      ),
                     ),
                     Text(
                       s.submittedAt == null
                           ? 'Submitted'
                           : 'Submitted ${Formatters.shortDate(s.submittedAt!)}',
-                      style: AppTypography.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textStyles.caption.copyWith(
+                        color: AppColors.ink3,
+                      ),
                     ),
                   ],
                 ),
@@ -369,52 +462,54 @@ class _ProviderTile extends StatelessWidget {
               switch (s.status) {
                 VerificationStatus.verified => StatusPill(
                   label: s.providerCode ?? 'Verified',
-                  background: AppColors.successSoft,
-                  color: AppColors.success,
+                  background: AppColors.brand100,
+                  color: AppColors.brand700,
                   icon: LucideIcons.badgeCheck,
                 ),
                 VerificationStatus.rejected => const StatusPill(
                   label: 'Rejected',
-                  background: AppColors.dangerSoft,
-                  color: AppColors.danger,
+                  background: AppColors.errorSoft,
+                  color: AppColors.errorText,
                   icon: LucideIcons.circleAlert,
                 ),
                 _ => const StatusPill(
                   label: 'Review',
-                  background: AppColors.warningSoft,
-                  color: AppColors.warning,
+                  background: AppColors.accent100,
+                  color: AppColors.accent700,
                   icon: LucideIcons.clock,
                 ),
               },
+              const SizedBox(width: 4),
               const Icon(
                 LucideIcons.chevronRight,
                 size: 18,
-                color: AppColors.muted,
+                color: AppColors.ink3,
               ),
             ],
           ),
           if (s.phone.isNotEmpty || docCount > 0) ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: 6,
               runSpacing: 4,
               children: [
                 if (s.phone.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceAlt,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                      border: Border.all(color: AppColors.borderSubtle),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(LucideIcons.phone, size: 11, color: AppColors.ink3),
+                        const Icon(LucideIcons.phone, size: 12, color: AppColors.brand700),
                         const SizedBox(width: 4),
                         Text(
                           s.phone,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.ink2,
+                          style: context.textStyles.caption.copyWith(
+                            color: AppColors.ink,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -422,19 +517,23 @@ class _ProviderTile extends StatelessWidget {
                     ),
                   ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceAlt,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    border: Border.all(color: AppColors.borderSubtle),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(LucideIcons.fileText, size: 11, color: AppColors.ink3),
+                      const Icon(LucideIcons.fileText, size: 12, color: AppColors.ink3),
                       const SizedBox(width: 4),
                       Text(
                         docCount == 0 ? 'No docs' : '$docCount doc${docCount == 1 ? '' : 's'}',
-                        style: AppTypography.caption.copyWith(color: AppColors.ink2),
+                        style: context.textStyles.caption.copyWith(
+                          color: AppColors.ink2,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
@@ -467,23 +566,90 @@ class AdminProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(AppSpacing.screen),
     children: [
-      AppCard(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          children: [
-            PersonAvatar(name: user.name, size: 72),
-            const SizedBox(height: AppSpacing.sm),
-            Text(user.name, style: AppTypography.headline),
-            const SizedBox(height: 4),
-            Text(user.email, style: AppTypography.caption),
-            const SizedBox(height: AppSpacing.sm),
-            const StatusPill(
-              label: 'Administrator',
-              icon: LucideIcons.shieldCheck,
-              background: AppColors.primaryTint,
-              color: AppColors.primaryDark,
+      ClipRRect(
+        borderRadius: AppRadius.card,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.brand900, AppColors.brand700],
             ),
-          ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -16,
+                bottom: -16,
+                child: ExcludeSemantics(
+                  child: Icon(
+                    LucideIcons.shieldCheck,
+                    size: 140,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          width: 2,
+                        ),
+                      ),
+                      child: PersonAvatar(name: user.name, size: 72),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      user.name,
+                      style: context.textStyles.h2.copyWith(color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user.email,
+                      style: context.textStyles.caption.copyWith(
+                        color: AppColors.brand100,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            LucideIcons.shieldCheck,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Administrator',
+                            style: context.textStyles.caption.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       const SizedBox(height: AppSpacing.md),
@@ -533,6 +699,7 @@ class _RatingsMonitorCard extends StatelessWidget {
   Widget build(BuildContext context) => AppCard(
     onTap: onTap,
     padding: const EdgeInsets.all(AppSpacing.md),
+    border: Border.all(color: AppColors.borderSubtle),
     child: StreamBuilder<List<Professional>>(
       stream: service.watchAllProfessionals(),
       builder: (context, snapshot) {
@@ -552,15 +719,16 @@ class _RatingsMonitorCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.warningSoft,
+                    color: AppColors.accent100,
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                   child: const Icon(
                     LucideIcons.star,
                     size: 20,
-                    color: AppColors.star,
+                    color: AppColors.accent700,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -570,11 +738,15 @@ class _RatingsMonitorCard extends StatelessWidget {
                     children: [
                       Text(
                         'Ratings & Reviews Monitor',
-                        style: AppTypography.title,
+                        style: context.textStyles.label.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       Text(
                         'Monitor provider ratings by service category',
-                        style: AppTypography.caption,
+                        style: context.textStyles.caption.copyWith(
+                          color: AppColors.ink3,
+                        ),
                       ),
                     ],
                   ),
@@ -582,7 +754,7 @@ class _RatingsMonitorCard extends StatelessWidget {
                 const Icon(
                   LucideIcons.chevronRight,
                   size: 20,
-                  color: AppColors.muted,
+                  color: AppColors.ink3,
                 ),
               ],
             ),
@@ -593,8 +765,9 @@ class _RatingsMonitorCard extends StatelessWidget {
                 horizontal: AppSpacing.md,
               ),
               decoration: BoxDecoration(
-                color: AppColors.surfaceLavender,
+                color: AppColors.surfaceAlt,
                 borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.borderSubtle),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -604,15 +777,15 @@ class _RatingsMonitorCard extends StatelessWidget {
                     value: avgRating == null
                         ? '—'
                         : '${avgRating.toStringAsFixed(1)} ★',
-                    color: AppColors.star,
+                    color: AppColors.accent700,
                   ),
-                  Container(width: 1, height: 28, color: AppColors.border),
+                  Container(width: 1, height: 28, color: AppColors.borderSubtle),
                   _Metric(
                     label: 'Total Reviews',
                     value: '$totalReviews',
-                    color: AppColors.primary,
+                    color: AppColors.brand700,
                   ),
-                  Container(width: 1, height: 28, color: AppColors.border),
+                  Container(width: 1, height: 28, color: AppColors.borderSubtle),
                   _Metric(
                     label: 'Active Providers',
                     value: '${professionals.length}',
@@ -643,9 +816,20 @@ class _Metric extends StatelessWidget {
     children: [
       Text(
         value,
-        style: AppTypography.title.copyWith(color: color, fontSize: 15),
+        style: TextStyle(
+          color: color,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
       ),
-      Text(label, style: AppTypography.caption.copyWith(fontSize: 14)),
+      Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.ink2,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     ],
   );
 }
@@ -656,23 +840,68 @@ class _CountCard extends StatelessWidget {
   final VerificationStatus status;
 
   @override
-  Widget build(BuildContext context) => AppCard(
-    child: StreamBuilder<List<ProviderVerification>>(
-      stream: service.watchByStatus(status),
-      builder: (context, snapshot) => Column(
-        children: [
-          Text(
-            '${snapshot.data?.length ?? 0}',
-            key: ValueKey('count-${status.name}'),
-            style: AppTypography.headline,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${status.name[0].toUpperCase()}${status.name.substring(1)}',
-            style: AppTypography.caption,
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final (icon, iconColor, iconBg) = switch (status) {
+      VerificationStatus.pending => (
+        LucideIcons.clock,
+        AppColors.accent700,
+        AppColors.accent100,
       ),
-    ),
-  );
+      VerificationStatus.verified => (
+        LucideIcons.badgeCheck,
+        AppColors.brand700,
+        AppColors.brand100,
+      ),
+      VerificationStatus.rejected => (
+        LucideIcons.circleAlert,
+        AppColors.errorText,
+        AppColors.errorSoft,
+      ),
+      _ => (
+        LucideIcons.clock,
+        AppColors.ink2,
+        AppColors.surfaceAlt,
+      ),
+    };
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      border: Border.all(color: AppColors.borderSubtle),
+      child: StreamBuilder<List<ProviderVerification>>(
+        stream: service.watchByStatus(status),
+        builder: (context, snapshot) => Column(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '${snapshot.data?.length ?? 0}',
+              key: ValueKey('count-${status.name}'),
+              style: context.textStyles.h2.copyWith(
+                color: AppColors.brand900,
+                fontSize: 20,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${status.name[0].toUpperCase()}${status.name.substring(1)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textStyles.caption.copyWith(
+                color: AppColors.ink2,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

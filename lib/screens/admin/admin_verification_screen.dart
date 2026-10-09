@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -96,7 +96,31 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
   Widget build(BuildContext context) {
     final pending = s.status == VerificationStatus.pending;
     return Scaffold(
-      appBar: AppBar(title: const Text('Review provider')),
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft, color: AppColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Review provider',
+          style: TextStyle(
+            color: AppColors.brand900,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: AppColors.borderSubtle,
+            height: 1,
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -111,14 +135,16 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
                       key: const ValueKey('no-documents-note'),
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: AppColors.warningSoft,
-                        border: Border.all(color: AppColors.warningBorder),
+                        color: AppColors.accent100,
+                        border: Border.all(color: AppColors.accent500),
                         borderRadius: AppRadius.card,
                       ),
                       child: Text(
                         'This provider uploaded no documents. Verify only if you '
                         'have checked them another way.',
-                        style: AppTypography.body,
+                        style: context.textStyles.bodySmall.copyWith(
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
                   ],
@@ -168,7 +194,12 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
                       s.rejectionReason != null) ...[
                     const SizedBox(height: AppSpacing.md),
                     _section('Why it was sent back', [
-                      Text(s.rejectionReason!, style: AppTypography.body),
+                      Text(
+                        s.rejectionReason!,
+                        style: context.textStyles.bodySmall.copyWith(
+                          color: AppColors.errorText,
+                        ),
+                      ),
                     ]),
                   ],
                 ],
@@ -178,7 +209,8 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
               DecoratedBox(
                 decoration: const BoxDecoration(
                   color: AppColors.surface,
-                  border: Border(top: BorderSide(color: AppColors.border)),
+                  border: Border(top: BorderSide(color: AppColors.borderSubtle)),
+                  boxShadow: AppShadows.soft,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
@@ -214,27 +246,58 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
 
   Widget _header() => AppCard(
     padding: const EdgeInsets.all(AppSpacing.lg),
+    border: Border.all(color: AppColors.borderSubtle),
     child: Row(
       children: [
-        PersonAvatar(name: s.fullName, size: 56),
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.brand100, width: 2),
+          ),
+          child: PersonAvatar(name: s.fullName, size: 56),
+        ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(s.fullName, style: AppTypography.title),
-              Text(s.profession, style: AppTypography.body),
+              Text(
+                s.fullName,
+                style: context.textStyles.label.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                s.profession.isEmpty ? 'Provider' : s.profession,
+                style: context.textStyles.bodySmall.copyWith(
+                  color: AppColors.ink2,
+                ),
+              ),
               if (s.submittedAt != null)
                 Text(
                   'Submitted ${Formatters.shortDate(s.submittedAt!)}',
-                  style: AppTypography.caption,
+                  style: context.textStyles.caption.copyWith(
+                    color: AppColors.ink3,
+                  ),
                 ),
               if (s.providerCode != null)
-                Text(
-                  'Provider ID · ${s.providerCode}',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w700,
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.brand100,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Text(
+                      'Provider ID · ${s.providerCode}',
+                      style: context.textStyles.caption.copyWith(
+                        color: AppColors.brand700,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -246,6 +309,7 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
 
   Widget _section(String title, List<Widget> children) => AppCard(
     padding: const EdgeInsets.all(AppSpacing.lg),
+    border: Border.all(color: AppColors.borderSubtle),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -261,12 +325,20 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 104, child: Text(label, style: AppTypography.caption)),
+        SizedBox(
+          width: 104,
+          child: Text(
+            label,
+            style: context.textStyles.caption.copyWith(color: AppColors.ink3),
+          ),
+        ),
         Expanded(
           child: Text(
             value,
             key: key == null ? null : ValueKey(key),
-            style: AppTypography.bodyStrong,
+            style: context.textStyles.label.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -276,7 +348,7 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
   Widget _doc(String label, VerificationFile? file) => Padding(
     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
     child: file == null
-        ? Text('$label · Not provided', style: AppTypography.caption)
+        ? Text('$label · Not provided', style: context.textStyles.caption)
         : _DocumentView(label: label, file: file),
   );
 }
