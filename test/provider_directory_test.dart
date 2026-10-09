@@ -139,7 +139,11 @@ void main() {
       }
       await tester.tap(find.byKey(const ValueKey('category-plumbing')));
       await tester.pumpAndSettle();
-      expect(find.text('1 provider'), findsOneWidget);
+      // The service cards show their own counts, so read the list's count.
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('provider-count'))).data,
+        '1 provider',
+      );
       expect(find.text('Kasun Wijesinghe'), findsOneWidget);
       expect(find.text('Nuwan Fernando'), findsNothing);
 
@@ -159,7 +163,10 @@ void main() {
       }
 
       await search('nuwan');
-      expect(find.text('1 provider'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('provider-count'))).data,
+        '1 provider',
+      );
       await search('clean');
       expect(find.text('Ishara Perera'), findsOneWidget);
       expect(find.text('Kasun Wijesinghe'), findsNothing);
