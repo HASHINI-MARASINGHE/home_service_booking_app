@@ -5,10 +5,10 @@ import 'provider_verification.dart';
 /// Everything a provider fills in for verification, before it is uploaded.
 ///
 /// [requireEverything] is the single switch for how strict sign-up is:
-/// * `false` (now): only the full name is required. Phone, profession, years,
+/// * `false`: only the full name is required. Phone, profession, years,
 ///   ID, selfie, CV and certificates can be added, but nothing is compulsory.
 ///   Handy while testing sign-up without documents.
-/// * `true`: details, ID document + number, live selfie, CV and at least one
+/// * `true` (now): details, ID document + number, live selfie, CV and at least one
 ///   certificate are all compulsory (extra work experience stays optional).
 class VerificationDraft {
   VerificationDraft({
@@ -21,8 +21,9 @@ class VerificationDraft {
     this.idNumber = '',
   });
 
-  /// Flip to `true` to make every document compulsory.
-  static bool requireEverything = false;
+  /// Every detail and document is compulsory. Set to `false` to make them
+  /// optional while testing sign-up.
+  static bool requireEverything = true;
 
   String fullName, phone, profession, experienceYears, about;
   String idType, idNumber;
