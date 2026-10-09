@@ -1,73 +1,18 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../services/payment_method_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/customer_home_theme.dart';
 import '../../../utils/validators.dart';
 
-class PaymentMethodItem {
-  PaymentMethodItem({
-    required this.id,
-    required this.brand,
-    required this.last4,
-    required this.holderName,
-    required this.expiry,
-    this.isDefault = false,
-  });
+export '../../../services/payment_method_service.dart'
+    show PaymentMethodItem;
 
-  final String id;
-  final String brand;
-  final String last4;
-  final String holderName;
-  final String expiry;
-  bool isDefault;
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'brand': brand,
-    'last4': last4,
-    'holderName': holderName,
-    'expiry': expiry,
-    'isDefault': isDefault,
-  };
-
-  factory PaymentMethodItem.fromJson(Map<String, dynamic> json) =>
-      PaymentMethodItem(
-        id: json['id'] as String,
-        brand: json['brand'] as String,
-        last4: json['last4'] as String,
-        holderName: json['holderName'] as String,
-        expiry: json['expiry'] as String,
-        isDefault: json['isDefault'] as bool? ?? false,
-      );
-}
-
-const _savedCardsKey = 'saved_payment_cards_v2';
-const _legacySavedCardsKey = 'saved_payment_cards_v1';
-
-/// The customer's default saved card (cards are stored on this device), or
-/// null when there is none or storage is unavailable.
-Future<PaymentMethodItem?> loadDefaultPaymentCard() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    // Clean up old demo key if present
-    if (prefs.containsKey(_legacySavedCardsKey)) {
-      await prefs.remove(_legacySavedCardsKey);
-    }
-    final raw = prefs.getString(_savedCardsKey);
-    if (raw == null) return null;
-    final cards = (jsonDecode(raw) as List)
-        .map((e) => PaymentMethodItem.fromJson(e as Map<String, dynamic>))
-        .toList();
-    if (cards.isEmpty) return null;
-    return cards.firstWhere((c) => c.isDefault, orElse: () => cards.first);
-  } catch (_) {
-    return null;
-  }
-}
+/// Loads customer's default payment card from Firestore / local cache.
+Future<PaymentMethodItem?> loadDefaultPaymentCard() =>
+    PaymentMethodService.loadDefaultCard();
 
 class PaymentMethodsScreen extends StatefulWidget {
   const PaymentMethodsScreen({super.key});
@@ -77,7 +22,7 @@ class PaymentMethodsScreen extends StatefulWidget {
 }
 
 class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
-  static const _kCardsKey = _savedCardsKey;
+  final PaymentMethodService _paymentService = PaymentMethodService();
 
   List<PaymentMethodItem> _cards = [];
   bool _loading = true;
@@ -89,53 +34,29 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 
   Future<void> _loadCards() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.containsKey(_legacySavedCardsKey)) {
-        await prefs.remove(_legacySavedCardsKey);
-      }
-      final raw = prefs.getString(_kCardsKey);
-      if (raw != null) {
-        final list = (jsonDecode(raw) as List)
-            .map((e) => PaymentMethodItem.fromJson(e as Map<String, dynamic>))
-            .toList();
-        setState(() {
-          _cards = list;
-          _loading = false;
-        });
-        return;
-      }
-    } catch (_) {}
-
-    // No cards by default until user adds one
-    setState(() {
-      _cards = [];
-      _loading = false;
-    });
+    final list = await _paymentService.getCards();
+    if (mounted) {
+      setState(() {
+        _cards = list;
+        _loading = false;
+      });
+    }
   }
 
-  Future<void> _persistCards(List<PaymentMethodItem> cards) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _kCardsKey,
-        jsonEncode(cards.map((c) => c.toJson()).toList()),
-      );
-    } catch (_) {}
-  }
-
-  void _setDefault(PaymentMethodItem target) {
+  Future<void> _setDefault(PaymentMethodItem target) async {
     setState(() {
       for (final card in _cards) {
         card.isDefault = card.id == target.id;
       }
     });
-    _persistCards(_cards);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${target.brand} •••• ${target.last4} set as default payment method.'),
-      ),
-    );
+    await _paymentService.setDefault(target);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${target.brand} •••• ${target.last4} set as default payment method.'),
+        ),
+      );
+    }
   }
 
   Future<void> _openEditCardDialog(PaymentMethodItem card) async {
@@ -240,23 +161,26 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     );
 
     if (updated == true && mounted) {
+      final updatedCard = PaymentMethodItem(
+        id: card.id,
+        brand: card.brand,
+        last4: card.last4,
+        holderName: nameCtrl.text.trim(),
+        expiry: expiryCtrl.text.trim(),
+        isDefault: card.isDefault,
+      );
       setState(() {
         final idx = _cards.indexWhere((c) => c.id == card.id);
         if (idx != -1) {
-          _cards[idx] = PaymentMethodItem(
-            id: card.id,
-            brand: card.brand,
-            last4: card.last4,
-            holderName: nameCtrl.text.trim(),
-            expiry: expiryCtrl.text.trim(),
-            isDefault: card.isDefault,
-          );
+          _cards[idx] = updatedCard;
         }
       });
-      _persistCards(_cards);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Card details updated.')),
-      );
+      await _paymentService.updateCard(updatedCard);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Card details updated.')),
+        );
+      }
     }
   }
 
@@ -292,7 +216,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         _cards.first.isDefault = true;
       }
     });
-    _persistCards(_cards);
+    await _paymentService.deleteCard(card);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -484,10 +408,12 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
     if (added != null && mounted) {
       setState(() => _cards.add(added));
-      _persistCards(_cards);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Card added successfully.')),
-      );
+      await _paymentService.addCard(added);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Card added successfully.')),
+        );
+      }
     }
   }
 

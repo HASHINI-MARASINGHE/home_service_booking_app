@@ -212,7 +212,12 @@ class FakeBookingService extends CustomerBookingService {
   Object? quoteError;
 
   @override
-  Future<void> acceptQuote(String bookingId, double shownAmount) =>
+  Future<void> acceptQuote(
+    String bookingId,
+    double shownAmount, {
+    String? paymentMethod,
+    String? cardLast4,
+  }) =>
       _answerQuote(bookingId, shownAmount, accept: true);
 
   @override

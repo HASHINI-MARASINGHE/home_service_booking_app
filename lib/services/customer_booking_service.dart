@@ -426,6 +426,42 @@ class CustomerBookingService {
     String? cardLast4,
   }) async {
     final uid = _uid;
+    try {
+      await _runAnswer(
+        bookingId,
+        shownAmount,
+        accept: accept,
+        uid: uid,
+        paymentMethod: paymentMethod,
+        cardLast4: cardLast4,
+      );
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied' &&
+          (paymentMethod != null || cardLast4 != null)) {
+        // Fallback: If deployed Firestore rules do not yet allow paymentMethod/cardLast4
+        // in customerQuoteAnswer, save the core quote update so customer is not blocked.
+        await _runAnswer(
+          bookingId,
+          shownAmount,
+          accept: accept,
+          uid: uid,
+          paymentMethod: null,
+          cardLast4: null,
+        );
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _runAnswer(
+    String bookingId,
+    double shownAmount, {
+    required bool accept,
+    required String uid,
+    String? paymentMethod,
+    String? cardLast4,
+  }) async {
     await _db.runTransaction((tx) async {
       final snapshot = await tx.get(_booking(bookingId));
       final data = snapshot.data();
