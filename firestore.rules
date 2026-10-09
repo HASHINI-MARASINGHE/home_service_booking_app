@@ -237,6 +237,15 @@ service cloud.firestore {
            hasApprovedPrice(resource.data) &&
            changedKeys().hasOnly(['status', 'completedAt']) &&
            request.resource.data.completedAt == request.time)
+          ||
+          // The provider confirms they were paid for a finished cash job; only
+          // then does it count towards their earnings.
+          (resource.data.status == 'completed' &&
+           request.resource.data.status == 'completed' &&
+           resource.data.get('paymentStatus', null) == 'unpaid' &&
+           request.resource.data.paymentStatus == 'paid' &&
+           changedKeys().hasOnly(['paymentStatus', 'paidAt']) &&
+           request.resource.data.paidAt == request.time)
         );
     }
 

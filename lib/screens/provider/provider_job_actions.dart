@@ -95,6 +95,45 @@ class _ProviderJobActionsState extends State<ProviderJobActions> {
     }
   }
 
+  Future<void> _markPaid() async {
+    if (_busy) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment received?'),
+        content: const Text(
+          'Confirm the customer has paid you for this job. It will then count towards your earnings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await widget.service.markPaid(widget.booking.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment recorded. Earnings updated.')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(providerError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_busy) {
@@ -144,6 +183,16 @@ class _ProviderJobActionsState extends State<ProviderJobActions> {
             ),
           ),
         ],
+      );
+    }
+    if (widget.booking.status == BookingStatus.completed &&
+        widget.booking.paymentStatus == 'unpaid') {
+      return FilledButton.icon(
+        key: const ValueKey('mark-paid'),
+        style: FilledButton.styleFrom(backgroundColor: ProviderTheme.green),
+        onPressed: _markPaid,
+        icon: const Icon(Icons.payments_outlined),
+        label: const Text('Mark payment received'),
       );
     }
     if (widget.allowComplete &&

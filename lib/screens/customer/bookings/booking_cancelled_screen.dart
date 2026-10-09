@@ -22,7 +22,7 @@ class BookingCancelledScreen extends StatefulWidget {
 class _BookingCancelledScreenState extends State<BookingCancelledScreen> {
   Stream<Booking?>? _booking;
   Stream<Refund?>? _refund;
-  Future<Professional?>? _professional;
+  Stream<Professional?>? _professional;
 
   @override
   void didChangeDependencies() {
@@ -37,10 +37,10 @@ class _BookingCancelledScreenState extends State<BookingCancelledScreen> {
     _professional = null;
   }
 
-  Future<Professional?> _pro(Booking b) =>
+  Stream<Professional?> _pro(Booking b) =>
       _professional ??= CustomerScope.of(context).bookings
-          .getProfessional(b.providerId)
-          .catchError((_) => null);
+          .watchProfessional(b.providerId)
+          .handleError((_) {});
 
   void _backToBookings() =>
       CustomerScope.of(context).selectTab(CustomerTab.bookings, reset: true);
@@ -73,8 +73,8 @@ class _BookingCancelledScreenState extends State<BookingCancelledScreen> {
                 }
                 return StreamBuilder<Refund?>(
                   stream: _refund,
-                  builder: (context, refund) => FutureBuilder<Professional?>(
-                    future: _pro(b),
+                  builder: (context, refund) => StreamBuilder<Professional?>(
+                    stream: _pro(b),
                     builder: (context, pro) => _Content(
                       booking: b,
                       refund: refund.data,

@@ -20,7 +20,7 @@ import '../../widgets/common/homecare_logo.dart';
 import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import '../auth/logout_button.dart';
-import '../customer/settings/help_support_screen.dart';
+import 'provider_support_screens.dart';
 import '../customer/settings/language_settings_screen.dart';
 import '../customer/settings/notification_settings_screen.dart';
 import '../customer/settings/privacy_security_screen.dart';
@@ -1302,7 +1302,7 @@ class _ProviderMenuSections extends StatelessWidget {
                 subtitle: isTamil
                     ? 'வழிகாட்டிகள் மற்றும் கொள்கைகள்'
                     : (isSinhala ? 'සේවා මාර්ගෝපදේශ සහ ප්‍රතිපත්ති' : 'Provider guides & policy help'),
-                onTap: () => _open(context, const HelpSupportScreen()),
+                onTap: () => _open(context, const ProviderHelpSupportScreen()),
               ),
               const Divider(height: 1, indent: 72, color: AppColors.borderSubtle),
               _ActionTile(
@@ -1313,7 +1313,7 @@ class _ProviderMenuSections extends StatelessWidget {
                 subtitle: isTamil
                     ? 'நேரடி அழைப்பு 1344 அல்லது மின்னஞ்சல்'
                     : (isSinhala ? 'ක්ෂණික දුරකථන 1344 හෝ ඊමේල්' : 'Direct hotline 1344 or email'),
-                onTap: () => _open(context, const HelpSupportScreen(initialTab: 1)),
+                onTap: () => _open(context, const ProviderContactSupportScreen()),
               ),
             ],
           ),
@@ -1333,7 +1333,7 @@ class _ProviderMenuSections extends StatelessWidget {
                 subtitle: isTamil
                     ? 'சேவை ஒப்பந்தங்கள் மற்றும் விதிகள்'
                     : (isSinhala ? 'සේවා ගිවිසුම් සහ කොන්දේසි' : 'Provider service agreement'),
-                onTap: () => _open(context, const HelpSupportScreen(initialTab: 2)),
+                onTap: () => _open(context, const ProviderTermsScreen()),
               ),
               const Divider(height: 1, indent: 72, color: AppColors.borderSubtle),
               _ActionTile(
@@ -1344,7 +1344,7 @@ class _ProviderMenuSections extends StatelessWidget {
                 subtitle: isTamil
                     ? 'வழங்குநர் தரவு பாதுகாப்பு'
                     : (isSinhala ? 'දත්ත ආරක්ෂණ ප්‍රතිපත්තිය' : 'How we safeguard provider data'),
-                onTap: () => _open(context, const HelpSupportScreen(initialTab: 2)),
+                onTap: () => _open(context, const ProviderPrivacyPolicyScreen()),
               ),
             ],
           ),

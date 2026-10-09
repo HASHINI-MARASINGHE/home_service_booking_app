@@ -62,6 +62,13 @@ class ProviderBookingService {
   Stream<ProviderEarnings> watchEarnings() =>
       watchBookings().map((items) => ProviderEarnings(items, DateTime.now()));
 
+  /// The provider confirms the customer paid for a finished cash job. Only
+  /// paid jobs count towards earnings; the rules allow unpaid to paid only.
+  Future<void> markPaid(String id) => _db.collection('bookings').doc(id).update({
+    'paymentStatus': 'paid',
+    'paidAt': FieldValue.serverTimestamp(),
+  });
+
   Future<void> accept(String id) =>
       _transition(id, BookingStatus.confirmed, 'acceptedAt');
   Future<void> decline(String id) =>
