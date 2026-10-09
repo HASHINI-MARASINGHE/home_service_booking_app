@@ -13,6 +13,7 @@ import 'provider_notifications_screen.dart';
 import 'provider_profile_screen.dart';
 import 'provider_theme.dart';
 import 'verification/verification_screen.dart';
+import '../../widgets/common/homecare_logo.dart';
 
 /// What a provider sees until an admin verifies them: only their profile
 /// (with the verification status and what to do next) and notifications.
@@ -77,34 +78,38 @@ class _UnverifiedProviderShellState extends State<UnverifiedProviderShell> {
     child: Builder(
       builder: (context) => StreamBuilder<int>(
         stream: _unread,
-        builder: (context, snapshot) => Scaffold(
-          appBar: AppBar(title: Text(_tab == 0 ? 'Profile' : 'Notifications')),
-          body: SafeArea(
-            child: _tab == 0
-                ? ProviderProfileScreen(
-                    user: widget.user,
-                    authService: widget.authService,
-                    service: _profileService,
-                    verificationStatus: _status,
-                    verification: widget.verification,
-                    onOpenVerification: _openVerification,
-                  )
-                : ProviderNotificationsScreen(
-                    service: _notificationService,
-                    onOpen: (_) => setState(() => _tab = 0),
-                  ),
-          ),
-          bottomNavigationBar: AppBottomNav(
-            items: [
-              const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
-              AppNavItem(
-                icon: LucideIcons.bell,
-                label: 'Notifications',
-                badge: snapshot.data ?? 0,
-              ),
-            ],
-            selectedIndex: _tab,
-            onSelected: (index) => setState(() => _tab = index),
+        builder: (context, snapshot) => BrandShell(
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(_tab == 0 ? 'Profile' : 'Notifications'),
+            ),
+            body: SafeArea(
+              child: _tab == 0
+                  ? ProviderProfileScreen(
+                      user: widget.user,
+                      authService: widget.authService,
+                      service: _profileService,
+                      verificationStatus: _status,
+                      verification: widget.verification,
+                      onOpenVerification: _openVerification,
+                    )
+                  : ProviderNotificationsScreen(
+                      service: _notificationService,
+                      onOpen: (_) => setState(() => _tab = 0),
+                    ),
+            ),
+            bottomNavigationBar: AppBottomNav(
+              items: [
+                const AppNavItem(icon: LucideIcons.user, label: 'Profile'),
+                AppNavItem(
+                  icon: LucideIcons.bell,
+                  label: 'Notifications',
+                  badge: snapshot.data ?? 0,
+                ),
+              ],
+              selectedIndex: _tab,
+              onSelected: (index) => setState(() => _tab = index),
+            ),
           ),
         ),
       ),

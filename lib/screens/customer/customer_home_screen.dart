@@ -9,16 +9,19 @@ import '../../services/address_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/customer_booking_service.dart';
 import '../../services/location_service.dart';
+import '../../services/provider_notification_service.dart';
 import '../../services/receipt_pdf_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/locale_typography.dart';
 import 'addresses/my_addresses_screen.dart';
 import 'bookings/booking_history_screen.dart';
+import 'customer_notifications_screen.dart';
 import 'customer_profile_screen.dart';
 import 'customer_scope.dart';
 import 'providers/all_providers_screen.dart';
 import 'widgets/customer_home_widgets.dart';
 import 'widgets/provider_directory_widgets.dart';
+import '../../widgets/common/homecare_logo.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({
@@ -29,6 +32,7 @@ class CustomerHomeScreen extends StatefulWidget {
     this.bookingService,
     this.locationService,
     this.receiptPdfService,
+    this.notificationService,
     this.initialTab = CustomerTab.home,
   });
 
@@ -38,6 +42,7 @@ class CustomerHomeScreen extends StatefulWidget {
   final CustomerBookingService? bookingService;
   final LocationService? locationService;
   final ReceiptPdfService? receiptPdfService;
+  final ProviderNotificationService? notificationService;
   final int initialTab;
 
   @override
@@ -51,6 +56,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   late final _bookings = widget.bookingService ?? CustomerBookingService();
   late final _location = widget.locationService ?? LocationService();
   late final _receipts = widget.receiptPdfService ?? ReceiptPdfService();
+  // The same per-user notification feed the provider app reads. It needs
+  // Firebase, so it is simply absent (no bell) where Firebase is not set up,
+  // such as widget tests.
+  late final _notifications = widget.notificationService ?? _tryNotifications();
+
+  static ProviderNotificationService? _tryNotifications() {
+    try {
+      return ProviderNotificationService();
+    } catch (_) {
+      return null;
+    }
+  }
 
   // Each tab keeps its own navigation stack so detail screens stay inside
   // the shell (with the bottom navigation) and survive tab switches.
@@ -105,34 +122,39 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) _handleBack();
           },
-          child: Scaffold(
-            backgroundColor: AppColors.bg,
-            body: IndexedStack(
-              index: _selectedIndex,
-              children: [
-                _tab(
-                  CustomerTab.home,
-                  ColoredBox(
-                    color: AppColors.bg,
-                    child: _CustomerHomeContent(user: _currentUser),
+          child: BrandShell(
+            child: Scaffold(
+              backgroundColor: AppColors.bg,
+              body: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                  _tab(
+                    CustomerTab.home,
+                    ColoredBox(
+                      color: AppColors.bg,
+                      child: _CustomerHomeContent(
+                        user: _currentUser,
+                        notifications: _notifications,
+                      ),
+                    ),
                   ),
-                ),
-                _tab(CustomerTab.bookings, const BookingHistoryScreen()),
-                _tab(CustomerTab.saved, const MyAddressesScreen()),
-                _tab(
-                  CustomerTab.profile,
-                  CustomerProfileScreen(
-                    uid: _currentUser.uid,
-                    authService: widget.authService,
-                    onUserUpdated: (user) =>
-                        setState(() => _currentUser = user),
+                  _tab(CustomerTab.bookings, const BookingHistoryScreen()),
+                  _tab(CustomerTab.saved, const MyAddressesScreen()),
+                  _tab(
+                    CustomerTab.profile,
+                    CustomerProfileScreen(
+                      uid: _currentUser.uid,
+                      authService: widget.authService,
+                      onUserUpdated: (user) =>
+                          setState(() => _currentUser = user),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            bottomNavigationBar: CustomerBottomNavigation(
-              selectedIndex: _selectedIndex,
-              onSelected: _selectTab,
+                ],
+              ),
+              bottomNavigationBar: CustomerBottomNavigation(
+                selectedIndex: _selectedIndex,
+                onSelected: _selectTab,
+              ),
             ),
           ),
         ),
@@ -160,9 +182,10 @@ class _TabNavigator extends StatelessWidget {
 }
 
 class _CustomerHomeContent extends StatefulWidget {
-  const _CustomerHomeContent({required this.user});
+  const _CustomerHomeContent({required this.user, this.notifications});
 
   final AppUser user;
+  final ProviderNotificationService? notifications;
 
   @override
   State<_CustomerHomeContent> createState() => _CustomerHomeContentState();
@@ -235,6 +258,10 @@ class _CustomerHomeContentState extends State<_CustomerHomeContent> {
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
+                      if (widget.notifications != null) ...[
+                        NotificationBell(service: widget.notifications!),
+                        const SizedBox(width: AppSpacing.sm),
+                      ],
                       CustomerAvatar(photoUrl: user.photoUrl, radius: 24),
                     ],
                   ),

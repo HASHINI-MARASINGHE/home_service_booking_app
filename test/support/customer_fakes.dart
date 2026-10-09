@@ -10,6 +10,8 @@ import 'package:home_service_bookin_app/models/app_user.dart';
 import 'package:home_service_bookin_app/models/booking.dart';
 import 'package:home_service_bookin_app/models/booking_policy.dart';
 import 'package:home_service_bookin_app/models/professional.dart';
+import 'package:home_service_bookin_app/models/quote.dart';
+import 'package:home_service_bookin_app/models/quote_flow.dart';
 import 'package:home_service_bookin_app/models/receipt.dart';
 import 'package:home_service_bookin_app/models/refund.dart';
 import 'package:home_service_bookin_app/models/review.dart';
@@ -24,8 +26,6 @@ import 'package:home_service_bookin_app/utils/formatters.dart';
 class _Auth extends Fake implements FirebaseAuth {}
 
 class _Db extends Fake implements FirebaseFirestore {}
-
-
 
 /// Fixed "now": Monday 10 Nov 2025, 09:00 Colombo time.
 final testNow = DateTime.utc(2025, 11, 10, 3, 30);
@@ -63,6 +63,13 @@ Booking booking({
   int daysAhead = 3,
   String? addressId = 'home',
   String serviceName = 'AC Deep Clean & Servicing',
+  // Quote flow: leave all of these out for a booking made before quotes.
+  QuoteStatus? quoteStatus,
+  double? quotedAmount,
+  double? acceptedAmount,
+  String? quoteNote,
+  List<QuoteEntry> quoteHistory = const [],
+  bool noPrice = false,
 }) {
   final date = DateTime(2025, 11, 10 + daysAhead);
   return Booking(
@@ -88,16 +95,23 @@ Booking booking({
     slotLockId: 'pro_2025-11-${10 + daysAhead}_1030',
     scheduledAt: BookingPolicy.colomboInstant(date, '10:30'),
     endAt: BookingPolicy.colomboInstant(date, '12:00'),
-    totalAmount: 5500,
+    totalAmount: noPrice ? null : 5500,
     serviceFee: 200,
     paymentMethod: 'card',
     cardLast4: '8821',
     paymentStatus: paymentStatus,
-    lineItems: const [
-      BookingLineItem(label: 'Base AC Servicing (2 Units)', amount: 4500),
-      BookingLineItem(label: 'Disinfection & Coil Flush', amount: 800),
-      BookingLineItem(label: 'Platform SafeCare Fee', amount: 200),
-    ],
+    lineItems: noPrice
+        ? const []
+        : const [
+            BookingLineItem(label: 'Base AC Servicing (2 Units)', amount: 4500),
+            BookingLineItem(label: 'Disinfection & Coil Flush', amount: 800),
+            BookingLineItem(label: 'Platform SafeCare Fee', amount: 200),
+          ],
+    quoteStatus: quoteStatus,
+    quotedAmount: quotedAmount,
+    acceptedAmount: acceptedAmount,
+    quoteNote: quoteNote,
+    quoteHistory: quoteHistory,
   );
 }
 
@@ -171,11 +185,7 @@ class FakeBookingService extends CustomerBookingService {
     this.refund,
     this.professionals = const [professional],
   }) : bookings = bookings ?? [],
-       super(
-         auth: _Auth(),
-         firestore: _Db(),
-         clock: () => testNow,
-       );
+       super(auth: _Auth(), firestore: _Db(), clock: () => testNow);
 
   final List<Booking> bookings;
   List<Professional> professionals;
@@ -191,6 +201,42 @@ class FakeBookingService extends CustomerBookingService {
   final reviews = <String, Review>{};
   final _reviewChanges = StreamController<String>.broadcast();
 
+  /// Booking ID → true when the customer accepted, false when declined.
+  final quoteAnswers = <String, bool>{};
+
+  /// Thrown by the next quote answer (to test the error and retry states).
+  Object? quoteError;
+
+  @override
+  Future<void> acceptQuote(String bookingId, double shownAmount) =>
+      _answerQuote(bookingId, shownAmount, accept: true);
+
+  @override
+  Future<void> declineQuote(String bookingId, double shownAmount) =>
+      _answerQuote(bookingId, shownAmount, accept: false);
+
+  Future<void> _answerQuote(
+    String bookingId,
+    double shownAmount, {
+    required bool accept,
+  }) async {
+    final error = quoteError;
+    if (error != null) {
+      quoteError = null;
+      throw error;
+    }
+    final index = bookings.indexWhere((b) => b.id == bookingId);
+    final change = QuoteFlow.answer(
+      bookings[index],
+      uid: testUser.uid,
+      shownAmount: shownAmount,
+      accept: accept,
+      now: testNow,
+    );
+    bookings[index] = QuoteFlow.apply(bookings[index], change, testNow);
+    quoteAnswers[bookingId] = accept;
+  }
+
   @override
   Stream<List<Booking>> watchBookings() => Stream.value(bookings);
 
@@ -199,10 +245,9 @@ class FakeBookingService extends CustomerBookingService {
       Stream.value(bookings.where((b) => b.id == id).firstOrNull);
 
   @override
-  Stream<List<Professional>> watchProfessionals({int? limit}) =>
-      Stream.value(
-        limit == null ? professionals : professionals.take(limit).toList(),
-      );
+  Stream<List<Professional>> watchProfessionals({int? limit}) => Stream.value(
+    limit == null ? professionals : professionals.take(limit).toList(),
+  );
 
   @override
   Stream<Professional?> watchProfessional(String id) =>
@@ -295,7 +340,6 @@ class FakeBookingService extends CustomerBookingService {
     reviews.remove(booking.id);
     _reviewChanges.add(booking.id);
   }
-
 
   @override
   Stream<Refund?> watchRefund(String bookingId) => Stream.value(refund);

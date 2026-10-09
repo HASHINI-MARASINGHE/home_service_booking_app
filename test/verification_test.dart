@@ -655,6 +655,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Your verification needs changes'), findsOneWidget);
       expect(find.text('ID photo is blurry.'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const ValueKey('open-verification')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('open-verification')));
       await tester.pumpAndSettle();
       expect(find.text('Identity Verification'), findsOneWidget);

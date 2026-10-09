@@ -2,136 +2,155 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
 
-/// The official vector mark of the HomeCare brand:
-/// A gable roof with a chimney on the right, rounded U-shaped walls,
-/// and a centered diamond spark window.
+/// The two blues of the HomeCare logo (top left to bottom right).
+const _tileStart = Color(0xFF2F6BD1);
+const _tileEnd = Color(0xFF0E2E6E);
+const _heartEnd = Color(0xFF143C85);
+
+// The logo is drawn in a 1024 x 1024 box (see design/app_icon). The house is
+// a rounded gable shape with a heart cut out of its middle.
+Path _house() => Path()
+  ..moveTo(512, 215)
+  ..lineTo(842, 495)
+  ..quadraticBezierTo(850, 502, 850, 512)
+  ..lineTo(850, 770)
+  ..quadraticBezierTo(850, 810, 810, 810)
+  ..lineTo(214, 810)
+  ..quadraticBezierTo(174, 810, 174, 770)
+  ..lineTo(174, 512)
+  ..quadraticBezierTo(174, 502, 182, 495)
+  ..close();
+
+Path _heart() => Path()
+  ..moveTo(512, 690)
+  ..cubicTo(420, 620, 380, 575, 380, 525)
+  ..cubicTo(380, 485, 410, 458, 445, 458)
+  ..cubicTo(475, 458, 497, 474, 512, 498)
+  ..cubicTo(527, 474, 549, 458, 579, 458)
+  ..cubicTo(614, 458, 644, 485, 644, 525)
+  ..cubicTo(644, 575, 604, 620, 512, 690)
+  ..close();
+
+/// Just the house with its heart cut out, in one [color]. Use it on a colored
+/// background (it fills the box, so leave some space around it).
 class HomeCareMarkPainter extends CustomPainter {
-  const HomeCareMarkPainter({
-    this.color = AppColors.brand700,
-    this.strokeWidthFactor = 0.082,
-  });
+  const HomeCareMarkPainter({this.color = AppColors.brand700});
 
   final Color color;
-  final double strokeWidthFactor;
+
+  // The house spans x 174..850 and y 215..810 of the 1024 box.
+  static const _width = 676.0;
+  static const _height = 595.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokeWidth = size.width * strokeWidthFactor;
-    final strokePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final w = size.width;
-    final h = size.height;
-
-    // 1. Gable roof with chimney on the right slope:
-    // Left eave: (0.22 * w, 0.44 * h)
-    // Peak: (0.50 * w, 0.22 * h)
-    // Right slope descends to chimney junction: (0.64 * w, 0.33 * h)
-    // Chimney: up to (0.64 * w, 0.23 * h), across to (0.72 * w, 0.23 * h), down to (0.72 * w, 0.39 * h)
-    // Right eave: (0.78 * w, 0.44 * h)
-    final roofPath = Path();
-    roofPath.moveTo(w * 0.22, h * 0.44);
-    roofPath.lineTo(w * 0.50, h * 0.22);
-    roofPath.lineTo(w * 0.64, h * 0.33);
-    roofPath.lineTo(w * 0.64, h * 0.23);
-    roofPath.lineTo(w * 0.72, h * 0.23);
-    roofPath.lineTo(w * 0.72, h * 0.39);
-    roofPath.lineTo(w * 0.78, h * 0.44);
-    canvas.drawPath(roofPath, strokePaint);
-
-    // 2. House walls: rounded U-shape container below the roof
-    final wallsPath = Path();
-    wallsPath.moveTo(w * 0.30, h * 0.49);
-    wallsPath.lineTo(w * 0.30, h * 0.65);
-    wallsPath.quadraticBezierTo(w * 0.30, h * 0.77, w * 0.50, h * 0.77);
-    wallsPath.quadraticBezierTo(w * 0.70, h * 0.77, w * 0.70, h * 0.65);
-    wallsPath.lineTo(w * 0.70, h * 0.49);
-    canvas.drawPath(wallsPath, strokePaint);
-
-    // 3. Centered diamond spark inside the house
-    final diamondPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final diamondPath = Path();
-    diamondPath.moveTo(w * 0.50, h * 0.45);
-    diamondPath.lineTo(w * 0.565, h * 0.515);
-    diamondPath.lineTo(w * 0.50, h * 0.58);
-    diamondPath.lineTo(w * 0.435, h * 0.515);
-    diamondPath.close();
-    canvas.drawPath(diamondPath, diamondPaint);
+    final scale = size.width / _width;
+    canvas
+      ..translate(
+        -174 * scale,
+        (size.height - _height * scale) / 2 - 215 * scale,
+      )
+      ..scale(scale);
+    canvas.drawPath(
+      Path.combine(PathOperation.difference, _house(), _heart()),
+      Paint()..color = color,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant HomeCareMarkPainter oldDelegate) =>
-      color != oldDelegate.color ||
-      strokeWidthFactor != oldDelegate.strokeWidthFactor;
+  bool shouldRepaint(covariant HomeCareMarkPainter old) => color != old.color;
 }
 
-/// The standalone HomeCare brand icon, optionally embedded inside
-/// a soft rounded card matching the reference design.
+/// The full logo: the blue circle of the app icon with the white house and its
+/// heart.
+class _HomeCareTilePainter extends CustomPainter {
+  const _HomeCareTilePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 1024);
+    const bounds = Rect.fromLTWH(0, 0, 1024, 1024);
+    canvas.drawCircle(
+      const Offset(512, 512),
+      512,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_tileStart, _tileEnd],
+        ).createShader(bounds),
+    );
+    // The house is drawn at 78% around the centre, as in the app icon.
+    canvas
+      ..translate(512, 512)
+      ..scale(0.7825)
+      ..translate(-512, -512);
+    canvas.drawPath(_house(), Paint()..color = Colors.white);
+    canvas.drawPath(
+      _heart(),
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_tileStart, _heartEnd],
+        ).createShader(const Rect.fromLTRB(380, 458, 644, 690)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HomeCareTilePainter old) => false;
+}
+
+/// The HomeCare brand icon. With [showCard] it is the app icon itself (a blue
+/// circle, [size] * 1.35 wide); without it, just the white-on-nothing
+/// house glyph in [color], [size] wide, to place on your own background.
 class HomeCareBrandMark extends StatelessWidget {
   const HomeCareBrandMark({
     super.key,
     this.size = 72,
     this.color = AppColors.brand700,
-    this.backgroundColor = AppColors.surface,
     this.showCard = true,
+    this.shadow = true,
   });
 
   final double size;
   final Color color;
-  final Color backgroundColor;
   final bool showCard;
+
+  /// A soft shadow under the tile; turn off in small places such as bars.
+  final bool shadow;
 
   @override
   Widget build(BuildContext context) {
-    final mark = SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: HomeCareMarkPainter(color: color),
-      ),
-    );
-
-    if (!showCard) return mark;
-
-    final cardSize = size * 1.35;
+    if (!showCard) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(painter: HomeCareMarkPainter(color: color)),
+      );
+    }
+    final tile = size * 1.35;
     return Container(
-      width: cardSize,
-      height: cardSize,
+      width: tile,
+      height: tile,
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(cardSize * 0.28),
-        border: Border.all(
-          color: AppColors.brand100.withValues(alpha: 0.6),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.brand700.withValues(alpha: 0.08),
-            blurRadius: 20,
-            spreadRadius: 2,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: AppColors.shadow.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        shape: BoxShape.circle,
+        boxShadow: shadow
+            ? [
+                BoxShadow(
+                  color: _tileEnd.withValues(alpha: 0.25),
+                  blurRadius: tile * 0.3,
+                  offset: Offset(0, tile * 0.1),
+                ),
+              ]
+            : null,
       ),
-      alignment: Alignment.center,
-      child: mark,
+      child: const CustomPaint(painter: _HomeCareTilePainter()),
     );
   }
 }
 
-/// The complete HomeCare brand logo with wordmark and optional tagline.
+/// The complete HomeCare logo: icon, wordmark and tagline.
 class HomeCareLogo extends StatelessWidget {
   const HomeCareLogo({
     super.key,
@@ -141,7 +160,7 @@ class HomeCareLogo extends StatelessWidget {
     this.taglineSize = 11,
     this.horizontal = false,
     this.color = AppColors.brand700,
-    this.darkTextColor = AppColors.ink,
+    this.darkTextColor = AppColors.brand900,
     this.taglineColor = AppColors.ink3,
     this.showCard = true,
   });
@@ -156,92 +175,144 @@ class HomeCareLogo extends StatelessWidget {
   final Color taglineColor;
   final bool showCard;
 
+  static const tagline = 'TRUSTED HOME SERVICES';
+
   @override
   Widget build(BuildContext context) {
-    final wordmark = RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: 'Home',
-            style: TextStyle(
-              color: darkTextColor,
-              fontSize: titleSize,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-            ),
-          ),
-          TextSpan(
-            text: 'Care',
-            style: TextStyle(
-              color: color,
-              fontSize: titleSize,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-            ),
-          ),
-        ],
+    final wordmark = HomeCareWordmark(
+      size: titleSize,
+      homeColor: darkTextColor,
+      careColor: color,
+    );
+    final tag = Text(
+      tagline,
+      textAlign: horizontal ? TextAlign.start : TextAlign.center,
+      style: TextStyle(
+        color: taglineColor,
+        fontSize: taglineSize,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.2,
       ),
     );
 
     if (horizontal) {
       return Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          HomeCareBrandMark(
-            size: markSize,
-            color: color,
-            showCard: showCard,
-          ),
+          HomeCareBrandMark(size: markSize, color: color, showCard: showCard),
           const SizedBox(width: 12),
           Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               wordmark,
-              if (showTagline) ...[
-                const SizedBox(height: 2),
-                Text(
-                  'HOME SERVICES & MAINTENANCE',
-                  style: TextStyle(
-                    color: taglineColor,
-                    fontSize: taglineSize,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-              ],
+              if (showTagline) ...[const SizedBox(height: 2), tag],
             ],
           ),
         ],
       );
     }
-
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        HomeCareBrandMark(
-          size: markSize,
-          color: color,
-          showCard: showCard,
-        ),
+        HomeCareBrandMark(size: markSize, color: color, showCard: showCard),
         SizedBox(height: markSize * 0.28),
         wordmark,
-        if (showTagline) ...[
-          const SizedBox(height: 6),
-          Text(
-            'HOME SERVICES & MAINTENANCE',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: taglineColor,
-              fontSize: taglineSize,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
+        if (showTagline) ...[const SizedBox(height: 6), tag],
       ],
     );
   }
+}
+
+/// "HomeCare" with Home in dark blue and Care in the brand blue. It uses the
+/// app font, so it follows the language setting.
+class HomeCareWordmark extends StatelessWidget {
+  const HomeCareWordmark({
+    super.key,
+    this.size = 20,
+    this.homeColor = AppColors.brand900,
+    this.careColor = AppColors.brand700,
+  });
+
+  final double size;
+  final Color homeColor, careColor;
+
+  @override
+  Widget build(BuildContext context) {
+    TextStyle style(Color color) => TextStyle(
+      color: color,
+      fontSize: size,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0,
+      height: 1.1,
+    );
+    return Semantics(
+      label: 'HomeCare',
+      excludeSemantics: true,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: 'Home', style: style(homeColor)),
+            TextSpan(text: 'Care', style: style(careColor)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A slim bar with the logo, shown at the top of every page of the app.
+class BrandBar extends StatelessWidget {
+  const BrandBar({super.key, this.trailing, this.color = AppColors.bg});
+
+  final Widget? trailing;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: color,
+    // A logo keeps its size: it does not grow with the text size setting.
+    child: MediaQuery.withNoTextScaling(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+        child: Row(
+          children: [
+            const HomeCareBrandMark(size: 25, shadow: false),
+            const SizedBox(width: 10),
+            const HomeCareWordmark(size: 20),
+            const Spacer(),
+            ?trailing,
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Puts the [BrandBar] above a whole page (a Scaffold with its own app bar
+/// and bottom navigation), so the logo is on every page of a role without
+/// each screen having to add it.
+class BrandShell extends StatelessWidget {
+  const BrandShell({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: AppColors.bg,
+    child: Column(
+      children: [
+        SafeArea(bottom: false, child: const BrandBar()),
+        // The bar already sits below the status bar; the page must not leave
+        // a second gap for it.
+        Expanded(
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: child,
+          ),
+        ),
+      ],
+    ),
+  );
 }

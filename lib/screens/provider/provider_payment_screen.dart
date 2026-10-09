@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/booking.dart';
+import '../../models/booking_price.dart';
 import '../../services/provider_booking_service.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import 'provider_job_actions.dart';
@@ -54,28 +55,35 @@ class ProviderPaymentScreen extends StatelessWidget {
             DetailRow(
               icon: Icons.handyman_outlined,
               label: 'Labor charge / provider payout',
-              value: money(booking.laborCharge),
+              value: booking.approvedAmount == null
+                  ? BookingPrice.forProvider(booking)
+                  : money(booking.providerPayout ?? booking.approvedAmount),
             ),
             DetailRow(
               icon: Icons.receipt_long_outlined,
               label: 'Service fee',
-              value: money(booking.serviceFee),
+              value: (booking.serviceFee ?? 0) > 0
+                  ? money(booking.serviceFee)
+                  : 'No fee',
             ),
             const Divider(),
             DetailRow(
               icon: Icons.payments_outlined,
-              label: 'Total amount',
-              value: money(booking.totalAmount),
+              label: 'Approved amount',
+              value: BookingPrice.amountOr(
+                booking,
+                BookingPrice.forProvider(booking),
+              ),
             ),
             DetailRow(
               icon: Icons.credit_card_outlined,
               label: 'Payment method',
-              value: booking.paymentMethod ?? 'Not provided',
+              value: booking.paymentMethod ?? 'Pay after the service',
             ),
             DetailRow(
               icon: Icons.info_outline,
               label: 'Payment status',
-              value: booking.paymentStatus ?? 'Not provided',
+              value: booking.paymentStatus ?? 'Unpaid',
             ),
           ],
         ),

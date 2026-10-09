@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../l10n/locale_controller.dart';
@@ -16,12 +17,17 @@ class OnboardingGate extends StatefulWidget {
     this.authBuilder,
     this.showLanguageSelection = true,
     this.splashDuration,
+    this.signedIn,
   });
 
   final OnboardingPreferences? preferences;
   final WidgetBuilder? authBuilder;
   final bool showLanguageSelection;
   final Duration? splashDuration;
+
+  /// Tells whether someone is signed in when the app opens. Defaults to the
+  /// Firebase session; tests can pass their own.
+  final Future<bool> Function()? signedIn;
 
   @override
   State<OnboardingGate> createState() => _OnboardingGateState();
@@ -46,6 +52,28 @@ class _OnboardingGateState extends State<OnboardingGate> {
     _load();
   }
 
+  /// Whether a Firebase session was restored. Waits for the first auth state
+  /// (a saved session is restored asynchronously at start-up) but never for
+  /// long, and treats any failure as "not signed in".
+  static Future<bool> _firebaseSignedIn() async {
+    try {
+      final user = await FirebaseAuth.instance.authStateChanges().first.timeout(
+        const Duration(seconds: 3),
+      );
+      return user != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _isSignedIn() async {
+    try {
+      return await (widget.signedIn ?? _firebaseSignedIn)();
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -57,9 +85,15 @@ class _OnboardingGateState extends State<OnboardingGate> {
       if (kDebugMode && const bool.fromEnvironment('RESET_ONBOARDING')) {
         await _preferences.reset();
       }
-      final completed = widget.preferences != null
+      // Onboarding is for people who are signed out: a first launch, or the
+      // app opened again after logging out. Someone who is still signed in
+      // goes straight to their home screen.
+      final signedIn = await _isSignedIn();
+      final completed = signedIn
+          ? true
+          : widget.preferences != null
           ? await _preferences.isCompleted()
-          : false; // Review mode: always show onboarding when running the app directly
+          : false;
       final hasSavedLang = await LocaleController.instance.hasSavedLanguage();
 
       final elapsed = stopwatch.elapsed;
@@ -111,10 +145,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _load,
-                      child: const Text('Retry'),
-                    ),
+                    FilledButton(onPressed: _load, child: const Text('Retry')),
                   ],
                 ),
               ),

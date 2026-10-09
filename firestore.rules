@@ -220,6 +220,8 @@ service cloud.firestore {
         (
           (resource.data.status == 'pending' &&
            request.resource.data.status == 'confirmed' &&
+           // Quote-flow bookings are confirmed when the customer accepts.
+           resource.data.get('quoteStatus', null) == null &&
            (resource.data.get('expiresAt', null) == null ||
              (resource.data.expiresAt is timestamp && resource.data.expiresAt > request.time)) &&
            changedKeys().hasOnly(['status', 'acceptedAt']) &&
@@ -232,9 +234,99 @@ service cloud.firestore {
           ||
           (resource.data.status == 'confirmed' &&
            request.resource.data.status == 'completed' &&
+           hasApprovedPrice(resource.data) &&
            changedKeys().hasOnly(['status', 'completedAt']) &&
            request.resource.data.completedAt == request.time)
         );
+    }
+
+    // ------------------------------------------------------------ quotes
+    // The price is quoted per job: the provider sends it, the customer
+    // accepts it (which confirms the job and locks the amount), and a revised
+    // price needs the customer's approval again. Bookings made before quotes
+    // existed have no quoteStatus and keep the price they were created with.
+    function validQuoteAmount(v) {
+      return v is number && v > 0 && v <= 10000000 && v == math.floor(v);
+    }
+
+    function hasApprovedPrice(b) {
+      return (b.get('acceptedAmount', null) is number &&
+              b.acceptedAmount > 0 &&
+              b.get('quoteStatus', null) != 'quoted') ||
+        (b.get('quoteStatus', null) == null &&
+         b.get('totalAmount', null) is number && b.totalAmount > 0);
+    }
+
+    // A provider sends a first quote on a request, or revises a confirmed job.
+    // Cheap checks come first and repeated values are bound once: a rules
+    // request may evaluate at most 1000 expressions.
+    function providerQuote() {
+      let b = resource.data;
+      let n = request.resource.data;
+      let history = n.get('quoteHistory', []);
+      let last = history[history.size() - 1];
+      return n.get('quoteStatus', null) == 'quoted' &&
+        b.providerId == request.auth.uid &&
+        changedKeys().hasOnly(['quoteStatus', 'quotedAmount', 'quoteNote',
+          'quoteHistory', 'quoteUpdatedAt', 'updatedAt']) &&
+        (
+          (b.status == 'pending' &&
+           b.get('quoteStatus', 'pending') in ['pending', 'declined'] &&
+           (b.get('expiresAt', null) == null ||
+             (b.expiresAt is timestamp && b.expiresAt > request.time))) ||
+          (b.status == 'confirmed' &&
+           b.get('quoteStatus', 'accepted') in ['accepted', 'declined'])
+        ) &&
+        validQuoteAmount(n.quotedAmount) &&
+        optionalString(n, 'quoteNote', 500) &&
+        n.quoteUpdatedAt == request.time &&
+        n.updatedAt == request.time &&
+        history.size() <= 40 &&
+        history.size() > b.get('quoteHistory', []).size() &&
+        last.amount == n.quotedAmount &&
+        last.status == 'quoted' &&
+        // A confirmed job's price change must say why.
+        (b.status == 'pending' ||
+         (last.get('reason', null) is string &&
+          last.reason.size() >= 3 &&
+          last.reason.size() <= 300 &&
+          n.quotedAmount != b.get('acceptedAmount', null))) &&
+        providerSignedIn() && providerVerified();
+    }
+
+    // The customer accepts or declines the quote they were shown.
+    function customerQuoteAnswer() {
+      let b = resource.data;
+      let n = request.resource.data;
+      let history = n.get('quoteHistory', []);
+      let last = history[history.size() - 1];
+      let accepting = n.get('quoteStatus', null) == 'accepted';
+      return b.get('quoteStatus', null) == 'quoted' &&
+        n.get('quoteStatus', null) in ['accepted', 'declined'] &&
+        b.customerId == request.auth.uid &&
+        b.status in ['pending', 'confirmed'] &&
+        validQuoteAmount(b.get('quotedAmount', null)) &&
+        n.quoteUpdatedAt == request.time &&
+        n.updatedAt == request.time &&
+        history.size() <= 40 &&
+        history.size() > b.get('quoteHistory', []).size() &&
+        last.amount == b.quotedAmount &&
+        last.status == n.quoteStatus &&
+        (accepting
+          ? (changedKeys().hasOnly(['status', 'acceptedAt', 'quoteStatus',
+               'acceptedAmount', 'totalAmount', 'laborCharge', 'quoteHistory',
+               'quoteUpdatedAt', 'updatedAt']) &&
+             n.acceptedAmount == b.quotedAmount &&
+             n.totalAmount == b.quotedAmount &&
+             n.laborCharge == b.quotedAmount &&
+             (b.status == 'pending'
+               ? (n.status == 'confirmed' &&
+                  n.acceptedAt == request.time &&
+                  b.get('scheduledAt', null) is timestamp &&
+                  b.scheduledAt > request.time)
+               : n.status == 'confirmed'))
+          : changedKeys().hasOnly(['quoteStatus', 'quoteHistory',
+               'quoteUpdatedAt', 'updatedAt']));
     }
 
     // Edit Booking Details: location, notes, phone and photos only.
@@ -286,7 +378,9 @@ service cloud.firestore {
           'addressId', 'address', 'addressLabel', 'addressArea', 'accessNotes',
           'contactPhone', 'jobNotes', 'photoUrls', 'estimatedPrice',
           'totalAmount', 'laborCharge', 'serviceFee', 'paymentStatus',
-          'createdAt', 'updatedAt']) &&
+          'quoteStatus', 'quoteCurrency', 'createdAt', 'updatedAt']) &&
+        n.get('quoteStatus', 'pending') == 'pending' &&
+        n.get('quoteCurrency', 'LKR') == 'LKR' &&
         n.customerId == request.auth.uid &&
         n.providerId is string &&
         n.providerId != request.auth.uid &&
@@ -342,7 +436,10 @@ service cloud.firestore {
     }
 
     function chargeTotal(b) {
-      return b.get('totalAmount', null) is number ? b.totalAmount :
+      // Quote-flow bookings are charged the accepted price, never an estimate.
+      return b.get('quoteStatus', null) != null &&
+          !(b.get('acceptedAmount', null) is number) ? 0 :
+        b.get('totalAmount', null) is number ? b.totalAmount :
         (b.get('estimatedPrice', null) is number ? b.estimatedPrice : 0);
     }
 
@@ -380,7 +477,9 @@ service cloud.firestore {
       allow read: if signedIn() &&
         (resource.data.customerId == request.auth.uid ||
          (resource.data.providerId == request.auth.uid && providerSignedIn()));
-      allow update: if providerTransition() ||
+      allow update: if providerQuote() ||
+        customerQuoteAnswer() ||
+        providerTransition() ||
         customerEdit() ||
         customerReschedule(bookingId) ||
         customerCancel(bookingId);
@@ -608,12 +707,35 @@ service cloud.firestore {
     // delete, always in the same commit as the review) and the recipient
     // flipping `read`.
     match /notifications/{notificationId} {
+
+    // A quote notice. The booking must change in the same commit (its
+    // quoteUpdatedAt is this request's time), so a notice cannot exist without
+    // a real quote event, and it only goes to the other person on the booking.
+    function quoteNotice(notificationId) {
+      let n = request.resource.data;
+      let b = getAfter(bookingPath(n.bookingId)).data;
+      return n.get('type', null) == 'quote' &&
+        n.keys().hasOnly(['recipientId', 'senderId', 'type', 'bookingId',
+          'title', 'body', 'read', 'createdAt']) &&
+        n.senderId == request.auth.uid &&
+        n.bookingId is string &&
+        notificationId.matches('quote_' + n.bookingId + '_[0-9]+') &&
+        b.get('quoteUpdatedAt', null) == request.time &&
+        ((b.providerId == request.auth.uid && n.recipientId == b.customerId) ||
+         (b.customerId == request.auth.uid && n.recipientId == b.providerId)) &&
+        n.title is string && n.title.size() <= 120 &&
+        n.body is string && n.body.size() <= 300 &&
+        n.read == false &&
+        n.createdAt == request.time;
+    }
+
       function reviewAfter(bookingId) {
         return getAfter(/databases/$(database)/documents/reviews/$(bookingId)).data;
       }
 
       allow get, list: if signedIn() &&
         resource.data.recipientId == request.auth.uid;
+      allow create: if signedIn() && quoteNotice(notificationId);
       allow create: if signedIn() &&
         request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'type',
           'bookingId', 'title', 'body', 'rating', 'read', 'createdAt']) &&

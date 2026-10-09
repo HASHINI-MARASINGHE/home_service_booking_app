@@ -502,7 +502,7 @@ class _RefundDetails extends StatelessWidget {
                     label: 'Cancellation Fee',
                     value: Text(
                       r.cancellationFee == 0
-                          ? 'LKR 0 (Free Cancellation)'
+                          ? 'Free cancellation'
                           : Formatters.lkr(r.cancellationFee),
                       style: AppTypography.bodyStrong.copyWith(
                         color: r.cancellationFee == 0

@@ -212,12 +212,7 @@ class _BookServiceScreenState extends State<BookServiceScreen> {
           ('Date', Formatters.longDate(_date!)),
           ('Time', Formatters.time12(_slot!.start, padHour: false)),
           ('Location', _address!.line),
-          (
-            'Estimated total',
-            _pro.pricing == null
-                ? 'On inspection'
-                : Formatters.lkr(_pro.pricing),
-          ),
+          ('Price', 'Quote pending'),
           ('Payment', 'Pay after the service'),
         ],
       ),
@@ -1118,7 +1113,7 @@ class _TotalCard extends StatelessWidget {
           children: [
             const Expanded(
               child: Text(
-                'Estimated Total',
+                'Price',
                 style: TextStyle(
                   color: CustomerHomeTheme.text,
                   fontSize: 15,
@@ -1126,11 +1121,10 @@ class _TotalCard extends StatelessWidget {
                 ),
               ),
             ),
-            Text(
-              pricing == null
-                  ? 'On inspection'
-                  : 'Rs. ${Formatters.lkr(pricing).substring(4)}',
-              style: const TextStyle(
+            const Text(
+              'Quote pending',
+              key: ValueKey('price-quote-pending'),
+              style: TextStyle(
                 color: CustomerHomeTheme.primary,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -1139,16 +1133,22 @@ class _TotalCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        Text(
-          pricing == null
-              ? 'Price confirmed after inspection.'
-              : "Provider's starting price. Final amount is confirmed "
-                    'after inspection.',
-          style: const TextStyle(
-            color: CustomerHomeTheme.mutedText,
-            fontSize: 14,
-          ),
+        const Text(
+          'Your provider will send a price after reviewing your request. '
+          'You choose whether to accept it.',
+          style: TextStyle(color: CustomerHomeTheme.mutedText, fontSize: 14),
         ),
+        if (pricing != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Provider estimate: from ${Formatters.lkr(pricing)} '
+            '(final price quoted per job).',
+            style: const TextStyle(
+              color: CustomerHomeTheme.mutedText,
+              fontSize: 14,
+            ),
+          ),
+        ],
       ],
     ),
   );

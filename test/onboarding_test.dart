@@ -13,6 +13,7 @@ import 'package:home_service_bookin_app/screens/auth/login_screen.dart';
 import 'package:home_service_bookin_app/screens/auth/register_screen.dart';
 import 'package:home_service_bookin_app/screens/customer/customer_home_screen.dart';
 import 'package:home_service_bookin_app/screens/onboarding/onboarding_gate.dart';
+import 'package:home_service_bookin_app/screens/onboarding/language_selection_screen.dart';
 import 'package:home_service_bookin_app/screens/onboarding/onboarding_preferences.dart';
 import 'package:home_service_bookin_app/screens/onboarding/onboarding_screen.dart';
 import 'package:home_service_bookin_app/services/auth_service.dart';
@@ -191,50 +192,59 @@ void main() {
     );
   });
 
-  testWidgets('Language selection allows choosing English and Sinhala, then proceeds', (tester) async {
-    final storage = _Preferences();
-    await tester.pumpWidget(
-      app(
-        OnboardingGate(
-          preferences: OnboardingPreferences(preferences: storage),
+  testWidgets(
+    'Language selection allows choosing English and Sinhala, then proceeds',
+    (tester) async {
+      final storage = _Preferences();
+      await tester.pumpWidget(
+        app(
+          OnboardingGate(
+            preferences: OnboardingPreferences(preferences: storage),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Choose your language'), findsOneWidget);
-    expect(find.text('Select your preferred language to continue'), findsOneWidget);
-    expect(find.byKey(const ValueKey('language-option-en')), findsOneWidget);
-    expect(find.byKey(const ValueKey('language-option-si')), findsOneWidget);
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Choose your language'), findsOneWidget);
+      expect(
+        find.text('Select your preferred language to continue'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('language-option-en')), findsOneWidget);
+      expect(find.byKey(const ValueKey('language-option-si')), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('language-option-si')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('language-option-si')));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('language-continue-button')));
-    await tester.pumpAndSettle();
-    expect(find.byType(OnboardingScreen), findsOneWidget);
-  });
+      await tester.tap(find.byKey(const ValueKey('language-continue-button')));
+      await tester.pumpAndSettle();
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+    },
+  );
 
-  testWidgets('Language selection allows choosing Tamil and proceeds with Tamil onboarding', (tester) async {
-    final storage = _Preferences();
-    await tester.pumpWidget(
-      app(
-        OnboardingGate(
-          preferences: OnboardingPreferences(preferences: storage),
+  testWidgets(
+    'Language selection allows choosing Tamil and proceeds with Tamil onboarding',
+    (tester) async {
+      final storage = _Preferences();
+      await tester.pumpWidget(
+        app(
+          OnboardingGate(
+            preferences: OnboardingPreferences(preferences: storage),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('language-option-ta')), findsOneWidget);
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('language-option-ta')), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('language-option-ta')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('language-option-ta')));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('language-continue-button')));
-    await tester.pumpAndSettle();
-    expect(LocaleController.instance.locale.languageCode, 'ta');
-    expect(find.byType(OnboardingScreen), findsOneWidget);
-    expect(find.text('தவிர்'), findsOneWidget);
-  });
+      await tester.tap(find.byKey(const ValueKey('language-continue-button')));
+      await tester.pumpAndSettle();
+      expect(LocaleController.instance.locale.languageCode, 'ta');
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+      expect(find.text('தவிர்'), findsOneWidget);
+    },
+  );
 
   for (final page in [0, 1]) {
     testWidgets(
@@ -335,6 +345,63 @@ void main() {
       expect(find.byType(LoginScreen), findsNothing);
     },
   );
+
+  group('onboarding only for signed-out users', () {
+    const home = Text('home screen', textDirection: TextDirection.ltr);
+
+    testWidgets('a signed-in user goes straight to the app, every launch', (
+      tester,
+    ) async {
+      // Onboarding was never completed on this device, yet it is skipped.
+      await tester.pumpWidget(
+        app(
+          OnboardingGate(
+            preferences: OnboardingPreferences(preferences: _Preferences()),
+            signedIn: () async => true,
+            authBuilder: (_) => home,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('home screen'), findsOneWidget);
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(find.byType(LanguageSelectionScreen), findsNothing);
+    });
+
+    testWidgets('a signed-out user sees onboarding when the app opens', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        app(
+          OnboardingGate(
+            preferences: OnboardingPreferences(preferences: _Preferences()),
+            signedIn: () async => false,
+            authBuilder: (_) => home,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('home screen'), findsNothing);
+      expect(find.byType(LanguageSelectionScreen), findsOneWidget);
+    });
+
+    testWidgets('with no way to read the session it counts as signed out', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        app(
+          OnboardingGate(
+            preferences: OnboardingPreferences(preferences: _Preferences()),
+            signedIn: () async => throw StateError('no Firebase'),
+            authBuilder: (_) => home,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('home screen'), findsNothing);
+      expect(find.byType(LanguageSelectionScreen), findsOneWidget);
+    });
+  });
 
   testWidgets('failed preference read shows Retry and can recover', (
     tester,

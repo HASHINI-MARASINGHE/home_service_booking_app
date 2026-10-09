@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../models/booking.dart';
 import '../../../models/booking_policy.dart';
+import '../../../models/booking_price.dart';
 import '../../../models/professional.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/formatters.dart';
@@ -177,7 +178,7 @@ class _CancelBookingScreenState extends State<CancelBookingScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              Formatters.lkr(_b.chargeTotal),
+                              BookingPrice.amountOr(_b, 'Quote pending'),
                               style: AppTypography.bodyStrong,
                             ),
                             Text(

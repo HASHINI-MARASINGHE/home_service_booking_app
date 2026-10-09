@@ -9,6 +9,7 @@ import '../../../services/app_error.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/formatters.dart';
 import '../../../widgets/booking/booking_widgets.dart';
+import '../../../widgets/booking/quote_card.dart';
 import '../../../widgets/common/app_widgets.dart';
 import '../../../widgets/common/review_widgets.dart';
 import '../customer_scope.dart';
@@ -348,6 +349,8 @@ class _Details extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: AppSpacing.md),
+        QuoteCard(booking: b),
         const SizedBox(height: AppSpacing.md),
         PaymentSummaryCard(
           booking: b,

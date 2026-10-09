@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/locale_controller.dart';
 import '../../models/app_user.dart';
 import '../../models/provider_profile.dart';
 import '../../models/provider_verification.dart';
@@ -8,9 +11,15 @@ import '../../models/rating_stats.dart';
 import '../../services/auth_service.dart';
 import '../../services/provider_notification_service.dart';
 import '../../services/provider_profile_service.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/text_size_controller.dart';
+import '../../widgets/common/app_buttons.dart';
+import '../../widgets/common/homecare_logo.dart';
 import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import '../auth/logout_button.dart';
+import '../customer/settings/language_settings_screen.dart';
+import '../customer/settings/text_size_settings_screen.dart';
 import 'provider_theme.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
@@ -96,42 +105,23 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       }
       return ProviderPage(
         children: [
-          ProviderCard(
-            child: Column(
-              children: [
-                const CircleAvatar(
-                  radius: 32,
-                  backgroundColor: ProviderTheme.tealLight,
-                  child: Icon(
-                    Icons.person_outline,
-                    size: 36,
-                    color: ProviderTheme.teal,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  widget.user.name,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  widget.user.email,
-                  style: const TextStyle(color: ProviderTheme.muted),
-                ),
-                const SizedBox(height: 12),
-                if (widget.verificationStatus == null)
-                  Text(
+          _IdentityCard(
+            name: widget.user.name,
+            email: widget.user.email,
+            badge: widget.verificationStatus == null
+                ? Text(
                     'Verification: ${profile.verificationStatus}',
-                    style: const TextStyle(color: ProviderTheme.teal),
+                    style: context.textStyles.caption.copyWith(
+                      color: AppColors.brand700,
+                    ),
                   )
-                else
-                  _VerificationBadge(
+                : _VerificationBadge(
                     status: widget.verificationStatus!,
                     providerCode: widget.verification?.providerCode,
                   ),
-                const SizedBox(height: 16),
-                _OverallRating(stream: _ratingStats, fallback: profile.rating),
-              ],
+            rating: _OverallRating(
+              stream: _ratingStats,
+              fallback: profile.rating,
             ),
           ),
           if (widget.verificationStatus != null &&
@@ -146,63 +136,90 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               service: widget.notifications!,
               onTap: widget.onOpenNotifications,
             ),
-          ProviderCard(
-            child: Column(
-              children: [
-                DetailRow(
-                  icon: Icons.phone_outlined,
-                  label: 'Phone',
-                  value: _value(profile.phone),
-                ),
-                DetailRow(
-                  icon: Icons.work_outline,
-                  label: 'Profession',
-                  value: _value(profile.profession),
-                ),
-                DetailRow(
-                  icon: Icons.workspace_premium_outlined,
-                  label: 'Experience',
-                  value: '${profile.experience} years',
-                ),
-                DetailRow(
-                  icon: Icons.notes_outlined,
-                  label: 'About',
-                  value: _value(profile.about),
-                ),
-                DetailRow(
-                  icon: Icons.handyman_outlined,
-                  label: 'Services',
-                  value: profile.services.isEmpty
-                      ? 'Not added yet'
-                      : profile.services.join(', '),
-                ),
-                DetailRow(
-                  icon: Icons.payments_outlined,
-                  label: 'Starting price',
-                  value: money(profile.pricing),
-                ),
-                DetailRow(
-                  icon: Icons.event_available_outlined,
-                  label: 'Availability',
-                  value: profile.availability
-                      ? 'Available for new jobs'
-                      : 'Not currently available',
-                ),
-              ],
-            ),
+          _CredentialsCard(
+            phone: _value(profile.phone),
+            profession: _value(profile.profession),
+            experience: '${profile.experience} years',
+            about: profile.about.trim(),
+            services: profile.services.join(', '),
+            price: money(profile.pricing),
+            available: profile.availability,
+            onAdd: () => setState(() => _editing = true),
           ),
-          FilledButton.icon(
+          const _PreferencesCard(),
+          AppPrimaryButton(
+            label: 'Edit Profile',
+            icon: LucideIcons.pencil,
             onPressed: () => setState(() => _editing = true),
-            icon: const Icon(Icons.edit_outlined),
-            label: const Text('Edit Profile'),
           ),
-          const SizedBox(height: 10),
-          LogoutButton(authService: widget.authService),
+          const SizedBox(height: AppSpacing.xs),
+          LogoutButton(
+            authService: widget.authService,
+            icon: LucideIcons.logOut,
+          ),
         ],
       );
     },
   );
   String _value(String value) => value.isEmpty ? 'Not added yet' : value;
+}
+
+/// Shared look of the white cards on the profile.
+BoxDecoration _profileCard() => BoxDecoration(
+  color: AppColors.surface,
+  borderRadius: AppRadius.card,
+  border: Border.all(
+    color: AppColors.borderSubtle,
+    width: AppSizes.borderControl,
+  ),
+);
+
+/// Who the provider is: avatar, name, email, verification and the rating.
+class _IdentityCard extends StatelessWidget {
+  const _IdentityCard({
+    required this.name,
+    required this.email,
+    required this.badge,
+    required this.rating,
+  });
+  final String name, email;
+  final Widget badge, rating;
+
+  @override
+  Widget build(BuildContext context) {
+    final styles = context.textStyles;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: _profileCard(),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: const BoxDecoration(
+              color: AppColors.brand100,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              LucideIcons.user,
+              size: 40,
+              color: AppColors.brand700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(name, textAlign: TextAlign.center, style: styles.h2),
+          const SizedBox(height: 2),
+          Text(email, textAlign: TextAlign.center, style: styles.caption),
+          const SizedBox(height: AppSpacing.sm),
+          badge,
+          const SizedBox(height: AppSpacing.md),
+          rating,
+        ],
+      ),
+    );
+  }
 }
 
 /// The provider's main rating: the live average of every customer review.
@@ -217,21 +234,22 @@ class _OverallRating extends StatelessWidget {
   Widget build(BuildContext context) => StreamBuilder<RatingStats?>(
     stream: stream,
     builder: (context, snapshot) {
+      final styles = context.textStyles;
       final stats = snapshot.data;
       final average = stats?.average ?? fallback;
       return Container(
         key: const ValueKey('overall-rating'),
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: ProviderTheme.tealLight,
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.brand50,
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: average == null
-            ? const Text(
+            ? Text(
                 'No ratings yet',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: ProviderTheme.muted),
+                style: styles.bodySmall,
               )
             : Semantics(
                 label: 'Overall rating ${average.toStringAsFixed(1)} out of 5',
@@ -240,38 +258,29 @@ class _OverallRating extends StatelessWidget {
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(
                             average.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontSize: 44,
-                              height: 1,
-                              fontWeight: FontWeight.w800,
-                              color: ProviderTheme.navy,
+                            style: styles.display.copyWith(
+                              color: AppColors.brand900,
                             ),
                           ),
-                          const Padding(
-                            padding: EdgeInsets.only(left: 4, bottom: 4),
-                            child: Text(
-                              '/ 5',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: ProviderTheme.muted,
-                              ),
-                            ),
-                          ),
+                          const SizedBox(width: 4),
+                          Text('/ 5', style: styles.label),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xxs),
                       StarRow(rating: average.round(), size: 22),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: AppSpacing.xs),
                       Text(
                         stats == null
                             ? 'Overall rating'
                             : 'Overall rating · ${stats.count} '
                                   '${stats.count == 1 ? 'review' : 'reviews'}',
-                        style: const TextStyle(color: ProviderTheme.muted),
+                        textAlign: TextAlign.center,
+                        style: styles.caption,
                       ),
                     ],
                   ),
@@ -290,57 +299,98 @@ class _VerificationBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color, icon) = switch (status) {
+    final (label, background, color, icon) = switch (status) {
       VerificationStatus.verified => (
         'Verified provider',
-        ProviderTheme.green,
-        Icons.verified_rounded,
+        AppColors.successSoft,
+        AppColors.successText,
+        LucideIcons.badgeCheck,
       ),
       VerificationStatus.pending => (
         'Verification pending',
-        ProviderTheme.orange,
-        Icons.hourglass_top_rounded,
+        AppColors.warningSoft,
+        AppColors.warningText,
+        LucideIcons.hourglass,
       ),
       VerificationStatus.rejected => (
         'Verification needs changes',
-        ProviderTheme.red,
-        Icons.error_outline_rounded,
+        AppColors.errorSoft,
+        AppColors.errorText,
+        LucideIcons.circleAlert,
       ),
       VerificationStatus.none => (
         'Not verified yet',
-        ProviderTheme.muted,
-        Icons.shield_outlined,
+        AppColors.neutralSoft,
+        AppColors.neutralText,
+        LucideIcons.shield,
       ),
     };
-    return Column(
+    return Wrap(
+      key: const ValueKey('verification-badge'),
+      alignment: WrapAlignment.center,
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
       children: [
-        Row(
-          key: const ValueKey('verification-badge'),
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(color: color, fontWeight: FontWeight.w700),
-            ),
-          ],
+        _BadgePill(
+          icon: icon,
+          label: label,
+          background: background,
+          color: color,
         ),
-        if (status == VerificationStatus.verified && providerCode != null) ...[
-          const SizedBox(height: 6),
-          SelectableText(
-            'Provider ID: $providerCode',
-            key: const ValueKey('provider-id'),
-            style: const TextStyle(
-              color: ProviderTheme.navy,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-            ),
+        if (status == VerificationStatus.verified && providerCode != null)
+          _BadgePill(
+            icon: LucideIcons.idCard,
+            label: providerCode!,
+            background: AppColors.brand100,
+            color: AppColors.brand900,
+            labelKey: const ValueKey('provider-id'),
           ),
-        ],
       ],
     );
   }
+}
+
+class _BadgePill extends StatelessWidget {
+  const _BadgePill({
+    required this.icon,
+    required this.label,
+    required this.background,
+    required this.color,
+    this.labelKey,
+  });
+  final IconData icon;
+  final String label;
+  final Color background, color;
+  final Key? labelKey;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.sm,
+      vertical: AppSpacing.xxs,
+    ),
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: AppSpacing.xxs),
+        Flexible(
+          child: Text(
+            label,
+            key: labelKey,
+            style: context.textStyles.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// What the provider has to do (or wait for) before they can take jobs.
@@ -416,6 +466,7 @@ class _NotificationsEntryState extends State<_NotificationsEntry> {
     stream: _unreadCount,
     builder: (context, snapshot) {
       final unread = snapshot.data ?? 0;
+      final styles = context.textStyles;
       return Semantics(
         button: true,
         label: unread == 0
@@ -424,42 +475,47 @@ class _NotificationsEntryState extends State<_NotificationsEntry> {
         child: GestureDetector(
           onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
-          child: ProviderCard(
+          child: Container(
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: _profileCard(),
             child: ExcludeSemantics(
               child: Row(
                 children: [
                   Badge(
                     isLabelVisible: unread > 0,
                     label: Text('$unread'),
-                    backgroundColor: ProviderTheme.red,
-                    child: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: ProviderTheme.teal,
-                      size: 28,
+                    backgroundColor: AppColors.errorSolid,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.brand50,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: const Icon(
+                        LucideIcons.bell,
+                        color: AppColors.brand700,
+                        size: 24,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Notifications',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                        Text('Notifications', style: styles.label),
                         Text(
                           unread == 0
                               ? 'No new notifications'
                               : '$unread new ${unread == 1 ? 'notification' : 'notifications'}',
-                          style: const TextStyle(color: ProviderTheme.muted),
+                          style: styles.caption,
                         ),
                       ],
                     ),
                   ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: ProviderTheme.muted,
-                  ),
+                  const Icon(LucideIcons.chevronRight, color: AppColors.ink3),
                 ],
               ),
             ),
@@ -467,6 +523,220 @@ class _NotificationsEntryState extends State<_NotificationsEntry> {
         ),
       );
     },
+  );
+}
+
+/// The provider's details as a list of rows, like "Phone 0721515123".
+class _CredentialsCard extends StatelessWidget {
+  const _CredentialsCard({
+    required this.phone,
+    required this.profession,
+    required this.experience,
+    required this.about,
+    required this.services,
+    required this.price,
+    required this.available,
+    required this.onAdd,
+  });
+  final String phone, profession, experience, about, services, price;
+  final bool available;
+
+  /// Opens the profile editor ("Add" on an empty row).
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final styles = context.textStyles;
+    final hasPhone = phone != 'Not added yet';
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: _profileCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: Text(
+              'SERVICE CREDENTIALS',
+              style: styles.caption.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          _CredRow(
+            icon: LucideIcons.phone,
+            label: 'Phone',
+            value: phone,
+            trailing: hasPhone
+                ? IconButton(
+                    key: const ValueKey('call-profile-phone'),
+                    tooltip: 'Call this number',
+                    onPressed: () => launchUrl(Uri(scheme: 'tel', path: phone)),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.surface,
+                      foregroundColor: AppColors.brand700,
+                      minimumSize: const Size(AppSizes.minTap, AppSizes.minTap),
+                    ),
+                    icon: const Icon(LucideIcons.phoneCall, size: 18),
+                  )
+                : null,
+          ),
+          _CredRow(
+            icon: LucideIcons.briefcase,
+            label: 'Profession',
+            value: profession,
+          ),
+          _CredRow(
+            icon: LucideIcons.award,
+            label: 'Experience',
+            value: experience,
+          ),
+          _CredRow(
+            icon: LucideIcons.fileText,
+            label: 'About',
+            value: about.isEmpty ? 'Not added yet' : about,
+            muted: about.isEmpty,
+            trailing: about.isEmpty ? _AddButton(onTap: onAdd) : null,
+          ),
+          _CredRow(
+            icon: LucideIcons.wrench,
+            label: 'Services',
+            value: services.isEmpty ? 'Not added yet' : services,
+            muted: services.isEmpty,
+            trailing: services.isEmpty ? _AddButton(onTap: onAdd) : null,
+          ),
+          _CredRow(
+            icon: LucideIcons.banknote,
+            label: 'Starting price',
+            value: price,
+          ),
+          _CredRow(
+            icon: LucideIcons.calendarCheck,
+            label: 'Availability',
+            value: available
+                ? 'Available for new jobs'
+                : 'Not currently available',
+            dot: available ? AppColors.accent500 : AppColors.ink3,
+            last: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CredRow extends StatelessWidget {
+  const _CredRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.muted = false,
+    this.trailing,
+    this.dot,
+    this.last = false,
+  });
+  final IconData icon;
+  final String label, value;
+  final bool muted, last;
+  final Widget? trailing;
+  final Color? dot;
+
+  @override
+  Widget build(BuildContext context) {
+    final styles = context.textStyles;
+    return Container(
+      margin: EdgeInsets.only(bottom: last ? 0 : AppSpacing.xs),
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: AppColors.brand50,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.brand100,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Icon(icon, size: 20, color: AppColors.brand700),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: styles.caption),
+                Row(
+                  children: [
+                    if (dot != null) ...[
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: dot,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                    ],
+                    Expanded(
+                      child: Text(
+                        value,
+                        style: muted
+                            ? styles.bodySmall.copyWith(
+                                fontStyle: FontStyle.italic,
+                              )
+                            : styles.label,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: AppSpacing.xs),
+            trailing!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// "+ Add" on a row that has nothing yet; opens the profile editor.
+class _AddButton extends StatelessWidget {
+  const _AddButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    key: const ValueKey('profile-add'),
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(AppRadius.sm),
+    child: Container(
+      constraints: const BoxConstraints(minHeight: AppSizes.minTap),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.accent100,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(LucideIcons.plus, size: 16, color: AppColors.accent700),
+          const SizedBox(width: 4),
+          Text(
+            'Add',
+            style: context.textStyles.caption.copyWith(
+              color: AppColors.accent700,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 }
 
@@ -674,6 +944,120 @@ class _ProfileEditorState extends State<_ProfileEditor> {
       maxLines: lines,
       keyboardType: keyboard,
       validator: validator,
+    ),
+  );
+}
+
+/// Language and text size, with the same layout as the customer's profile.
+/// The two screens they open are shared with the customer app, and both
+/// settings apply to the whole app straight away.
+class _PreferencesCard extends StatelessWidget {
+  const _PreferencesCard();
+
+  void _open(BuildContext context, Widget screen) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      // Keep the HomeCare bar on top, like every other page.
+      builder: (_) => Theme(
+        data: ProviderTheme.data,
+        child: BrandShell(child: screen),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([
+      LocaleController.instance,
+      TextSizeController.instance,
+    ]),
+    builder: (context, _) {
+      final code = LocaleController.instance.locale.languageCode;
+      final si = code == 'si';
+      final ta = code == 'ta';
+      final language = ta ? 'தமிழ்' : (si ? 'සිංහල' : 'English');
+      final size = switch (TextSizeController.instance.size) {
+        AppTextSize.normal => ta ? 'இயல்பானது' : (si ? 'සාමාන්‍ය' : 'Normal'),
+        AppTextSize.large => ta ? 'பெரியது' : (si ? 'විශාල' : 'Large'),
+        AppTextSize.extraLarge =>
+          ta ? 'மிகப் பெரியது' : (si ? 'ඉතා විශාල' : 'Extra large'),
+      };
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            child: Text(
+              ta
+                  ? 'விருப்பங்கள் / அமைப்புகள்'
+                  : (si ? 'මනාප සහ සැකසුම්' : 'PREFERENCES / SETTINGS'),
+              style: const TextStyle(
+                color: ProviderTheme.muted,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          ProviderCard(
+            // The rows paint their ink on the nearest Material; the card
+            // around them has a background, so give them a clear one.
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                children: [
+                  _PreferenceRow(
+                    key: const ValueKey('profile-nav-language'),
+                    icon: Icons.translate_rounded,
+                    title: ta ? 'மொழி' : (si ? 'භාෂාව' : 'Language'),
+                    value: language,
+                    onTap: () => _open(context, const LanguageSettingsScreen()),
+                  ),
+                  const Divider(height: 1),
+                  _PreferenceRow(
+                    key: const ValueKey('profile-nav-text-size'),
+                    icon: Icons.format_size_rounded,
+                    title: ta
+                        ? 'எழுத்து அளவு'
+                        : (si ? 'අකුරු ප්‍රමාණය' : 'Text size'),
+                    value: size,
+                    onTap: () => _open(context, const TextSizeSettingsScreen()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _PreferenceRow extends StatelessWidget {
+  const _PreferenceRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title, value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    onTap: onTap,
+    leading: CircleAvatar(
+      radius: 20,
+      backgroundColor: ProviderTheme.tealLight,
+      child: Icon(icon, color: ProviderTheme.teal, size: 22),
+    ),
+    title: Text(title, style: Theme.of(context).textTheme.titleMedium),
+    subtitle: Text(value, style: const TextStyle(color: ProviderTheme.muted)),
+    trailing: const Icon(
+      Icons.chevron_right_rounded,
+      color: ProviderTheme.muted,
     ),
   );
 }

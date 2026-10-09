@@ -78,6 +78,20 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
           width: double.infinity,
           child: SegmentedButton<DisputeStatus>(
             key: const ValueKey('dispute-filter'),
+            style: SegmentedButton.styleFrom(
+              backgroundColor: AppColors.surfaceAlt,
+              selectedBackgroundColor: AppColors.brand900,
+              selectedForegroundColor: Colors.white,
+              foregroundColor: AppColors.ink2,
+              side: const BorderSide(color: AppColors.borderSubtle),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
             segments: [
               for (final status in DisputeStatus.values)
                 ButtonSegment(value: status, label: Text(status.label)),
@@ -121,16 +135,37 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Text(
-                    switch (_filter) {
-                      DisputeStatus.pending => 'No disputes are waiting.',
-                      DisputeStatus.underReview =>
-                        'No disputes are under review.',
-                      DisputeStatus.resolved => 'No resolved disputes yet.',
-                    },
-                    key: const ValueKey('admin-disputes-empty'),
-                    textAlign: TextAlign.center,
-                    style: AppTypography.body,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.brand100,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: const Icon(
+                          LucideIcons.triangleAlert,
+                          size: 28,
+                          color: AppColors.brand700,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        switch (_filter) {
+                          DisputeStatus.pending => 'No disputes are waiting.',
+                          DisputeStatus.underReview =>
+                            'No disputes are under review.',
+                          DisputeStatus.resolved => 'No resolved disputes yet.',
+                        },
+                        key: const ValueKey('admin-disputes-empty'),
+                        textAlign: TextAlign.center,
+                        style: context.textStyles.bodySmall.copyWith(
+                          color: AppColors.ink2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -215,19 +250,19 @@ class _AdminDisputesScreenState extends State<AdminDisputesScreen> {
 StatusPill _statusPill(DisputeStatus status) => switch (status) {
   DisputeStatus.pending => StatusPill(
     label: status.label,
-    background: AppColors.warningSoft,
-    color: AppColors.warning,
+    background: AppColors.accent100,
+    color: AppColors.accent700,
     icon: LucideIcons.clock,
   ),
   DisputeStatus.underReview => StatusPill(
     label: status.label,
-    background: AppColors.primaryTint,
-    color: AppColors.primaryDark,
+    background: AppColors.brand100,
+    color: AppColors.brand700,
     icon: LucideIcons.search,
   ),
   DisputeStatus.resolved => StatusPill(
     label: status.label,
-    background: AppColors.successSoft,
+    background: AppColors.brand100,
     color: AppColors.success,
     icon: LucideIcons.circleCheck,
   ),
@@ -244,12 +279,21 @@ class _DisputeTile extends StatelessWidget {
     return AppCard(
       key: ValueKey('dispute-tile-${d.id}'),
       onTap: onTap,
+      border: Border.all(color: AppColors.borderSubtle),
       child: Row(
         children: [
-          IconTile(
-            icon: LucideIcons.triangleAlert,
-            color: AppColors.warning,
-            background: AppColors.warningSoft,
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.accent100,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: const Icon(
+              LucideIcons.triangleAlert,
+              size: 22,
+              color: AppColors.accent700,
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -262,14 +306,21 @@ class _DisputeTile extends StatelessWidget {
                       : d.serviceName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.title,
+                  style: context.textStyles.label.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   d.reason,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.body,
+                  style: context.textStyles.bodySmall.copyWith(
+                    color: AppColors.ink2,
+                  ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   [
                     if (d.bookingRef.isNotEmpty) '#${d.bookingRef}',
@@ -281,17 +332,20 @@ class _DisputeTile extends StatelessWidget {
                   ].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.caption,
+                  style: context.textStyles.caption.copyWith(
+                    color: AppColors.ink3,
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
           _statusPill(d.status),
+          const SizedBox(width: 4),
           const Icon(
             LucideIcons.chevronRight,
             size: 18,
-            color: AppColors.muted,
+            color: AppColors.ink3,
           ),
         ],
       ),
@@ -312,7 +366,31 @@ class AdminDisputeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Dispute')),
+    backgroundColor: AppColors.bg,
+    appBar: AppBar(
+      backgroundColor: AppColors.surface,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      leading: IconButton(
+        icon: const Icon(LucideIcons.arrowLeft, color: AppColors.ink),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: const Text(
+        'Dispute',
+        style: TextStyle(
+          color: AppColors.brand900,
+          fontWeight: FontWeight.w700,
+          fontSize: 18,
+        ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          color: AppColors.borderSubtle,
+          height: 1,
+        ),
+      ),
+    ),
     body: SafeArea(
       child: StreamBuilder<Dispute?>(
         stream: service.watchDispute(disputeId),
@@ -724,16 +802,16 @@ class _DecisionTile extends StatelessWidget {
     child: AppCard(
       key: ValueKey('decision-$decision'),
       onTap: onTap,
-      color: selected ? AppColors.primaryTint : AppColors.surface,
+      color: selected ? AppColors.brand100 : AppColors.surface,
       border: Border.all(
-        color: selected ? AppColors.primary : AppColors.border,
+        color: selected ? AppColors.brand700 : AppColors.borderSubtle,
         width: selected ? 1.6 : 1,
       ),
       child: Row(
         children: [
           Icon(
             selected ? LucideIcons.circleCheck : LucideIcons.circle,
-            color: selected ? AppColors.primary : AppColors.muted,
+            color: selected ? AppColors.brand700 : AppColors.ink3,
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(decision, style: AppTypography.bodyStrong)),

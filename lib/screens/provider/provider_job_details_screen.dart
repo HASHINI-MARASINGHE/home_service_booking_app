@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/booking.dart';
+import '../../models/booking_price.dart';
 import '../../models/review.dart';
 import '../../services/provider_booking_service.dart';
 import '../../widgets/common/review_widgets.dart';
 import '../../widgets/provider/provider_widgets.dart';
 import 'provider_job_actions.dart';
+import 'provider_quote_section.dart';
 import 'provider_theme.dart';
 
 class ProviderJobDetailsScreen extends StatefulWidget {
@@ -194,7 +196,7 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                pending ? 'Estimated payout' : 'Job amount',
+                'Job amount',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
@@ -208,16 +210,18 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Customer-approved / estimated amount',
-                      style: TextStyle(color: Colors.white),
+                    Text(
+                      b.approvedAmount == null
+                          ? 'Customer-approved amount'
+                          : 'Approved by the customer',
+                      style: const TextStyle(color: Colors.white),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      money(b.estimatedPrice ?? b.totalAmount),
-                      style: const TextStyle(
+                      BookingPrice.amountOr(b, BookingPrice.forProvider(b)),
+                      style: TextStyle(
                         color: Colors.white,
-                        fontSize: 30,
+                        fontSize: b.approvedAmount == null ? 22 : 30,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -232,14 +236,16 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                   ],
                 ),
               ),
-              if (b.serviceFee != null) ...[
+              if (b.approvedAmount != null &&
+                  b.serviceFee != null &&
+                  b.serviceFee! > 0) ...[
                 const SizedBox(height: 10),
                 Text(
                   'Service fee: ${money(b.serviceFee)}',
                   style: const TextStyle(color: ProviderTheme.muted),
                 ),
               ],
-              if (b.providerPayout != null) ...[
+              if (b.approvedAmount != null && b.providerPayout != null) ...[
                 const SizedBox(height: 6),
                 Text(
                   'Provider payout: ${money(b.providerPayout)}',
@@ -248,6 +254,11 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
               ],
             ],
           ),
+        ),
+        ProviderQuoteSection(
+          key: const ValueKey('job-quote'),
+          booking: b,
+          service: widget.service,
         ),
         // Keep the action widget mounted during the transaction's realtime update.
         ProviderJobActions(
@@ -269,9 +280,9 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Payment: ${b.paymentStatus ?? 'Not provided'}'),
+                Text('Payment: ${b.paymentStatus ?? 'Unpaid'}'),
                 const SizedBox(height: 8),
-                Text('Method: ${b.paymentMethod ?? 'Not provided'}'),
+                Text('Method: ${b.paymentMethod ?? 'Not chosen yet'}'),
                 if (b.completedAt != null) ...[
                   const SizedBox(height: 8),
                   Text('Completed: ${dateLabel(context, b.completedAt)}'),
